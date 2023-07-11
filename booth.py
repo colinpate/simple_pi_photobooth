@@ -9,29 +9,51 @@ from PyQt5.QtWidgets import QApplication
 import numpy as np
 
 COUNT_S = 3
-DISPLAY_S = 5
+DISPLAY_S = 120
 BUTTON_PIN = 16 # Header pin number
 WIDTH=1024
 HEIGHT=600
-BORDER_SIZE=50
+BORDER_WIDTH = 50
+IMG_WIDTH = 2304 * 2
+IMG_HEIGHT = 1296 * 2
+DISPLAY_IMG_WIDTH = int(WIDTH - (BORDER_WIDTH * 2))
+DISPLAY_IMG_HEIGHT = int(DISPLAY_IMG_WIDTH * IMG_HEIGHT / IMG_WIDTH)
+BORDER_HEIGHT = int((HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
 
+CROP_RATIO = 0.85
+CROP_WIDTH = int(IMG_WIDTH * CROP_RATIO)
+CROP_HEIGHT = int(IMG_HEIGHT * CROP_RATIO)
+CROP_OFFSET_X = int((IMG_WIDTH - CROP_WIDTH) / 2)
+CROP_OFFSET_Y = IMG_HEIGHT - CROP_HEIGHT
+CROP_RECTANGLE = (
+        CROP_OFFSET_X,
+        CROP_OFFSET_Y, 
+        CROP_WIDTH,
+        CROP_HEIGHT
+    )
+
+# Overlay stuff
+colour = (255, 255, 255, 255)
+origin = (1152 - 125, 648 + 125)
+font = cv2.FONT_HERSHEY_DUPLEX
+scale = 12
+thickness = 20
+
+capture_overlay = np.zeros((HEIGHT, WIDTH, 4), dtype=np.uint8)
+capture_overlay[:] = (0, 0, 0, 255)
+
+# Variables
 state = "idle"
 button_pressed = False
 start_time = 0
 filename = ""
 capture_done = False
 
-# Overlay stuff
-colour = (255, 255, 255)
-origin = (1152, 648)
-font = cv2.FONT_HERSHEY_DUPLEX
-scale = 6
-thickness = 10
 
 def apply_timestamp(request):
     if state == "countdown":
         #timestamp = time.strftime("%Y-%m-%d %X")
-        countdown = str(COUNT_S - int(time.perf_counter() - start_time))
+        countdown = str(COUNT_S - int(np.floor(time.perf_counter() - start_time)))
         with MappedArray(request, "main") as m:
             cv2.putText(m.array, countdown, origin, font, scale, colour, thickness)
         
@@ -47,10 +69,14 @@ def display_capture(filename):
     overlay[:] = (0, 0, 0, 255)
     orig_image = cv2.imread(filename)
     orig_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGBA)
-    new_dims = (WIDTH-(BORDER_SIZE*2), HEIGHT-(BORDER_SIZE*2))
+    new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
     resized_image = cv2.resize(orig_image, new_dims)
-    overlay[BORDER_SIZE:HEIGHT-BORDER_SIZE,BORDER_SIZE:WIDTH-BORDER_SIZE] = resized_image
+    overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH] = resized_image
     qpicamera2.set_overlay(overlay)
+    
+
+def set_capture_overlay():
+    qpicamera2.set_overlay(capture_overlay)
     
 
 def main_loop():
@@ -67,7 +93,8 @@ def main_loop():
         if time.perf_counter() >= (start_time + COUNT_S):
             state = "capture"
     elif state == "capture":
-        filename = time.strftime("%y-%m-%d %X.jpg")
+        set_capture_overlay()
+        filename = "/home/colin/booth_photos/" + time.strftime("%y-%m-%d %X.jpg")
         print("Saving to", filename)
         picam2.switch_mode_and_capture_file(config, filename, signal_function=qpicamera2.signal_done)
         state = "display_capture"
@@ -76,17 +103,22 @@ def main_loop():
         if time.perf_counter() >= (start_time + DISPLAY_S):
             qpicamera2.set_overlay(None)
             state = "idle"
+        elif not GPIO.input(BUTTON_PIN):
+            qpicamera2.set_overlay(None)
+            start_time = time.perf_counter() 
+            state = "countdown"
+            
         
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             
 picam2 = Picamera2()    
-print(picam2.sensor_modes)
 picam2.pre_callback = apply_timestamp
 
 config = picam2.create_still_configuration()
-#prev_config = picam2.create_preview_configuration({"size": (1152, 648)})
+config["controls"]["ScalerCrop"] = CROP_RECTANGLE
 prev_config = picam2.create_preview_configuration({"size": (2304, 1296)})
+prev_config["controls"]["ScalerCrop"] = CROP_RECTANGLE
 picam2.configure(prev_config)
 
 app = QApplication([])
@@ -102,7 +134,4 @@ picam2.start()
 picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous})
 qpicamera2.show()
 app.exec()
-        
 
-#if __name__ == "__main__":
-#    main()
