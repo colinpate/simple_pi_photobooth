@@ -1,6 +1,7 @@
 import cv2
 from picamera2 import Picamera2, Preview, MappedArray
 from picamera2.previews.qt import QGlPicamera2
+import libcamera
 from libcamera import controls
 import time
 import RPi.GPIO as GPIO
@@ -9,7 +10,7 @@ from PyQt5.QtWidgets import QApplication
 import numpy as np
 
 COUNT_S = 3
-DISPLAY_S = 120
+DISPLAY_S = 1200
 BUTTON_PIN = 16 # Header pin number
 WIDTH=1024
 HEIGHT=600
@@ -68,11 +69,13 @@ def display_capture(filename):
     overlay = np.zeros((HEIGHT, WIDTH, 4), dtype=np.uint8)
     overlay[:] = (0, 0, 0, 255)
     orig_image = cv2.imread(filename)
-    orig_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGBA)
+    gray_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
+    rgba_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
     new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
-    resized_image = cv2.resize(orig_image, new_dims)
+    resized_image = cv2.resize(rgba_image, new_dims)
     overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH] = resized_image
     qpicamera2.set_overlay(overlay)
+    cv2.imwrite(filename[:-4] + "_gray.jpg", gray_image)
     
 
 def set_capture_overlay():
@@ -115,10 +118,12 @@ GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 picam2 = Picamera2()    
 picam2.pre_callback = apply_timestamp
 
-config = picam2.create_still_configuration()
+config = picam2.create_still_configuration(transform=libcamera.Transform(hflip=1))
 config["controls"]["ScalerCrop"] = CROP_RECTANGLE
-prev_config = picam2.create_preview_configuration({"size": (2304, 1296)})
+config["controls"]["Saturation"] = 1.0
+prev_config = picam2.create_preview_configuration({"size": (2304, 1296)}, transform=libcamera.Transform(hflip=1))
 prev_config["controls"]["ScalerCrop"] = CROP_RECTANGLE
+prev_config["controls"]["Saturation"] = 0
 picam2.configure(prev_config)
 
 app = QApplication([])
