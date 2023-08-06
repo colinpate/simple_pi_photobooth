@@ -21,7 +21,7 @@ DISPLAY_IMG_WIDTH = int(WIDTH - (BORDER_WIDTH * 2))
 DISPLAY_IMG_HEIGHT = int(DISPLAY_IMG_WIDTH * IMG_HEIGHT / IMG_WIDTH)
 BORDER_HEIGHT = int((HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
 
-CROP_RATIO = 0.85
+CROP_RATIO = 0.9
 CROP_WIDTH = int(IMG_WIDTH * CROP_RATIO)
 CROP_HEIGHT = int(IMG_HEIGHT * CROP_RATIO)
 CROP_OFFSET_X = int((IMG_WIDTH - CROP_WIDTH) / 2)
@@ -41,7 +41,7 @@ scale = 12
 thickness = 20
 
 capture_overlay = np.zeros((HEIGHT, WIDTH, 4), dtype=np.uint8)
-capture_overlay[:] = (0, 0, 0, 255)
+capture_overlay[:] = (255, 255, 255, 255)
 
 # Variables
 state = "idle"
@@ -68,6 +68,7 @@ def capture_done(job):
 def display_capture(filename):
     overlay = np.zeros((HEIGHT, WIDTH, 4), dtype=np.uint8)
     overlay[:] = (0, 0, 0, 255)
+    qpicamera2.set_overlay(overlay)
     orig_image = cv2.imread(filename)
     gray_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
     rgba_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
@@ -115,7 +116,8 @@ def main_loop():
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             
-picam2 = Picamera2()    
+picam2 = Picamera2()
+picam2.options["quality"] = 95
 picam2.pre_callback = apply_timestamp
 
 config = picam2.create_still_configuration(transform=libcamera.Transform(hflip=1))
