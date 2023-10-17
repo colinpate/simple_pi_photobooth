@@ -19,14 +19,14 @@ LED_COOL_IDLE_DC = 63
 LED_WARM_CAPTURE_DC = 255
 LED_COOL_CAPTURE_DC = 255
 
-# Lighting
-CAPTURE_LUX=200
-CAPTURE_MODE_LUX_RATIO = 0.5
-
 # Timing
-COUNT_S = 3
-DISPLAY_S = 1200
+COUNT_S = 5
+DISPLAY_S = 10 #for real
 PRE_CONTROL_S = 0.2
+SHUTDOWN_HOLD_TIME = 4
+LED_FADE_S = 3
+LED_START_S = 3
+LED_END_S = 1
 
 # Image and display
 DISPLAY_WIDTH=1024
@@ -43,6 +43,7 @@ BORDER_HEIGHT = int((DISPLAY_HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
 
 
 FOCUS_MODE = False
+PREV_SATURATION = 1.0 # 0 for Black and White
 
 if FOCUS_MODE:
     HCROP_RATIO = 1/8
@@ -87,15 +88,14 @@ capture_overlay[:] = (255, 255, 255, 255)
 BLACK_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 BLACK_OVERLAY[:]  = (0, 0, 0, 255)
 
-SHUTDOWN_HOLD_TIME = 5
-
 
 def set_leds(idle=True, fade=0):
     if fade:
-        warm_dc_spread = LED_WARM_CAPTURE_DC - LED_WARM_IDLE_DC
-        cool_dc_spread = LED_COOL_CAPTURE_DC - LED_COOL_IDLE_DC
-        warm_dc = min(255, int(warm_dc_spread * fade + LED_WARM_IDLE_DC))
-        cool_dc = min(255, int(cool_dc_spread * fade + LED_COOL_IDLE_DC))
+        warm_fade = LED_WARM_CAPTURE_DC - LED_WARM_IDLE_DC
+        cool_fade = LED_COOL_CAPTURE_DC - LED_COOL_IDLE_DC
+        fade = max(min(fade, 1), 0)
+        warm_dc = min(255, int(warm_fade * fade + LED_WARM_IDLE_DC))
+        cool_dc = min(255, int(cool_fade * fade + LED_COOL_IDLE_DC))
         pi.set_PWM_dutycycle(LED_WARM_PIN, warm_dc)
         pi.set_PWM_dutycycle(LED_COOL_PIN, cool_dc)
     else:
@@ -111,6 +111,7 @@ def display_capture(filename):
     qpicamera2.set_overlay(BLACK_OVERLAY)
     print("Displaying", filename)
     orig_image = cv2.imread(filename)
+    set_leds(idle=True)
     gray_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
     rgba_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
     new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
@@ -146,6 +147,7 @@ class PhotoBooth:
         self.filename = ""
         self.idle_metadata = []
         self.mode_switched = False
+        self.exposure_locked = False
         self.last_button_release = time.perf_counter()
 
     def apply_timestamp(self, request):
@@ -156,6 +158,8 @@ class PhotoBooth:
     
     def capture_done(self, job):
         metadata = picam2.wait(job)
+        for k, v in metadata.items():
+            print(k, ":", v)
         #self.idle_metadata.append(dict(metadata))
         #print(
         #    "Lux", int(metadata["Lux"]),
@@ -166,12 +170,13 @@ class PhotoBooth:
         #set_leds(idle=True)
         if self.state == "display_capture":
             display_capture(self.filename)
-            set_leds(idle=True)
         
     def check_shutdown_button(self):
         if not pi.read(BUTTON_PIN):
             if time.perf_counter() > (self.last_button_release + SHUTDOWN_HOLD_TIME):
                 print("Shutting down")
+                pi.set_PWM_dutycycle(LED_WARM_PIN, 0)
+                pi.set_PWM_dutycycle(LED_COOL_PIN, 0)
                 os.system("sudo shutdown now")
         else:
             self.last_button_release = time.perf_counter()
@@ -180,8 +185,6 @@ class PhotoBooth:
         self.check_shutdown_button()
         
         if self.state == "idle":
-            #if not (int(time.perf_counter() * 10) % 10):
-            #    picam2.capture_metadata(signal_function=qpicamera2.signal_done)
             if not pi.read(BUTTON_PIN):
                 self.state = "countdown"
                 self.start_time = time.perf_counter()
@@ -197,11 +200,23 @@ class PhotoBooth:
                     set_leds(idle=False)
                     picam2.set_controls({
                             "ScalerCrop": FULL_CROP_RECTANGLE,
-                            "Saturation": 1.0
+                            "Saturation": 1.0,
                         })
                     self.mode_switched = True
             else:
-                led_fade = (time.perf_counter() - self.start_time)/COUNT_S
+                #LED state machine
+                time_to_photo = COUNT_S - (time.perf_counter() - self.start_time)
+                """if (time_to_photo <= LED_START_S) and (time_to_photo > LED_END_S):
+                    set_leds(idle=False)
+                    self.exposure_locked = False
+                elif (time_to_photo <= LED_END_S):
+                    if not self.exposure_locked:
+                        picam2.set_controls({"AeEnable": False})
+                        self.exposure_locked = True
+                    set_leds(idle=True)
+                """
+                led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
+                print(time_to_photo, led_fade)
                 set_leds(fade=led_fade)
         elif self.state == "capture":
             self.state = "display_capture"
@@ -224,7 +239,8 @@ class PhotoBooth:
                 return
             picam2.set_controls({
                     "ScalerCrop": PREV_CROP_RECTANGLE,
-                    "Saturation": 0.0
+                    "Saturation": PREV_SATURATION,
+                    "AeEnable": True,
                 })
             qpicamera2.set_overlay(None)
             
@@ -235,8 +251,8 @@ pi.set_mode(BUTTON_PIN, pigpio.INPUT)
 pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
 pi.set_mode(LED_COOL_PIN, pigpio.OUTPUT)
 pi.set_mode(LED_WARM_PIN, pigpio.OUTPUT)
-pi.set_PWM_frequency(LED_COOL_PIN, 400)
-pi.set_PWM_frequency(LED_WARM_PIN, 400)
+pi.set_PWM_frequency(LED_COOL_PIN, 1600)
+pi.set_PWM_frequency(LED_WARM_PIN, 1600)
 set_leds(idle=True)
             
 picam2 = Picamera2()
@@ -269,11 +285,18 @@ qpicamera2.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
 picam2.start()
 #picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous})
 #picam2.set_controls({"AeConstraintMode": controls.AeConstraintModeEnum.Highlight}) Seems to do nothing
-picam2.set_controls({"Sharpness": 1})
-picam2.set_controls({
-        "ScalerCrop": PREV_CROP_RECTANGLE,
-        "Saturation": 0.0
-    })
+if not FOCUS_MODE:
+    picam2.set_controls({
+        "Sharpness": 1,
+        "Saturation": PREV_SATURATION
+        })
+        
+picam2.set_controls({"AeEnable": True})
+# Uncomment for light testing
+#picam2.set_controls({"AeEnable": False})
+#picam2.set_controls({"ExposureTime": 30400, "AnalogueGain": 4.0})
+
+picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
 print(picam2.camera_properties)
 qpicamera2.show()
 app.exec()
