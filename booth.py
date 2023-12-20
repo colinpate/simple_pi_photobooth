@@ -14,19 +14,25 @@ import os
 BUTTON_PIN = 23 # GPIO number (header pin 16)
 LED_WARM_PIN = 24
 LED_COOL_PIN = 25
-LED_WARM_IDLE_DC = 63
-LED_COOL_IDLE_DC = 63
+LED_WARM_IDLE_DC = 40
+LED_COOL_IDLE_DC = 40
 LED_WARM_CAPTURE_DC = 255
 LED_COOL_CAPTURE_DC = 255
+#LED_WARM_IDLE_DC = 0
+#LED_COOL_IDLE_DC = 0
+#LED_WARM_CAPTURE_DC = 64
+#LED_COOL_CAPTURE_DC = 64
 
 # Timing
-COUNT_S = 5
-DISPLAY_S = 10 #for real
-PRE_CONTROL_S = 0.2
+DISPLAY_S = 1200 #for real
 SHUTDOWN_HOLD_TIME = 4
-LED_FADE_S = 3
-LED_START_S = 3
-LED_END_S = 1
+
+# Capture sequence timing
+LED_FADE_S = 2 # How long before capture to start brightening LEDs
+LED_END_S = 1 # How long before capture to hit 100% brightness
+EXPOSURE_SET_S = 1.5 # How long before capture to set exposure
+PRE_CONTROL_S = 0.2 # How long before capture to set the camera controls
+COUNT_S = 5
 
 # Image and display
 DISPLAY_WIDTH=1024
@@ -43,7 +49,7 @@ BORDER_HEIGHT = int((DISPLAY_HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
 
 
 FOCUS_MODE = False
-PREV_SATURATION = 1.0 # 0 for Black and White
+PREV_SATURATION = 0.0 # 0 for Black and White
 
 if FOCUS_MODE:
     HCROP_RATIO = 1/8
@@ -105,22 +111,6 @@ def set_leds(idle=True, fade=0):
         else:
             pi.set_PWM_dutycycle(LED_WARM_PIN, LED_WARM_CAPTURE_DC)
             pi.set_PWM_dutycycle(LED_COOL_PIN, LED_COOL_CAPTURE_DC)
-        
-           
-def display_capture(filename):
-    qpicamera2.set_overlay(BLACK_OVERLAY)
-    print("Displaying", filename)
-    orig_image = cv2.imread(filename)
-    set_leds(idle=True)
-    gray_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
-    rgba_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
-    new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
-    resized_image = cv2.resize(rgba_image, new_dims)
-    overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
-    overlay[:]  = (0, 0, 0, 255)
-    overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH] = resized_image
-    qpicamera2.set_overlay(overlay)
-    cv2.imwrite(filename[:-4] + "_gray.jpg", gray_image)
     
 
 def set_capture_overlay():
@@ -145,10 +135,17 @@ class PhotoBooth:
         self.state = "idle"
         self.start_time = 0
         self.filename = ""
-        self.idle_metadata = []
         self.mode_switched = False
-        self.exposure_locked = False
+        self.exposure_set = False
+        
+        # Defaults
+        self.exposure_settings = {
+            "AnalogueGain": 1,
+            "ExposureTime": 30000,
+        }
+        
         self.last_button_release = time.perf_counter()
+        self.capture_start_time = time.perf_counter()
 
     def apply_timestamp(self, request):
         if self.state == "countdown":
@@ -157,19 +154,31 @@ class PhotoBooth:
                 cv2.putText(m.array, countdown, origin, font, scale, colour, thickness)
     
     def capture_done(self, job):
-        metadata = picam2.wait(job)
-        for k, v in metadata.items():
-            print(k, ":", v)
-        #self.idle_metadata.append(dict(metadata))
-        #print(
-        #    "Lux", int(metadata["Lux"]),
-        #    "Gain", metadata["AnalogueGain"],
-        #    "Exposure", int(metadata["ExposureTime"] / 1000)
-        #)
-        #print(self.state, time.perf_counter() - self.start_time)
-        #set_leds(idle=True)
+        (self.image_array,), metadata = picam2.wait(job)
+        set_leds(idle=True)
+        print("Capture time", time.perf_counter() - self.capture_start_time)
+        self.exposure_settings = {
+            "AnalogueGain": metadata["AnalogueGain"],
+            "ExposureTime": metadata["ExposureTime"],
+        }
+        print(self.exposure_settings)
+        print(metadata)
         if self.state == "display_capture":
-            display_capture(self.filename)
+            self.display_capture()
+    
+    def display_capture(self):
+        qpicamera2.set_overlay(BLACK_OVERLAY)
+        orig_image = cv2.cvtColor(self.image_array, cv2.COLOR_BGR2RGB)
+        gray_image = cv2.cvtColor(orig_image, cv2.COLOR_RGB2GRAY)
+        rgba_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
+        new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
+        resized_image = cv2.resize(rgba_image, new_dims)
+        overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
+        overlay[:]  = (0, 0, 0, 255)
+        overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH] = resized_image
+        qpicamera2.set_overlay(overlay)
+        cv2.imwrite(self.filename[:-4] + "_gray.jpg", gray_image)
+        cv2.imwrite(self.filename, orig_image)
         
     def check_shutdown_button(self):
         if not pi.read(BUTTON_PIN):
@@ -188,47 +197,45 @@ class PhotoBooth:
             if not pi.read(BUTTON_PIN):
                 self.state = "countdown"
                 self.start_time = time.perf_counter()
-                self.idle_metadata = []
         elif self.state == "countdown":
             if time.perf_counter() >= (self.start_time + COUNT_S):
+                print("Capturing at", (time.perf_counter() - self.start_time))
                 self.state = "capture"
+                self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
+                self.capture_start_time = time.perf_counter()
                 set_capture_overlay()
-            elif time.perf_counter() > (self.start_time + COUNT_S - PRE_CONTROL_S):
-                if not self.mode_switched:
-                    print("Switching mode")
-                    set_leds(idle=False)
-                    picam2.set_controls({
-                            "ScalerCrop": FULL_CROP_RECTANGLE,
-                            "Saturation": 1.0,
-                        })
-                    self.mode_switched = True
             else:
-                #LED state machine
-                time_to_photo = COUNT_S - (time.perf_counter() - self.start_time)
-                """if (time_to_photo <= LED_START_S) and (time_to_photo > LED_END_S):
-                    set_leds(idle=False)
-                    self.exposure_locked = False
-                elif (time_to_photo <= LED_END_S):
-                    if not self.exposure_locked:
-                        picam2.set_controls({"AeEnable": False})
-                        self.exposure_locked = True
-                    set_leds(idle=True)
-                """
-                led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
-                print(time_to_photo, led_fade)
-                set_leds(fade=led_fade)
+                if time.perf_counter() > (self.start_time + COUNT_S - LED_FADE_S):
+                    time_to_photo = COUNT_S - (time.perf_counter() - self.start_time)
+                    led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
+                    set_leds(fade=led_fade)
+                    
+                if time.perf_counter() >= (self.start_time + COUNT_S - EXPOSURE_SET_S):
+                    if not self.exposure_set:
+                        print("Setting exposure at", (time.perf_counter() - self.start_time))
+                        picam2.set_controls(
+                            self.exposure_settings
+                        )
+                        self.exposure_set = True
+                    else:
+                        picam2.set_controls({"AeEnable": True})
+                        
+                if time.perf_counter() > (self.start_time + COUNT_S - PRE_CONTROL_S):
+                    if not self.mode_switched:
+                        print("Switching mode at", (time.perf_counter() - self.start_time))
+                        picam2.set_controls({
+                                "ScalerCrop": FULL_CROP_RECTANGLE,
+                                "Saturation": 1.0,
+                            })
+                        self.mode_switched = True
+                        
         elif self.state == "capture":
             self.state = "display_capture"
             self.start_time = time.perf_counter()
             self.filename = "/home/colin/booth_photos/" + time.strftime("%y_%m_%d_%H_%M_%S") + ".jpg"
             print("Saving to", self.filename)
-            """picam2.switch_mode_and_capture_file(
-                    config,
-                    self.filename,
-                    signal_function=qpicamera2.signal_done
-                )"""
-            picam2.capture_file(self.filename, signal_function=qpicamera2.signal_done)
+            picam2.capture_arrays(["main"], signal_function=qpicamera2.signal_done)
         elif self.state == "display_capture":
             if time.perf_counter() >= (self.start_time + DISPLAY_S):
                 self.state = "idle"
@@ -259,18 +266,16 @@ picam2 = Picamera2()
 picam2.options["quality"] = 95
 picam2.post_callback = photo_booth.apply_timestamp
 
-config = picam2.create_still_configuration(lores={"size": PREV_STREAM_DIMS}, display="lores", buffer_count=2, transform=libcamera.Transform(hflip=1))
-#config["controls"]["ScalerCrop"] = PREV_CROP_RECTANGLE
-#config["controls"]["Saturation"] = 0
+config = picam2.create_still_configuration(
+        #main={'size': (4056, 3040), 'format': 'YUV420'},
+        lores={"size": PREV_STREAM_DIMS, 'format': 'YUV420'},
+        display="lores",
+        buffer_count=2,
+        transform=libcamera.Transform(hflip=1)
+    )
+print("Camera config:")
 print(config)
 
-if FOCUS_MODE:
-    prev_config = picam2.create_preview_configuration({"size": (FULL_IMG_WIDTH, FULL_IMG_HEIGHT)})
-else:
-    prev_config = picam2.create_preview_configuration({"size": PREV_STREAM_DIMS}, transform=libcamera.Transform(hflip=1))
-    prev_config["controls"]["Saturation"] = 0
-prev_config["controls"]["ScalerCrop"] = PREV_CROP_RECTANGLE
-print(prev_config)
 picam2.configure(config)
 
 app = QApplication([])
@@ -283,20 +288,19 @@ qpicamera2.setWindowFlag(QtCore.Qt.FramelessWindowHint)
 qpicamera2.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
 
 picam2.start()
-#picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous})
-#picam2.set_controls({"AeConstraintMode": controls.AeConstraintModeEnum.Highlight}) Seems to do nothing
 if not FOCUS_MODE:
     picam2.set_controls({
         "Sharpness": 1,
         "Saturation": PREV_SATURATION
         })
-        
 picam2.set_controls({"AeEnable": True})
+picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
+
 # Uncomment for light testing
 #picam2.set_controls({"AeEnable": False})
 #picam2.set_controls({"ExposureTime": 30400, "AnalogueGain": 4.0})
 
-picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
+print("Camera properties")
 print(picam2.camera_properties)
 qpicamera2.show()
 app.exec()
