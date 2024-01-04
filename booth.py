@@ -16,15 +16,18 @@ LED_WARM_PIN = 24
 LED_COOL_PIN = 25
 LED_WARM_IDLE_DC = 40
 LED_COOL_IDLE_DC = 40
-LED_WARM_CAPTURE_DC = 255
-LED_COOL_CAPTURE_DC = 255
+LED_WARM_CAPTURE_DC = 40 # for testing
+#LED_WARM_CAPTURE_DC = 255
+LED_COOL_CAPTURE_DC = 40 # for testing
+#LED_COOL_CAPTURE_DC = 255
 #LED_WARM_IDLE_DC = 0
 #LED_COOL_IDLE_DC = 0
 #LED_WARM_CAPTURE_DC = 64
 #LED_COOL_CAPTURE_DC = 64
 
 # Timing
-DISPLAY_S = 1200 #for real
+#DISPLAY_S = 1200 #for real
+DISPLAY_S = 5 #for test
 SHUTDOWN_HOLD_TIME = 4
 
 # Capture sequence timing
@@ -43,10 +46,7 @@ FULL_IMG_HEIGHT = 3040
 PREV_STREAM_DIMS = (int(FULL_IMG_WIDTH / 2), int(FULL_IMG_HEIGHT / 2))
 DISPLAY_IMG_WIDTH = int(DISPLAY_WIDTH - (BORDER_WIDTH * 2))
 DISPLAY_IMG_HEIGHT = int(DISPLAY_IMG_WIDTH * FULL_IMG_HEIGHT / FULL_IMG_WIDTH)
-#DISPLAY_IMG_HEIGHT = int(DISPLAY_HEIGHT - (BORDER_WIDTH * 2))
 BORDER_HEIGHT = int((DISPLAY_HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
-#BORDER_HEIGHT = BORDER_WIDTH
-
 
 FOCUS_MODE = False
 PREV_SATURATION = 0.0 # 0 for Black and White
@@ -59,9 +59,9 @@ VCROP_RATIO = HCROP_RATIO
 CROP_WIDTH = int(FULL_IMG_WIDTH * HCROP_RATIO)
 CROP_HEIGHT = int(FULL_IMG_HEIGHT * VCROP_RATIO)
 CROP_OFFSET_X = int((FULL_IMG_WIDTH - CROP_WIDTH) / 2)
-#CROP_OFFSET_Y = int((FULL_IMG_HEIGHT - CROP_HEIGHT) / 2)
+CROP_OFFSET_Y = int((FULL_IMG_HEIGHT - CROP_HEIGHT) / 2)
 # Uncomment to aim downwards
-CROP_OFFSET_Y = FULL_IMG_HEIGHT - CROP_HEIGHT
+# CROP_OFFSET_Y = FULL_IMG_HEIGHT - CROP_HEIGHT
 FULL_CROP_RECTANGLE = (
         CROP_OFFSET_X,
         CROP_OFFSET_Y, 
@@ -115,19 +115,6 @@ def set_leds(idle=True, fade=0):
 
 def set_capture_overlay():
     qpicamera2.set_overlay(capture_overlay)
-    
-    
-def set_exposure(metadata_list):
-    average_lux = np.average([x["Lux"] for x in metadata_list])
-    average_gain = np.average([x["AnalogueGain"] for x in metadata_list])
-    average_exp = np.average([x["ExposureTime"] for x in metadata_list])
-    print("Averages")
-    print(average_lux, average_gain, average_exp)
-    #picam2.set_controls({"AeEnable": False})
-    exposure_ratio = average_lux / (CAPTURE_LUX + average_lux)
-    new_exposure = int(average_exp * exposure_ratio)
-    print("New exposure", new_exposure)
-    #picam2.set_controls({"ExposureTime": new_exposure})
     
     
 class PhotoBooth:
@@ -194,7 +181,7 @@ class PhotoBooth:
         self.check_shutdown_button()
         
         if self.state == "idle":
-            if not pi.read(BUTTON_PIN):
+            if pi.read(BUTTON_PIN):
                 self.state = "countdown"
                 self.start_time = time.perf_counter()
         elif self.state == "countdown":
@@ -295,6 +282,7 @@ if not FOCUS_MODE:
         })
 picam2.set_controls({"AeEnable": True})
 picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
+picam2.set_controls({"AeExposureMode": controls.AeExposureModeEnum.Short})
 
 # Uncomment for light testing
 #picam2.set_controls({"AeEnable": False})
