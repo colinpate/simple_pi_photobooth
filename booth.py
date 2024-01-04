@@ -9,6 +9,17 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 import numpy as np
 import os
+import yaml
+import random
+
+def load_config():
+    parent_dir = os.path.dirname(os.path.realpath(__file__))
+    config_path = os.path.join(parent_dir, "config.yml")
+    with open(config_path, "r") as config_file:
+        config = yaml.load(config_file, yaml.CLoader)
+    return config
+
+config = load_config() #TODO make this be in a function LOL
 
 # GPIO
 BUTTON_PIN = 23 # GPIO number (header pin 16)
@@ -20,14 +31,10 @@ LED_WARM_CAPTURE_DC = 40 # for testing
 #LED_WARM_CAPTURE_DC = 255
 LED_COOL_CAPTURE_DC = 40 # for testing
 #LED_COOL_CAPTURE_DC = 255
-#LED_WARM_IDLE_DC = 0
-#LED_COOL_IDLE_DC = 0
-#LED_WARM_CAPTURE_DC = 64
-#LED_COOL_CAPTURE_DC = 64
 
 # Timing
 #DISPLAY_S = 1200 #for real
-DISPLAY_S = 5 #for test
+DISPLAY_S = config["display_timeout"]
 SHUTDOWN_HOLD_TIME = 4
 
 # Capture sequence timing
@@ -82,7 +89,6 @@ PREV_CROP_RECTANGLE = (
 
 # Overlay stuff
 colour = (255, 255, 255, 255)
-#origin = (1152 - 125, 648 + 125)
 origin = (int(FULL_IMG_WIDTH / 4 - 125), int(FULL_IMG_HEIGHT / 4 + 125))
 font = cv2.FONT_HERSHEY_DUPLEX
 scale = 12
@@ -118,12 +124,15 @@ def set_capture_overlay():
     
     
 class PhotoBooth:
-    def __init__(self):
+    def __init__(self, config):
         self.state = "idle"
         self.start_time = 0
-        self.filename = ""
+        self.cap_timestamp_str = ""
         self.mode_switched = False
         self.exposure_set = False
+        self.display_file_list = []
+        self._config = config
+        self.timestamps = {}
         
         # Defaults
         self.exposure_settings = {
@@ -151,21 +160,50 @@ class PhotoBooth:
         print(self.exposure_settings)
         print(metadata)
         if self.state == "display_capture":
-            self.display_capture()
+            qpicamera2.set_overlay(BLACK_OVERLAY)
+            gray, color = self.save_capture()
+            if self._config["display_gray"]:
+                image, image_path = gray
+            else:
+                image, image_path = color
+            self.display_image(image)
+            self.display_file_list.append(image_path)
     
-    def display_capture(self):
-        qpicamera2.set_overlay(BLACK_OVERLAY)
+    def save_capture(self):
         orig_image = cv2.cvtColor(self.image_array, cv2.COLOR_BGR2RGB)
         gray_image = cv2.cvtColor(orig_image, cv2.COLOR_RGB2GRAY)
-        rgba_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
+        
+        gray_image_path = os.path.join(
+            self._config["gray_image_dir"],
+            self.cap_timestamp_str + "_gray.jpg"
+        )
+        
+        color_image_path = os.path.join(
+            self._config["color_image_dir"],
+            self.cap_timestamp_str + ".jpg"
+        )
+        
+        cv2.imwrite(gray_image_path, gray_image)
+        cv2.imwrite(color_image_path, orig_image)
+        
+        rgba_gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
+        rgba_image = cv2.cvtColor(orig_image, cv2.COLOR_RGB2RGBA)
+        return (rgba_gray_image, gray_image_path), (rgba_image, color_image_path)
+    
+    def display_random_file(self):
+        num_files = len(self.display_file_list)
+        if num_files > 1:
+            photo_path = self.display_file_list[random.randint(num_files)]
+        image = cv2.imread(photo_path)
+        self.display_image(image)
+    
+    def display_image(self, rgba_image):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
         resized_image = cv2.resize(rgba_image, new_dims)
         overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
         overlay[:]  = (0, 0, 0, 255)
         overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH] = resized_image
         qpicamera2.set_overlay(overlay)
-        cv2.imwrite(self.filename[:-4] + "_gray.jpg", gray_image)
-        cv2.imwrite(self.filename, orig_image)
         
     def check_shutdown_button(self):
         if not pi.read(BUTTON_PIN):
@@ -180,27 +218,29 @@ class PhotoBooth:
     def main_loop(self):
         self.check_shutdown_button()
         
+        perf_counter = time.perf_counter()
+        
         if self.state == "idle":
-            if pi.read(BUTTON_PIN):
+            if not pi.read(BUTTON_PIN):
                 self.state = "countdown"
-                self.start_time = time.perf_counter()
+                self.start_time = perf_counter
         elif self.state == "countdown":
-            if time.perf_counter() >= (self.start_time + COUNT_S):
-                print("Capturing at", (time.perf_counter() - self.start_time))
+            if perf_counter >= (self.start_time + COUNT_S):
+                print("Capturing at", (perf_counter - self.start_time))
                 self.state = "capture"
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
-                self.capture_start_time = time.perf_counter()
+                self.capture_start_time = perf_counter
                 set_capture_overlay()
             else:
-                if time.perf_counter() > (self.start_time + COUNT_S - LED_FADE_S):
-                    time_to_photo = COUNT_S - (time.perf_counter() - self.start_time)
+                if perf_counter > (self.start_time + COUNT_S - LED_FADE_S):
+                    time_to_photo = COUNT_S - (perf_counter - self.start_time)
                     led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
                     set_leds(fade=led_fade)
                     
-                if time.perf_counter() >= (self.start_time + COUNT_S - EXPOSURE_SET_S):
+                if perf_counter >= (self.start_time + COUNT_S - EXPOSURE_SET_S):
                     if not self.exposure_set:
-                        print("Setting exposure at", (time.perf_counter() - self.start_time))
+                        print("Setting exposure at", (perf_counter - self.start_time))
                         picam2.set_controls(
                             self.exposure_settings
                         )
@@ -208,28 +248,33 @@ class PhotoBooth:
                     else:
                         picam2.set_controls({"AeEnable": True})
                         
-                if time.perf_counter() > (self.start_time + COUNT_S - PRE_CONTROL_S):
+                if perf_counter > (self.start_time + COUNT_S - PRE_CONTROL_S):
                     if not self.mode_switched:
-                        print("Switching mode at", (time.perf_counter() - self.start_time))
+                        print("Switching mode at", (perf_counter - self.start_time))
                         picam2.set_controls({
                                 "ScalerCrop": FULL_CROP_RECTANGLE,
                                 "Saturation": 1.0,
                             })
                         self.mode_switched = True
-                        
         elif self.state == "capture":
             self.state = "display_capture"
-            self.start_time = time.perf_counter()
-            self.filename = "/home/colin/booth_photos/" + time.strftime("%y_%m_%d_%H_%M_%S") + ".jpg"
-            print("Saving to", self.filename)
+            self.start_time = perf_counter
+            self.timestamps["display_image"] = perf_counter
+            self.cap_timestamp_str = time.strftime("%y_%m_%d_%H_%M_%S")
+            print("Captured", self.cap_timestamp_str)
             picam2.capture_arrays(["main"], signal_function=qpicamera2.signal_done)
         elif self.state == "display_capture":
-            if time.perf_counter() >= (self.start_time + DISPLAY_S):
+            if perf_counter >= (self.start_time + DISPLAY_S):
                 self.state = "idle"
             elif not pi.read(BUTTON_PIN):
-                self.start_time = time.perf_counter() 
+                self.start_time = perf_counter
                 self.state = "countdown"
             else:
+                shuffle_time = self._config["display_shuffle_time"]
+                if shuffle_time > 0:
+                    if (perf_counter - shuffle_time) > self.timestamps["display_image"]:
+                        self.display_random_file()
+                        self.timestamps["display_image"] = perf_counter
                 return
             picam2.set_controls({
                     "ScalerCrop": PREV_CROP_RECTANGLE,
