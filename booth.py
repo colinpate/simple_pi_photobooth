@@ -11,25 +11,23 @@ import numpy as np
 import os
 import yaml
 import random
+import glob
+from pprint import *
 
 def load_config():
     parent_dir = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(parent_dir, "config.yml")
+    config_path = os.path.join(parent_dir, "config.yaml")
     with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.CLoader)
+        config = yaml.load(config_file, yaml.Loader)
     return config
 
 config = load_config() #TODO make this be in a function LOL
 
 # GPIO
 BUTTON_PIN = 23 # GPIO number (header pin 16)
-LED_WARM_PIN = 24
 LED_COOL_PIN = 25
-LED_WARM_IDLE_DC = 40
-LED_COOL_IDLE_DC = 40
-LED_WARM_CAPTURE_DC = 40 # for testing
-#LED_WARM_CAPTURE_DC = 255
-LED_COOL_CAPTURE_DC = 40 # for testing
+LED_COOL_IDLE_DC = config["led_idle_brightness"]
+LED_COOL_CAPTURE_DC = config["led_capture_brightness"] # for testing
 #LED_COOL_CAPTURE_DC = 255
 
 # Timing
@@ -40,8 +38,8 @@ SHUTDOWN_HOLD_TIME = 4
 # Capture sequence timing
 LED_FADE_S = 2 # How long before capture to start brightening LEDs
 LED_END_S = 1 # How long before capture to hit 100% brightness
-EXPOSURE_SET_S = 1.5 # How long before capture to set exposure
-PRE_CONTROL_S = 0.2 # How long before capture to set the camera controls
+EXPOSURE_SET_S = 1.4 # How long before capture to set exposure
+PRE_CONTROL_S = 0.3 # How long before capture to set the camera controls
 COUNT_S = 5
 
 # Image and display
@@ -103,19 +101,14 @@ BLACK_OVERLAY[:]  = (0, 0, 0, 255)
 
 def set_leds(idle=True, fade=0):
     if fade:
-        warm_fade = LED_WARM_CAPTURE_DC - LED_WARM_IDLE_DC
         cool_fade = LED_COOL_CAPTURE_DC - LED_COOL_IDLE_DC
         fade = max(min(fade, 1), 0)
-        warm_dc = min(255, int(warm_fade * fade + LED_WARM_IDLE_DC))
         cool_dc = min(255, int(cool_fade * fade + LED_COOL_IDLE_DC))
-        pi.set_PWM_dutycycle(LED_WARM_PIN, warm_dc)
         pi.set_PWM_dutycycle(LED_COOL_PIN, cool_dc)
     else:
         if idle:
-            pi.set_PWM_dutycycle(LED_WARM_PIN, LED_WARM_IDLE_DC)
             pi.set_PWM_dutycycle(LED_COOL_PIN, LED_COOL_IDLE_DC)
         else:
-            pi.set_PWM_dutycycle(LED_WARM_PIN, LED_WARM_CAPTURE_DC)
             pi.set_PWM_dutycycle(LED_COOL_PIN, LED_COOL_CAPTURE_DC)
     
 
@@ -134,6 +127,9 @@ class PhotoBooth:
         self._config = config
         self.timestamps = {}
         
+        os.makedirs(self._config["gray_image_dir"], exist_ok=True)
+        os.makedirs(self._config["color_image_dir"], exist_ok=True)
+        
         # Defaults
         self.exposure_settings = {
             "AnalogueGain": 1,
@@ -145,7 +141,16 @@ class PhotoBooth:
 
     def apply_timestamp(self, request):
         if self.state == "countdown":
-            countdown = str(COUNT_S - int(np.floor(time.perf_counter() - self.start_time)))
+            metadata = request.get_metadata()
+            perf_counter = time.perf_counter()
+            print(
+                f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",
+                "ena", metadata.get("AeEnable", ""),
+                "loc", metadata.get("AeLocked", ""),
+                "sat", metadata.get("Saturation", ""),
+            )
+            self.timestamps["write"] = perf_counter
+            countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
             with MappedArray(request, "lores") as m:
                 cv2.putText(m.array, countdown, origin, font, scale, colour, thickness)
     
@@ -158,7 +163,13 @@ class PhotoBooth:
             "ExposureTime": metadata["ExposureTime"],
         }
         print(self.exposure_settings)
-        print(metadata)
+        print(
+                "CAP",
+                "ena", metadata.get("AeEnable", ""),
+                "loc", metadata.get("AeLocked", ""),
+                "sat", metadata.get("Saturation", ""),
+            )
+        #pprint(metadata)
         if self.state == "display_capture":
             qpicamera2.set_overlay(BLACK_OVERLAY)
             gray, color = self.save_capture()
@@ -186,30 +197,35 @@ class PhotoBooth:
         cv2.imwrite(gray_image_path, gray_image)
         cv2.imwrite(color_image_path, orig_image)
         
-        rgba_gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGBA)
-        rgba_image = cv2.cvtColor(orig_image, cv2.COLOR_RGB2RGBA)
-        return (rgba_gray_image, gray_image_path), (rgba_image, color_image_path)
+        rgb_gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
+        rgb_image = orig_image
+        return (rgb_gray_image, gray_image_path), (rgb_image, color_image_path)
     
     def display_random_file(self):
-        num_files = len(self.display_file_list)
-        if num_files > 1:
-            photo_path = self.display_file_list[random.randint(num_files)]
+        if self._config["display_gray"]:
+            image_dir = self._config["gray_image_dir"]
+        else:
+            image_dir = self._config["color_image_dir"]
+        file_list = glob.glob(os.path.join(image_dir, "*.jpg"))
+        num_files = len(file_list)
+        photo_path = file_list[random.randrange(num_files)]
+        print("Randomly displaying", photo_path)
         image = cv2.imread(photo_path)
         self.display_image(image)
     
-    def display_image(self, rgba_image):
+    def display_image(self, bgr_image):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
-        resized_image = cv2.resize(rgba_image, new_dims)
+        rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+        resized_image = cv2.resize(rgb_image, new_dims)
         overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
         overlay[:]  = (0, 0, 0, 255)
-        overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH] = resized_image
+        overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
         qpicamera2.set_overlay(overlay)
         
     def check_shutdown_button(self):
         if not pi.read(BUTTON_PIN):
             if time.perf_counter() > (self.last_button_release + SHUTDOWN_HOLD_TIME):
                 print("Shutting down")
-                pi.set_PWM_dutycycle(LED_WARM_PIN, 0)
                 pi.set_PWM_dutycycle(LED_COOL_PIN, 0)
                 os.system("sudo shutdown now")
         else:
@@ -225,7 +241,8 @@ class PhotoBooth:
                 self.state = "countdown"
                 self.start_time = perf_counter
         elif self.state == "countdown":
-            if perf_counter >= (self.start_time + COUNT_S):
+            end_time = self.start_time + COUNT_S
+            if perf_counter >= end_time:
                 print("Capturing at", (perf_counter - self.start_time))
                 self.state = "capture"
                 self.exposure_set = False # Reset for next time
@@ -233,12 +250,16 @@ class PhotoBooth:
                 self.capture_start_time = perf_counter
                 set_capture_overlay()
             else:
-                if perf_counter > (self.start_time + COUNT_S - LED_FADE_S):
+                if perf_counter > (end_time - LED_FADE_S):
                     time_to_photo = COUNT_S - (perf_counter - self.start_time)
                     led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
                     set_leds(fade=led_fade)
+                    if led_fade > 1:
+                        if self.timestamps.get("leds_full", 0) < self.start_time:
+                            print("LEDs full")
+                            self.timestamps["leds_full"] = perf_counter
                     
-                if perf_counter >= (self.start_time + COUNT_S - EXPOSURE_SET_S):
+                if perf_counter >= (end_time - EXPOSURE_SET_S):
                     if not self.exposure_set:
                         print("Setting exposure at", (perf_counter - self.start_time))
                         picam2.set_controls(
@@ -246,9 +267,12 @@ class PhotoBooth:
                         )
                         self.exposure_set = True
                     else:
-                        picam2.set_controls({"AeEnable": True})
+                        if perf_counter <= (end_time - EXPOSURE_SET_S + 0.2):
+                            # Spam this for 0.2s
+                            print("Setting AE true")
+                            picam2.set_controls({"AeEnable": True})
                         
-                if perf_counter > (self.start_time + COUNT_S - PRE_CONTROL_S):
+                if perf_counter > (end_time - PRE_CONTROL_S):
                     if not self.mode_switched:
                         print("Switching mode at", (perf_counter - self.start_time))
                         picam2.set_controls({
@@ -258,13 +282,13 @@ class PhotoBooth:
                         self.mode_switched = True
         elif self.state == "capture":
             self.state = "display_capture"
-            self.start_time = perf_counter
+            self.timestamps["display_capture"] = perf_counter
             self.timestamps["display_image"] = perf_counter
             self.cap_timestamp_str = time.strftime("%y_%m_%d_%H_%M_%S")
             print("Captured", self.cap_timestamp_str)
             picam2.capture_arrays(["main"], signal_function=qpicamera2.signal_done)
         elif self.state == "display_capture":
-            if perf_counter >= (self.start_time + DISPLAY_S):
+            if perf_counter >= (self.timestamps["display_capture"] + DISPLAY_S):
                 self.state = "idle"
             elif not pi.read(BUTTON_PIN):
                 self.start_time = perf_counter
@@ -283,15 +307,13 @@ class PhotoBooth:
                 })
             qpicamera2.set_overlay(None)
             
-photo_booth = PhotoBooth()
+photo_booth = PhotoBooth(config)
             
 pi = pigpio.pi()
 pi.set_mode(BUTTON_PIN, pigpio.INPUT)
 pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
 pi.set_mode(LED_COOL_PIN, pigpio.OUTPUT)
-pi.set_mode(LED_WARM_PIN, pigpio.OUTPUT)
 pi.set_PWM_frequency(LED_COOL_PIN, 1600)
-pi.set_PWM_frequency(LED_WARM_PIN, 1600)
 set_leds(idle=True)
             
 picam2 = Picamera2()
@@ -302,11 +324,13 @@ config = picam2.create_still_configuration(
         #main={'size': (4056, 3040), 'format': 'YUV420'},
         lores={"size": PREV_STREAM_DIMS, 'format': 'YUV420'},
         display="lores",
-        buffer_count=2,
+        buffer_count=3,
         transform=libcamera.Transform(hflip=1)
     )
 print("Camera config:")
-print(config)
+pprint(config)
+print("Camera modes:")
+pprint(picam2.sensor_modes)
 
 picam2.configure(config)
 
@@ -334,7 +358,7 @@ picam2.set_controls({"AeExposureMode": controls.AeExposureModeEnum.Short})
 #picam2.set_controls({"ExposureTime": 30400, "AnalogueGain": 4.0})
 
 print("Camera properties")
-print(picam2.camera_properties)
+pprint(picam2.camera_properties)
 qpicamera2.show()
 app.exec()
 

@@ -1,5 +1,7 @@
 gray_image_dir: "/home/colin/booth_photos/gray"
 color_image_dir: "/home/colin/booth_photos/color"
 display_gray: true
-display_shuffle_time: 5
-display_timeout: 5
+display_shuffle_time: 30
+display_timeout: 1200
+led_idle_brightness: 40
+led_capture_brightness: 255 # normally 255
