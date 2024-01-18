@@ -24,7 +24,8 @@ def load_config():
 config = load_config() #TODO make this be in a function LOL
 
 # GPIO
-BUTTON_PIN = 23 # GPIO number (header pin 16)
+BUTTON_PIN = 14 # GPIO number (header pin 16)
+LED_BUTTON_PIN = 18
 LED_COOL_PIN = 25
 LED_COOL_IDLE_DC = config["led_idle_brightness"]
 LED_COOL_CAPTURE_DC = config["led_capture_brightness"] # for testing
@@ -311,8 +312,9 @@ photo_booth = PhotoBooth(config)
             
 pi = pigpio.pi()
 pi.set_mode(BUTTON_PIN, pigpio.INPUT)
-pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
+pi.set_mode(LED_BUTTON_PIN, pigpio.OUTPUT)
 pi.set_mode(LED_COOL_PIN, pigpio.OUTPUT)
+pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
 pi.set_PWM_frequency(LED_COOL_PIN, 1600)
 set_leds(idle=True)
             
