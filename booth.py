@@ -29,6 +29,7 @@ LED_BUTTON_PIN = 18
 LED_COOL_PIN = 25
 LED_COOL_IDLE_DC = config["led_idle_brightness"]
 LED_COOL_CAPTURE_DC = config["led_capture_brightness"] # for testing
+BUTTON_PULSE_TIME = config["button_pulse_time"]
 #LED_COOL_CAPTURE_DC = 255
 
 # Timing
@@ -223,19 +224,32 @@ class PhotoBooth:
         overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
         qpicamera2.set_overlay(overlay)
         
-    def check_shutdown_button(self):
+    def check_shutdown_button(self, perf_counter):
         if not pi.read(BUTTON_PIN):
-            if time.perf_counter() > (self.last_button_release + SHUTDOWN_HOLD_TIME):
+            if perf_counter > (self.last_button_release + SHUTDOWN_HOLD_TIME):
                 print("Shutting down")
                 pi.set_PWM_dutycycle(LED_COOL_PIN, 0)
                 os.system("sudo shutdown now")
         else:
-            self.last_button_release = time.perf_counter()
+            self.last_button_release = perf_counter
+            
+    def set_button_led(self, perf_counter):
+        pulse_time = perf_counter % BUTTON_PULSE_TIME
+        half_pulse_time = BUTTON_PULSE_TIME / 2
+        if pulse_time > half_pulse_time:
+            pulse_time = BUTTON_PULSE_TIME - pulse_time
+            
+        ratio = pulse_time / half_pulse_time
+        pwm_ratio = ratio ** 2
+        pwm_val = int(pwm_ratio * 255)
+        pi.set_PWM_dutycycle(LED_BUTTON_PIN, pwm_val) 
         
     def main_loop(self):
-        self.check_shutdown_button()
-        
         perf_counter = time.perf_counter()
+        
+        self.check_shutdown_button(perf_counter)
+        
+        self.set_button_led(perf_counter)
         
         if self.state == "idle":
             if not pi.read(BUTTON_PIN):
@@ -316,6 +330,7 @@ pi.set_mode(LED_BUTTON_PIN, pigpio.OUTPUT)
 pi.set_mode(LED_COOL_PIN, pigpio.OUTPUT)
 pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
 pi.set_PWM_frequency(LED_COOL_PIN, 1600)
+pi.set_PWM_frequency(LED_BUTTON_PIN, 1600)
 set_leds(idle=True)
             
 picam2 = Picamera2()
