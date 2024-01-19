@@ -5,4 +5,4 @@ display_shuffle_time: 30
 display_timeout: 1200
 led_idle_brightness: 40
 led_capture_brightness: 255 # normally 255
-button_pulse_time: 3
+button_pulse_time: 5

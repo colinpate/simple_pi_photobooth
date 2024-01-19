@@ -234,15 +234,28 @@ class PhotoBooth:
             self.last_button_release = perf_counter
             
     def set_button_led(self, perf_counter):
-        pulse_time = perf_counter % BUTTON_PULSE_TIME
-        half_pulse_time = BUTTON_PULSE_TIME / 2
-        if pulse_time > half_pulse_time:
-            pulse_time = BUTTON_PULSE_TIME - pulse_time
-            
-        ratio = pulse_time / half_pulse_time
-        pwm_ratio = ratio ** 2
-        pwm_val = int(pwm_ratio * 255)
-        pi.set_PWM_dutycycle(LED_BUTTON_PIN, pwm_val) 
+        if self.state == "countdown":
+            rem_time = (self.start_time + COUNT_S) - perf_counter
+            print(rem_time / COUNT_S)
+            blink_speed = (rem_time / COUNT_S) / 3 + 0.1
+            last_blink = self.timestamps.get("last_blink", 0)
+            if perf_counter > (abs(last_blink) + blink_speed):
+                if last_blink > 0:
+                    pi.set_PWM_dutycycle(LED_BUTTON_PIN, 255)
+                    self.timestamps["last_blink"] = -1 * perf_counter
+                else:
+                    pi.set_PWM_dutycycle(LED_BUTTON_PIN, 0) 
+                    self.timestamps["last_blink"] = perf_counter
+        else:
+            pulse_time = perf_counter % BUTTON_PULSE_TIME
+            half_pulse_time = BUTTON_PULSE_TIME / 2
+            if pulse_time > half_pulse_time:
+                pulse_time = BUTTON_PULSE_TIME - pulse_time
+                
+            ratio = pulse_time / half_pulse_time
+            pwm_ratio = ratio
+            pwm_val = int(pwm_ratio * 255)
+            pi.set_PWM_dutycycle(LED_BUTTON_PIN, pwm_val) 
         
     def main_loop(self):
         perf_counter = time.perf_counter()
