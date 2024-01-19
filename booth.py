@@ -236,7 +236,6 @@ class PhotoBooth:
     def set_button_led(self, perf_counter):
         if self.state == "countdown":
             rem_time = (self.start_time + COUNT_S) - perf_counter
-            print(rem_time / COUNT_S)
             blink_speed = (rem_time / COUNT_S) / 3 + 0.1
             last_blink = self.timestamps.get("last_blink", 0)
             if perf_counter > (abs(last_blink) + blink_speed):
