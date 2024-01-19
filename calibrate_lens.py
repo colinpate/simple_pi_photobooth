@@ -18,7 +18,9 @@ objp[:,:2] = np.mgrid[0:9,0:7].T.reshape(-1,2)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('*.jpg')
+images = glob.glob('**/*.jpg', recursive=True)
+print("Found", len(images))
+print(images)
 for fname in images:
     print("Reading", fname)
     img = cv.imread(fname)
@@ -47,12 +49,5 @@ newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
 pickle.dump([newcameramtx, roi, mtx, dist], f)
 f.close()
 
-for fname in images:
-    print("Redoing", fname)
-    img = cv.imread(fname)
-    dst = cv.undistort(img, mtx, dist, None, newcameramtx)
-    imS = cv.resize(dst, (int(dst.shape[1] / 8), int(dst.shape[0] / 8)))
-    cv.imshow("imS", imS)
-    cv.waitKey(5000)
-cv.destroyAllWindows()
+
 

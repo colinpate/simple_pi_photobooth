@@ -12,6 +12,7 @@ import os
 import yaml
 import random
 import glob
+import pickle
 from pprint import *
 
 def load_config():
@@ -118,6 +119,11 @@ def set_capture_overlay():
     qpicamera2.set_overlay(capture_overlay)
     
     
+def load_lens_cal(cal_file):
+    with open(cal_file, "rb") as file_obj:
+        return pickle.load(file_obj)
+    
+    
 class PhotoBooth:
     def __init__(self, config):
         self.state = "idle"
@@ -128,6 +134,11 @@ class PhotoBooth:
         self.display_file_list = []
         self._config = config
         self.timestamps = {}
+        if config.get("lens_cal_file", None):
+            print("using calibration from ", config["lens_cal_file"])
+            self._lens_cal = load_lens_cal(config["lens_cal_file"])
+        else:
+            self._lens_cal = None
         
         os.makedirs(self._config["gray_image_dir"], exist_ok=True)
         os.makedirs(self._config["color_image_dir"], exist_ok=True)
@@ -184,6 +195,13 @@ class PhotoBooth:
     
     def save_capture(self):
         orig_image = cv2.cvtColor(self.image_array, cv2.COLOR_BGR2RGB)
+        
+        if self._lens_cal:
+            newcameramtx, roi, mtx, dist = self._lens_cal
+            dst = cv2.undistort(orig_image, mtx, dist, None, newcameramtx)
+            x, y, w, h = roi
+            orig_image = dst[y:y+h, x:x+w]
+            
         gray_image = cv2.cvtColor(orig_image, cv2.COLOR_RGB2GRAY)
         
         gray_image_path = os.path.join(
