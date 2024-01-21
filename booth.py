@@ -200,7 +200,7 @@ class PhotoBooth:
             self.display_file_list.append(image_path)
     
     def save_capture(self):
-        orig_image = cv2.cvtColor(self.image_array, cv2.COLOR_BGR2RGB)
+        orig_image = self.image_array
         
         if self._lens_cal:
             newcameramtx, roi, mtx, dist = self._lens_cal
@@ -208,7 +208,7 @@ class PhotoBooth:
             x, y, w, h = roi
             orig_image = dst[y:y+h, x:x+w]
             
-        gray_image = cv2.cvtColor(orig_image, cv2.COLOR_RGB2GRAY)
+        gray_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
         
         gray_image_path = os.path.join(
             self._config["gray_image_dir"],
@@ -221,7 +221,7 @@ class PhotoBooth:
         )
         
         formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
-        w, h = orig_image.size
+        w, h = orig_image.shape[:2]
         zeroth_ifd = {piexif.ImageIFD.Make: "colin",
                   piexif.ImageIFD.XResolution: (w, 1),
                   piexif.ImageIFD.YResolution: (h, 1),
