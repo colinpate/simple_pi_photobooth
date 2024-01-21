@@ -15,6 +15,8 @@ import glob
 import pickle
 from pprint import *
 from datetime import datetime
+from PIL import Image
+import piexif
 
 def load_config():
     parent_dir = os.path.dirname(os.path.realpath(__file__))
@@ -218,10 +220,29 @@ class PhotoBooth:
             self.cap_timestamp_str + ".jpg"
         )
         
-        now_timestamp = datetime.now.strftime("%Y:%m:%d %H:%M:%S")
-        
-        cv2.imwrite(gray_image_path, gray_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
-        cv2.imwrite(color_image_path, orig_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
+        formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
+        w, h = orig_image.size
+        zeroth_ifd = {piexif.ImageIFD.Make: "colin",
+                  piexif.ImageIFD.XResolution: (w, 1),
+                  piexif.ImageIFD.YResolution: (h, 1),
+                  piexif.ImageIFD.Software: "colin p"
+                  }
+        exif_ifd = {piexif.ExifIFD.DateTimeOriginal: formatted_datetime,
+                    piexif.ExifIFD.LensMake: "colin",
+                    piexif.ExifIFD.Sharpness: 65535,
+                    piexif.ExifIFD.LensSpecification: ((1, 1), (1, 1), (1, 1), (1, 1)),
+                    }
+        exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
+        exif_bytes = piexif.dump(exif_dict)
+                    
+        for (cv_img, path) in [
+                (gray_image, gray_image_path),
+                (orig_image, color_image_path),
+                ]:
+            img = Image.fromarray(cv_img)
+            img.save(path, quality=95, exif=exif_bytes)
+        #cv2.imwrite(gray_image_path, gray_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
+        #cv2.imwrite(color_image_path, orig_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
         
         rgb_gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
         rgb_image = orig_image
