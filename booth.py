@@ -78,7 +78,10 @@ FULL_CROP_RECTANGLE = (
     )
     
 # Crop the preview vertically so it doesn't look weird
-Y_RATIO = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (CROP_HEIGHT / CROP_WIDTH)
+if config["crop_preview"]:
+    Y_RATIO = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (CROP_HEIGHT / CROP_WIDTH)
+else:
+    Y_RATIO = 1
 PREV_CROP_HEIGHT = int(CROP_HEIGHT * Y_RATIO)
 PREV_CROP_OFFSET_Y = int((FULL_IMG_HEIGHT - PREV_CROP_HEIGHT) / 2)
 PREV_CROP_RECTANGLE = (
@@ -270,9 +273,8 @@ class PhotoBooth:
                 pulse_time = BUTTON_PULSE_TIME - pulse_time
              
             ratio = pulse_time / half_pulse_time
-            #pwm_ratio = ratio
             pwm_ratio = 1 - (np.exp(ratio * 3) / np.exp(3))
-            print(f"{ratio:.2f}, {pwm_ratio:.2f}")
+            #print(f"{ratio:.2f}, {pwm_ratio:.2f}")
             pwm_val = int(pwm_ratio * 255)
             pi.set_PWM_dutycycle(LED_BUTTON_PIN, pwm_val) 
         
