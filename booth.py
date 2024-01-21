@@ -14,6 +14,7 @@ import random
 import glob
 import pickle
 from pprint import *
+from datetime import datetime
 
 def load_config():
     parent_dir = os.path.dirname(os.path.realpath(__file__))
@@ -217,8 +218,10 @@ class PhotoBooth:
             self.cap_timestamp_str + ".jpg"
         )
         
-        cv2.imwrite(gray_image_path, gray_image)
-        cv2.imwrite(color_image_path, orig_image)
+        now_timestamp = datetime.now.strftime("%Y:%m:%d %H:%M:%S")
+        
+        cv2.imwrite(gray_image_path, gray_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
+        cv2.imwrite(color_image_path, orig_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
         
         rgb_gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
         rgb_image = orig_image
