@@ -254,7 +254,7 @@ class PhotoBooth:
     def set_button_led(self, perf_counter):
         if self.state == "countdown":
             rem_time = (self.start_time + COUNT_S) - perf_counter
-            blink_speed = (rem_time / COUNT_S) / 3 + 0.1
+            blink_speed = (rem_time / COUNT_S) / 4 + 0.1
             last_blink = self.timestamps.get("last_blink", 0)
             if perf_counter > (abs(last_blink) + blink_speed):
                 if last_blink > 0:
@@ -268,9 +268,11 @@ class PhotoBooth:
             half_pulse_time = BUTTON_PULSE_TIME / 2
             if pulse_time > half_pulse_time:
                 pulse_time = BUTTON_PULSE_TIME - pulse_time
-                
+             
             ratio = pulse_time / half_pulse_time
-            pwm_ratio = ratio
+            #pwm_ratio = ratio
+            pwm_ratio = 1 - (np.exp(ratio * 3) / np.exp(3))
+            print(f"{ratio:.2f}, {pwm_ratio:.2f}")
             pwm_val = int(pwm_ratio * 255)
             pi.set_PWM_dutycycle(LED_BUTTON_PIN, pwm_val) 
         
