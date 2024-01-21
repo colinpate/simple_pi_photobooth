@@ -137,7 +137,6 @@ class PhotoBooth:
         self.cap_timestamp_str = ""
         self.mode_switched = False
         self.exposure_set = False
-        self.display_file_list = []
         self._config = config
         self.timestamps = {}
         if config.get("lens_cal_file", None):
@@ -146,8 +145,21 @@ class PhotoBooth:
         else:
             self._lens_cal = None
         
-        os.makedirs(self._config["gray_image_dir"], exist_ok=True)
-        os.makedirs(self._config["color_image_dir"], exist_ok=True)
+        self._continuous_cap = config.get("continuous_cap", False)
+        
+        self._original_image_dir = config.get("original_image_dir", None)
+        self._color_image_dir = config["color_image_dir"]
+        self._gray_image_dir = config["gray_image_dir"]
+        
+        self._display_gray = config.get("display_gray", True)
+        
+        for dir_i in [
+                        self._gray_image_dir,
+                        self._color_image_dir,
+                        self._original_image_dir
+                    ]:
+            if dir_i:
+                os.makedirs(dir_i, exist_ok=True)
         
         # Defaults
         self.exposure_settings = {
@@ -162,12 +174,13 @@ class PhotoBooth:
         if self.state == "countdown":
             metadata = request.get_metadata()
             perf_counter = time.perf_counter()
-            print(
-                f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",
-                "ena", metadata.get("AeEnable", ""),
-                "loc", metadata.get("AeLocked", ""),
-                "sat", metadata.get("Saturation", ""),
-            )
+            if ("AeEnable" in metadata) or ("Saturation" in metadata):
+                print(
+                    f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",
+                    "ena", metadata.get("AeEnable", ""),
+                    "loc", metadata.get("AeLocked", ""),
+                    "sat", metadata.get("Saturation", ""),
+                )
             self.timestamps["write"] = perf_counter
             countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
             with MappedArray(request, "lores") as m:
@@ -191,13 +204,8 @@ class PhotoBooth:
         #pprint(metadata)
         if self.state == "display_capture":
             qpicamera2.set_overlay(BLACK_OVERLAY)
-            gray, color = self.save_capture()
-            if self._config["display_gray"]:
-                image, image_path = gray
-            else:
-                image, image_path = color
-            self.display_image(image)
-            self.display_file_list.append(image_path)
+            display_image = self.save_capture()
+            self.display_image(display_image)
     
     def save_capture(self):
         orig_image = self.image_array
@@ -206,22 +214,15 @@ class PhotoBooth:
             newcameramtx, roi, mtx, dist = self._lens_cal
             dst = cv2.undistort(orig_image, mtx, dist, None, newcameramtx)
             x, y, w, h = roi
-            orig_image = dst[y:y+h, x:x+w]
+            final_image = dst[y:y+h, x:x+w]
+        else:
+            final_image = orig_image
             
-        gray_image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
-        
-        gray_image_path = os.path.join(
-            self._config["gray_image_dir"],
-            self.cap_timestamp_str + "_gray.jpg"
-        )
-        
-        color_image_path = os.path.join(
-            self._config["color_image_dir"],
-            self.cap_timestamp_str + ".jpg"
-        )
+        gray_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2GRAY)
         
         formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
-        w, h = orig_image.shape[:2]
+        h, w = final_image.shape[:2]
+        print("Saved image width, height", w, h)
         zeroth_ifd = {piexif.ImageIFD.Make: "colin",
                   piexif.ImageIFD.XResolution: (w, 1),
                   piexif.ImageIFD.YResolution: (h, 1),
@@ -235,21 +236,28 @@ class PhotoBooth:
         exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
         exif_bytes = piexif.dump(exif_dict)
                     
-        for (cv_img, path) in [
-                (gray_image, gray_image_path),
-                (orig_image, color_image_path),
+        for (cv_img, dir_i, postfix) in [
+                (gray_image, self._gray_image_dir, "_gray"),
+                (final_image, self._color_image_dir, ""),
+                (orig_image, self._original_image_dir, "_original")
                 ]:
-            img = Image.fromarray(cv_img)
-            img.save(path, quality=95, exif=exif_bytes)
-        #cv2.imwrite(gray_image_path, gray_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
-        #cv2.imwrite(color_image_path, orig_image, exif={cv2.EXIF_DATETIME_ORIGINAL: now_timestamp})
+            if dir_i:
+                image_path = os.path.join(
+                    dir_i,
+                    self.cap_timestamp_str + postfix + ".jpg"
+                )
+                img = Image.fromarray(cv_img)
+                img.save(image_path, quality=95, exif=exif_bytes)
         
-        rgb_gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
-        rgb_image = orig_image
-        return (rgb_gray_image, gray_image_path), (rgb_image, color_image_path)
+        #return an image to display
+        if self._display_gray:
+            display_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
+        else:
+            display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
+        return display_image
     
     def display_random_file(self):
-        if self._config["display_gray"]:
+        if self._display_gray:
             image_dir = self._config["gray_image_dir"]
         else:
             image_dir = self._config["color_image_dir"]
@@ -280,8 +288,9 @@ class PhotoBooth:
             
     def set_button_led(self, perf_counter):
         if self.state == "countdown":
-            rem_time = (self.start_time + COUNT_S) - perf_counter
-            blink_speed = (rem_time / COUNT_S) / 4 + 0.1
+            pi.set_PWM_dutycycle(LED_BUTTON_PIN, 255)
+            """rem_time = (self.start_time + COUNT_S) - perf_counter
+            blink_speed = (rem_time / COUNT_S) / 4 + 0.05
             last_blink = self.timestamps.get("last_blink", 0)
             if perf_counter > (abs(last_blink) + blink_speed):
                 if last_blink > 0:
@@ -289,8 +298,8 @@ class PhotoBooth:
                     self.timestamps["last_blink"] = -1 * perf_counter
                 else:
                     pi.set_PWM_dutycycle(LED_BUTTON_PIN, 0) 
-                    self.timestamps["last_blink"] = perf_counter
-        else:
+                    self.timestamps["last_blink"] = perf_counter"""
+        elif (self.state == "idle") or (self.state == "display_capture"):
             pulse_time = perf_counter % BUTTON_PULSE_TIME
             half_pulse_time = BUTTON_PULSE_TIME / 2
             if pulse_time > half_pulse_time:
@@ -310,7 +319,7 @@ class PhotoBooth:
         self.set_button_led(perf_counter)
         
         if self.state == "idle":
-            if not pi.read(BUTTON_PIN):
+            if (not pi.read(BUTTON_PIN)) or self._continuous_cap:
                 self.state = "countdown"
                 self.start_time = perf_counter
         elif self.state == "countdown":
