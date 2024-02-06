@@ -1,0 +1,7 @@
+@lxpanel --profile LXDE-pi
+@pcmanfm --desktop --profile LXDE-pi
+@xscreensaver -no-splash
+@sudo pigpiod
+@sh /home/colin/simple_pi_photobooth/launch.sh
+unclutter -idle 5
+sh /home/colin/launch_pigallery.sh
