@@ -4,8 +4,8 @@ original_image_dir: "/home/colin/booth_photos/original"
 display_gray: true
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
 display_timeout: 1200 # 20 minutes
-led_idle_brightness: 40
-led_capture_brightness: 255 # normally 255
+led_idle_brightness: 15
+led_capture_brightness: 100 # normally 100
 button_pulse_time: 5
 crop_preview: true # normally True
 lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v2_v3_v5_fixedar.bin"

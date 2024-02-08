@@ -4,7 +4,7 @@ from picamera2.previews.qt import QGlPicamera2
 import libcamera
 from libcamera import controls
 import time
-import pigpio
+#import pigpio
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 import numpy as np
@@ -18,6 +18,10 @@ from datetime import datetime
 from PIL import Image
 import piexif
 
+# Pi 5 stuff
+from gpiozero import Button
+from rpi_hardware_pwm import HardwarePWM
+
 def load_config():
     parent_dir = os.path.dirname(os.path.realpath(__file__))
     config_path = os.path.join(parent_dir, "config.yaml")
@@ -28,9 +32,10 @@ def load_config():
 config = load_config() #TODO make this be in a function LOL
 
 # GPIO
-BUTTON_PIN = 14 # GPIO number (header pin 16)
-LED_BUTTON_PIN = 18
-LED_COOL_PIN = 25
+BUTTON_PIN = 14
+PWM_FREQ = 20000
+#LED_BUTTON_PIN = 18
+#LED_COOL_PIN = 12
 LED_COOL_IDLE_DC = config["led_idle_brightness"]
 LED_COOL_CAPTURE_DC = config["led_capture_brightness"] # for testing
 BUTTON_PULSE_TIME = config["button_pulse_time"]
@@ -106,19 +111,6 @@ capture_overlay[:] = (255, 255, 255, 255)
 
 BLACK_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 BLACK_OVERLAY[:]  = (0, 0, 0, 255)
-
-
-def set_leds(idle=True, fade=0):
-    if fade:
-        cool_fade = LED_COOL_CAPTURE_DC - LED_COOL_IDLE_DC
-        fade = max(min(fade, 1), 0)
-        cool_dc = min(255, int(cool_fade * fade + LED_COOL_IDLE_DC))
-        pi.set_PWM_dutycycle(LED_COOL_PIN, cool_dc)
-    else:
-        if idle:
-            pi.set_PWM_dutycycle(LED_COOL_PIN, LED_COOL_IDLE_DC)
-        else:
-            pi.set_PWM_dutycycle(LED_COOL_PIN, LED_COOL_CAPTURE_DC)
     
 
 def set_capture_overlay():
@@ -167,8 +159,53 @@ class PhotoBooth:
             "ExposureTime": 30000,
         }
         
+        self.button = None
+        self.pwm_button_led = None
+        self.pwm_main_leds = None
+        
+        self.init_gpio()
+        self.set_leds(idle=True)
+        
         self.last_button_release = time.perf_counter()
         self.capture_start_time = time.perf_counter()
+
+    def init_gpio(self):
+        self.init_button()
+        self.init_pwm()
+        
+    def init_button(self):
+        self.button = Button(BUTTON_PIN)
+        
+    def init_pwm(self):
+        self.pwm_button_led = HardwarePWM(pwm_channel=2, hz=PWM_FREQ, chip=2) # This is GPIO 18 on Pi 5
+        self.pwm_main_leds = HardwarePWM(pwm_channel=0, hz=PWM_FREQ, chip=2) # This is GPIO 12 on Pi 5
+        self.pwm_button_led.start(0)
+        self.pwm_main_leds.start(0)
+        
+    def change_button_led_dc(self, duty_cycle):
+        self.pwm_button_led.change_duty_cycle(duty_cycle)
+        
+    def change_main_led_dc(self, duty_cycle):
+        self.pwm_main_leds.change_duty_cycle(duty_cycle)
+        
+    def is_button_pressed(self):
+        return self.button.is_pressed
+    
+    def stop_pwm(self):
+        self.pwm_button_led.stop()
+        self.pwm_main_leds.stop()
+
+    def set_leds(self, idle=True, fade=0):
+        if fade:
+            interval = LED_COOL_CAPTURE_DC - LED_COOL_IDLE_DC
+            fade = max(min(fade, 1), 0)
+            dc = min(100, interval * fade + LED_COOL_IDLE_DC)
+            self.change_main_led_dc(dc)
+        else:
+            if idle:
+                self.change_main_led_dc(LED_COOL_IDLE_DC)
+            else:
+                self.change_main_led_dc(LED_COOL_CAPTURE_DC)
 
     def apply_timestamp(self, request):
         if self.state == "countdown":
@@ -188,7 +225,7 @@ class PhotoBooth:
     
     def capture_done(self, job):
         (self.image_array,), metadata = picam2.wait(job)
-        set_leds(idle=True)
+        self.set_leds(idle=True)
         print("Capture time", time.perf_counter() - self.capture_start_time)
         self.exposure_settings = {
             "AnalogueGain": metadata["AnalogueGain"],
@@ -278,27 +315,17 @@ class PhotoBooth:
         qpicamera2.set_overlay(overlay)
         
     def check_shutdown_button(self, perf_counter):
-        if not pi.read(BUTTON_PIN):
+        if self.is_button_pressed():
             if perf_counter > (self.last_button_release + SHUTDOWN_HOLD_TIME):
+                self.stop_pwm()
                 print("Shutting down")
-                pi.set_PWM_dutycycle(LED_COOL_PIN, 0)
                 os.system("sudo shutdown now")
         else:
             self.last_button_release = perf_counter
             
     def set_button_led(self, perf_counter):
         if self.state == "countdown":
-            pi.set_PWM_dutycycle(LED_BUTTON_PIN, 255)
-            """rem_time = (self.start_time + COUNT_S) - perf_counter
-            blink_speed = (rem_time / COUNT_S) / 4 + 0.05
-            last_blink = self.timestamps.get("last_blink", 0)
-            if perf_counter > (abs(last_blink) + blink_speed):
-                if last_blink > 0:
-                    pi.set_PWM_dutycycle(LED_BUTTON_PIN, 255)
-                    self.timestamps["last_blink"] = -1 * perf_counter
-                else:
-                    pi.set_PWM_dutycycle(LED_BUTTON_PIN, 0) 
-                    self.timestamps["last_blink"] = perf_counter"""
+            self.change_button_led_dc(100)
         elif (self.state == "idle") or (self.state == "display_capture"):
             pulse_time = perf_counter % BUTTON_PULSE_TIME
             half_pulse_time = BUTTON_PULSE_TIME / 2
@@ -307,9 +334,8 @@ class PhotoBooth:
              
             ratio = pulse_time / half_pulse_time
             pwm_ratio = 1 - (np.exp(ratio * 3) / np.exp(3))
-            #print(f"{ratio:.2f}, {pwm_ratio:.2f}")
-            pwm_val = int(pwm_ratio * 255)
-            pi.set_PWM_dutycycle(LED_BUTTON_PIN, pwm_val) 
+            pwm_val = pwm_ratio * 100
+            self.change_button_led_dc(pwm_val)
         
     def main_loop(self):
         perf_counter = time.perf_counter()
@@ -319,7 +345,7 @@ class PhotoBooth:
         self.set_button_led(perf_counter)
         
         if self.state == "idle":
-            if (not pi.read(BUTTON_PIN)) or self._continuous_cap:
+            if self.is_button_pressed() or self._continuous_cap:
                 self.state = "countdown"
                 self.start_time = perf_counter
         elif self.state == "countdown":
@@ -335,7 +361,7 @@ class PhotoBooth:
                 if perf_counter > (end_time - LED_FADE_S):
                     time_to_photo = COUNT_S - (perf_counter - self.start_time)
                     led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
-                    set_leds(fade=led_fade)
+                    self.set_leds(fade=led_fade)
                     if led_fade > 1:
                         if self.timestamps.get("leds_full", 0) < self.start_time:
                             print("LEDs full")
@@ -372,7 +398,7 @@ class PhotoBooth:
         elif self.state == "display_capture":
             if perf_counter >= (self.timestamps["display_capture"] + DISPLAY_S):
                 self.state = "idle"
-            elif not pi.read(BUTTON_PIN):
+            elif self.is_button_pressed():
                 self.start_time = perf_counter
                 self.state = "countdown"
             else:
@@ -390,15 +416,6 @@ class PhotoBooth:
             qpicamera2.set_overlay(None)
             
 photo_booth = PhotoBooth(config)
-            
-pi = pigpio.pi()
-pi.set_mode(BUTTON_PIN, pigpio.INPUT)
-pi.set_mode(LED_BUTTON_PIN, pigpio.OUTPUT)
-pi.set_mode(LED_COOL_PIN, pigpio.OUTPUT)
-pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
-pi.set_PWM_frequency(LED_COOL_PIN, 1600)
-pi.set_PWM_frequency(LED_BUTTON_PIN, 1600)
-set_leds(idle=True)
             
 picam2 = Picamera2()
 picam2.options["quality"] = 95
