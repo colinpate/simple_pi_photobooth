@@ -218,6 +218,7 @@ class PhotoBooth:
                     "loc", metadata.get("AeLocked", ""),
                     "sat", metadata.get("Saturation", ""),
                 )
+            print(f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",)
             self.timestamps["write"] = perf_counter
             countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
             with MappedArray(request, "lores") as m:
@@ -428,12 +429,16 @@ config = picam2.create_still_configuration(
         buffer_count=3,
         transform=libcamera.Transform(hflip=1)
     )
-print("Camera config:")
+print("Camera requested config:")
 pprint(config)
-print("Camera modes:")
-pprint(picam2.sensor_modes)
 
 picam2.configure(config)
+got_config = picam2.camera_configuration()
+print("Camera got config:")
+pprint(got_config)
+
+print("Camera modes:")
+pprint(picam2.sensor_modes)
 
 app = QApplication([])
 qpicamera2 = QGlPicamera2(picam2, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, keep_ar=False)
