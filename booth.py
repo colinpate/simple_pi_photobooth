@@ -208,9 +208,9 @@ class PhotoBooth:
                 self.change_main_led_dc(LED_COOL_CAPTURE_DC)
 
     def apply_timestamp(self, request):
+        perf_counter = time.perf_counter()
         if self.state == "countdown":
             metadata = request.get_metadata()
-            perf_counter = time.perf_counter()
             if ("AeEnable" in metadata) or ("Saturation" in metadata):
                 print(
                     f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",
@@ -218,11 +218,11 @@ class PhotoBooth:
                     "loc", metadata.get("AeLocked", ""),
                     "sat", metadata.get("Saturation", ""),
                 )
-            print(f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",)
-            self.timestamps["write"] = perf_counter
             countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
             with MappedArray(request, "lores") as m:
                 cv2.putText(m.array, countdown, origin, font, scale, colour, thickness)
+        #print(f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",)
+        self.timestamps["write"] = perf_counter
     
     def capture_done(self, job):
         (self.image_array,), metadata = picam2.wait(job)
@@ -424,7 +424,7 @@ picam2.post_callback = photo_booth.apply_timestamp
 
 config = picam2.create_still_configuration(
         #main={'size': (4056, 3040), 'format': 'YUV420'},
-        lores={"size": PREV_STREAM_DIMS, 'format': 'YUV420'},
+        lores={"size": PREV_STREAM_DIMS},# 'format': 'YUV420'},
         display="lores",
         buffer_count=3,
         transform=libcamera.Transform(hflip=1)
@@ -437,19 +437,9 @@ got_config = picam2.camera_configuration()
 print("Camera got config:")
 pprint(got_config)
 
-print("Camera modes:")
-pprint(picam2.sensor_modes)
+#print("Camera modes:")
+#pprint(picam2.sensor_modes)
 
-app = QApplication([])
-qpicamera2 = QGlPicamera2(picam2, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, keep_ar=False)
-qpicamera2.timer = QtCore.QTimer()
-qpicamera2.timer.start(25)
-qpicamera2.timer.timeout.connect(photo_booth.main_loop)
-qpicamera2.done_signal.connect(photo_booth.capture_done)
-qpicamera2.setWindowFlag(QtCore.Qt.FramelessWindowHint)
-qpicamera2.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
-
-picam2.start()
 if not FOCUS_MODE:
     picam2.set_controls({
         "Sharpness": 1,
@@ -459,12 +449,22 @@ picam2.set_controls({"AeEnable": True})
 picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
 picam2.set_controls({"AeExposureMode": controls.AeExposureModeEnum.Short})
 
+app = QApplication([])
+qpicamera2 = QGlPicamera2(picam2, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, keep_ar=False)
+qpicamera2.timer = QtCore.QTimer()
+qpicamera2.timer.start(25)
+qpicamera2.timer.timeout.connect(photo_booth.main_loop)
+qpicamera2.done_signal.connect(photo_booth.capture_done)
+#qpicamera2.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+
+picam2.start()
+
 # Uncomment for light testing
 #picam2.set_controls({"AeEnable": False})
 #picam2.set_controls({"ExposureTime": 30400, "AnalogueGain": 4.0})
 
 print("Camera properties")
 pprint(picam2.camera_properties)
-qpicamera2.show()
+qpicamera2.showFullScreen()
 app.exec()
 
