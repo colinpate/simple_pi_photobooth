@@ -449,13 +449,16 @@ picam2.set_controls({"AeEnable": True})
 picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
 picam2.set_controls({"AeExposureMode": controls.AeExposureModeEnum.Short})
 
+def close_window(self, event):
+    self.close()
+
 app = QApplication([])
 qpicamera2 = QGlPicamera2(picam2, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, keep_ar=False)
 qpicamera2.timer = QtCore.QTimer()
 qpicamera2.timer.start(25)
 qpicamera2.timer.timeout.connect(photo_booth.main_loop)
 qpicamera2.done_signal.connect(photo_booth.capture_done)
-#qpicamera2.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+qpicamera2.mousePressEvent = close_window
 
 picam2.start()
 
