@@ -17,6 +17,7 @@ from pprint import *
 from datetime import datetime
 from PIL import Image
 import piexif
+import sys
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -449,8 +450,9 @@ picam2.set_controls({"AeEnable": True})
 picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
 picam2.set_controls({"AeExposureMode": controls.AeExposureModeEnum.Short})
 
-def close_window(self, event):
-    self.close()
+def close_window(event):
+    photo_booth.stop_pwm()
+    sys.exit(0)
 
 app = QApplication([])
 qpicamera2 = QGlPicamera2(picam2, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, keep_ar=False)
