@@ -72,17 +72,24 @@ def check_qr_codes(photo_dir, qr_dir):
     return missing_qr_codes
 
 if config["display_gray"]:
+    upload_dir = config["gray_image_dir"]
+else:
+    upload_dir = config["color_image_dir"]
+    
+print("Checking for new images in", upload_dir)
+print("Saving QR codes to", config["qr_dir"])
     
 while True:
     # Path to your file
-    missing_qr_codes = check_qr_codes(config["upload_dir"], config["qr_dir"])
+    missing_qr_codes = check_qr_codes(upload_dir, config["qr_dir"])
     
-    print("Missing qr codes")
-    print(missing_qr_codes)
+    if len(missing_qr_codes):
+        print("Missing qr codes")
+        print(missing_qr_codes)
     
     for missing_qr in missing_qr_codes[:1]:
         file_name = missing_qr + ".jpg"
-        file_path = config["upload_dir"] + "/" + file_name
+        file_path = upload_dir + "/" + file_name
         
         public_url = upload_file_to_s3(file_path, bucket_name, file_name)
         #print("uploading", file_path, file_name)
@@ -92,8 +99,7 @@ while True:
         qr_path = config["qr_dir"] + "/" + missing_qr + ".png"
         create_qr_code(public_url, qr_path)
         
-    print("Pausing")
-    time.sleep(5)
+    time.sleep(0.5)
     
     
 # Upload the file and get the URL

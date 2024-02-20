@@ -294,7 +294,7 @@ class PhotoBooth:
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
-                if postfix == "gray" and self._display_gray:
+                if postfix == "_gray" and self._display_gray:
                     self._display_image_path = image_path
                 elif postfix == "" and not self._display_gray:
                     self._display_image_path = image_path
@@ -435,12 +435,14 @@ class PhotoBooth:
                 self.start_time = perf_counter
                 self.state = "countdown"
             else:
-                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 1):
+                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.5):
                     self.timestamps["qr_code_check"] = perf_counter
-                    qr_code = self.get_qr_code(self._display_image_path)
-                    if qr_code is not None:
-                        self.add_qr_code(qr_code)
-                        qpicamera2.set_overlay(self._overlay)
+                    if self._display_image_path and not self._displaying_qr_code:
+                        qr_code = self.get_qr_code(self._display_image_path)
+                        if qr_code is not None:
+                            print("FOUND QR CODE", self._display_image_path)
+                            self.add_qr_code(qr_code)
+                            qpicamera2.set_overlay(self._overlay)
                 
                 shuffle_time = self._config["display_shuffle_time"]
                 if shuffle_time > 0:
