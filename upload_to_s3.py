@@ -1,6 +1,9 @@
 import boto3
 from botocore.exceptions import NoCredentialsError
 import yaml
+import qrcode
+import glob
+import time
 
 def get_keys(key_path):
     with open(key_path, "r") as key_file:
@@ -42,7 +45,7 @@ def create_qr_code(url, qr_code_file_path):
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
+        box_size=3,
         border=4,
     )
     qr.add_data(url)
@@ -50,8 +53,8 @@ def create_qr_code(url, qr_code_file_path):
 
     img = qr.make_image(fill_color="black", back_color="white")
     img.save(qr_code_file_path)
-
+        
 # Upload the file and get the URL
 public_url = upload_file_to_s3(file_path, bucket_name, file_name)
 print(f"File uploaded successfully. Public URL: {public_url}")
-create_qr_code(url, "qr_code.png")
+create_qr_code(public_url, "qr_code.png")

@@ -308,12 +308,19 @@ class PhotoBooth:
         self.display_image(image)
     
     def display_image(self, bgr_image):
+        qrcode = cv2.imread("qr_code.png")
+        q_pos = [20, DISPLAY_HEIGHT-20-123, 123, 123]
+        resized_qrcode = cv2.resize(qrcode, (q_pos[2], q_pos[3]))
+        
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         resized_image = cv2.resize(rgb_image, new_dims)
         overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
         overlay[:]  = (0, 0, 0, 255)
         overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
+        
+        overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
+        
         qpicamera2.set_overlay(overlay)
         
     def check_shutdown_button(self, perf_counter):
