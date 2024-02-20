@@ -67,7 +67,6 @@ def check_qr_codes(photo_dir, qr_dir):
     photos = [os.path.split(fn)[-1][:-4] for fn in glob.glob(photo_dir + "/*.jpg")]
     qr_codes = [os.path.split(fn)[-1][:-4] for fn in glob.glob(qr_dir + "/*.png")]
     for photo in photos:
-        print(photo)
         if photo not in qr_codes:
             missing_qr_codes.append(photo)
     return missing_qr_codes
@@ -77,19 +76,23 @@ while True:
     # Path to your file
     missing_qr_codes = check_qr_codes(config["upload_dir"], config["qr_dir"])
     
-    for missing_qr in missing_qr_codes:
+    print("Missing qr codes")
+    print(missing_qr_codes)
+    
+    for missing_qr in missing_qr_codes[:1]:
         file_name = missing_qr + ".jpg"
         file_path = config["upload_dir"] + "/" + file_name
         
-        #public_url = upload_file_to_s3(file_path, bucket_name, file_name)
-        print("uploading", file_path, file_name)
-        public_url = "poop.com"
+        public_url = upload_file_to_s3(file_path, bucket_name, file_name)
+        #print("uploading", file_path, file_name)
+        #public_url = "poop.com"
         print(f"File uploaded successfully. Public URL: {public_url}")
         os.makedirs(config["qr_dir"], exist_ok=True)
         qr_path = config["qr_dir"] + "/" + missing_qr + ".png"
         create_qr_code(public_url, qr_path)
         
-    time.sleep(1)
+    print("Pausing")
+    time.sleep(5)
     
     
 # Upload the file and get the URL

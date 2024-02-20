@@ -300,7 +300,7 @@ class PhotoBooth:
         image_name = os.path.split(image_path)[-1][:-4]
         qr_path = self._qr_dir + "/" + image_name + ".png"
         if os.path.isfile(qr_path):
-            return qr_path
+            return cv2.imread(qr_path)
         else:
             return None
     
@@ -314,7 +314,7 @@ class PhotoBooth:
         photo_path = file_list[random.randrange(num_files)]
         print("Randomly displaying", photo_path)
         image = cv2.imread(photo_path)
-        self.display_image(image, qr_code=self.get_qr_code(image))
+        self.display_image(image, qr_code=self.get_qr_code(photo_path))
     
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
