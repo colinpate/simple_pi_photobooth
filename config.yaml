@@ -1,6 +1,9 @@
 gray_image_dir: "/home/colin/booth_photos/gray"
 color_image_dir: "/home/colin/booth_photos/color"
 original_image_dir: "/home/colin/booth_photos/original"
+qr_dir: "/home/colin/booth_photos/qrs"
+qr_pos: [20, 600-20-123, 123, 123]
+upload_dir: "/home/colin/booth_photos/gray"
 display_gray: true
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
 display_timeout: 1200 # 20 minutes

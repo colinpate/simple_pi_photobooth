@@ -143,6 +143,7 @@ class PhotoBooth:
         self._original_image_dir = config.get("original_image_dir", None)
         self._color_image_dir = config["color_image_dir"]
         self._gray_image_dir = config["gray_image_dir"]
+        self._qr_dir = config["qr_dir"]
         
         self._display_gray = config.get("display_gray", True)
         
@@ -295,6 +296,14 @@ class PhotoBooth:
             display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
         return display_image
     
+    def get_qr_code(self, image_path):
+        image_name = os.path.split(image_path)[-1][:-4]
+        qr_path = self._qr_dir + "/" + image_name + ".png"
+        if os.path.isfile(qr_path):
+            return qr_path
+        else:
+            return None
+    
     def display_random_file(self):
         if self._display_gray:
             image_dir = self._config["gray_image_dir"]
@@ -305,13 +314,9 @@ class PhotoBooth:
         photo_path = file_list[random.randrange(num_files)]
         print("Randomly displaying", photo_path)
         image = cv2.imread(photo_path)
-        self.display_image(image)
+        self.display_image(image, qr_code=self.get_qr_code(image))
     
-    def display_image(self, bgr_image):
-        qrcode = cv2.imread("qr_code.png")
-        q_pos = [20, DISPLAY_HEIGHT-20-123, 123, 123]
-        resized_qrcode = cv2.resize(qrcode, (q_pos[2], q_pos[3]))
-        
+    def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         resized_image = cv2.resize(rgb_image, new_dims)
@@ -319,7 +324,10 @@ class PhotoBooth:
         overlay[:]  = (0, 0, 0, 255)
         overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
         
-        overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
+        if qr_code is not None:
+            q_pos = self._config["qr_pos"]
+            resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]))
+            overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
         
         qpicamera2.set_overlay(overlay)
         
