@@ -143,9 +143,13 @@ class PhotoBooth:
         self._original_image_dir = config.get("original_image_dir", None)
         self._color_image_dir = config["color_image_dir"]
         self._gray_image_dir = config["gray_image_dir"]
-        self._qr_dir = config["qr_dir"]
+        self._qr_dir = config.get("qr_dir", "")
         
         self._display_gray = config.get("display_gray", True)
+        
+        self._overlay = None
+        self._displaying_qr_code = False
+        self._display_image_path = None
         
         for dir_i in [
                         self._gray_image_dir,
@@ -276,6 +280,7 @@ class PhotoBooth:
         exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
         exif_bytes = piexif.dump(exif_dict)
                     
+        self._display_image_path = None
         for (cv_img, dir_i, postfix) in [
                 (gray_image, self._gray_image_dir, "_gray"),
                 (final_image, self._color_image_dir, ""),
@@ -288,6 +293,11 @@ class PhotoBooth:
                 )
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
+                
+                if postfix == "gray" and self._display_gray:
+                    self._display_image_path = image_path
+                elif postfix == "" and not self._display_gray:
+                    self._display_image_path = image_path
         
         #return an image to display
         if self._display_gray:
@@ -314,22 +324,28 @@ class PhotoBooth:
         photo_path = file_list[random.randrange(num_files)]
         print("Randomly displaying", photo_path)
         image = cv2.imread(photo_path)
+        self._display_image_path = photo_path
         self.display_image(image, qr_code=self.get_qr_code(photo_path))
     
+    def add_qr_code(self, qr_code):
+        self._displaying_qr_code = True
+        q_pos = self._config["qr_pos"]
+        resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]))
+        self._overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
+        
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         resized_image = cv2.resize(rgb_image, new_dims)
-        overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
-        overlay[:]  = (0, 0, 0, 255)
-        overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
+        self._overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
+        self._overlay[:] = (0, 0, 0, 255)
+        self._overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
         
+        self._displaying_qr_code = False
         if qr_code is not None:
-            q_pos = self._config["qr_pos"]
-            resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]))
-            overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
+            self.add_qr_code(qr_code)
         
-        qpicamera2.set_overlay(overlay)
+        qpicamera2.set_overlay(self._overlay)
         
     def check_shutdown_button(self, perf_counter):
         if self.is_button_pressed():
@@ -419,6 +435,13 @@ class PhotoBooth:
                 self.start_time = perf_counter
                 self.state = "countdown"
             else:
+                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 1):
+                    self.timestamps["qr_code_check"] = perf_counter
+                    qr_code = self.get_qr_code(self._display_image_path)
+                    if qr_code is not None:
+                        self.add_qr_code(qr_code)
+                        qpicamera2.set_overlay(self._overlay)
+                
                 shuffle_time = self._config["display_shuffle_time"]
                 if shuffle_time > 0:
                     if (perf_counter - shuffle_time) > self.timestamps["display_image"]:

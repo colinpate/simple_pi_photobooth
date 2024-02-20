@@ -71,6 +71,7 @@ def check_qr_codes(photo_dir, qr_dir):
             missing_qr_codes.append(photo)
     return missing_qr_codes
 
+if config["display_gray"]:
     
 while True:
     # Path to your file
