@@ -91,9 +91,10 @@ while True:
         file_name = missing_qr + ".jpg"
         file_path = upload_dir + "/" + file_name
         
-        public_url = upload_file_to_s3(file_path, bucket_name, file_name)
-        #print("uploading", file_path, file_name)
-        #public_url = "poop.com"
+        try:
+            public_url = upload_file_to_s3(file_path, bucket_name, file_name)
+        except:
+            continue
         print(f"File uploaded successfully. Public URL: {public_url}")
         os.makedirs(config["qr_dir"], exist_ok=True)
         qr_path = config["qr_dir"] + "/" + missing_qr + ".png"

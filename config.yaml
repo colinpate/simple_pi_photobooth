@@ -1,7 +1,7 @@
 gray_image_dir: "/home/colin/booth_photos/gray"
 color_image_dir: "/home/colin/booth_photos/color"
 original_image_dir: "/home/colin/booth_photos/original"
-qr_dir: "/home/colin/booth_photos/qrs"
+qr_dir: "/home/colin/booth_qrs"
 qr_pos: [0, 477, 123, 123]
 display_gray: true
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
@@ -10,5 +10,5 @@ led_idle_brightness: 15
 led_capture_brightness: 100 # normally 100
 button_pulse_time: 5
 crop_preview: true # normally True
-lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v2_v3_v5_fixedar.bin"
+lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"
 continuous_cap: false # Capture photos constantly when in idle state, for debugging
