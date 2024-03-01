@@ -86,6 +86,12 @@ while True:
     if len(missing_qr_codes):
         print("Missing qr codes")
         print(missing_qr_codes)
+        
+        config = load_config()
+        if not config.get("enable_upload", True):
+            print("Upload disabled, skipping")
+            time.sleep(1)
+            continue
     
     for missing_qr in missing_qr_codes[:1]:
         file_name = missing_qr + ".jpg"

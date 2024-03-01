@@ -35,15 +35,11 @@ config = load_config() #TODO make this be in a function LOL
 # GPIO
 BUTTON_PIN = 14
 PWM_FREQ = 20000
-#LED_BUTTON_PIN = 18
-#LED_COOL_PIN = 12
 LED_COOL_IDLE_DC = config["led_idle_brightness"]
 LED_COOL_CAPTURE_DC = config["led_capture_brightness"] # for testing
 BUTTON_PULSE_TIME = config["button_pulse_time"]
-#LED_COOL_CAPTURE_DC = 255
 
 # Timing
-#DISPLAY_S = 1200 #for real
 DISPLAY_S = config["display_timeout"]
 SHUTDOWN_HOLD_TIME = 4
 
@@ -53,6 +49,9 @@ LED_END_S = 1 # How long before capture to hit 100% brightness
 EXPOSURE_SET_S = 1.4 # How long before capture to set exposure
 PRE_CONTROL_S = 0.3 # How long before capture to set the camera controls
 COUNT_S = 5
+
+AWB_MODE = controls.AwbModeEnum.Indoor
+AE_MODE = controls.AeExposureModeEnum.Short
 
 # Image and display
 DISPLAY_WIDTH=1024
@@ -102,10 +101,10 @@ PREV_CROP_RECTANGLE = (
 
 # Overlay stuff
 colour = (255, 255, 255, 255)
-origin = (int(FULL_IMG_WIDTH / 4 - 125), int(FULL_IMG_HEIGHT / 4 + 125))
 font = cv2.FONT_HERSHEY_DUPLEX
-scale = 12
-thickness = 20
+origin = (int(DISPLAY_WIDTH / 2 - 62), int(DISPLAY_HEIGHT / 2 + 62))
+scale = 6
+thickness = 10
 
 capture_overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 capture_overlay[:] = (255, 255, 255, 255)
@@ -161,7 +160,7 @@ class PhotoBooth:
         
         # Defaults
         self.exposure_settings = {
-            "AnalogueGain": 1,
+            "AnalogueGain": 4,
             "ExposureTime": 30000,
         }
         
@@ -212,28 +211,20 @@ class PhotoBooth:
                 self.change_main_led_dc(LED_COOL_IDLE_DC)
             else:
                 self.change_main_led_dc(LED_COOL_CAPTURE_DC)
-
-    def apply_timestamp(self, request):
+        
+    def apply_timestamp_overlay(self):
         perf_counter = time.perf_counter()
-        if self.state == "countdown":
-            metadata = request.get_metadata()
-            if ("AeEnable" in metadata) or ("Saturation" in metadata):
-                print(
-                    f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",
-                    "ena", metadata.get("AeEnable", ""),
-                    "loc", metadata.get("AeLocked", ""),
-                    "sat", metadata.get("Saturation", ""),
-                )
-            countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
-            with MappedArray(request, "lores") as m:
-                cv2.putText(m.array, countdown, origin, font, scale, colour, thickness)
-        #print(f"{int((perf_counter - self.timestamps.get('write', 0)) * 1000):3d}",)
-        self.timestamps["write"] = perf_counter
+        countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
+        if countdown != self.timestamps.get("countdown", -1):
+            self.timestamps["countdown"] = countdown
+            overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
+            cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
+            qpicamera2.set_overlay(overlay)
     
     def capture_done(self, job):
         (self.image_array,), metadata = picam2.wait(job)
         self.set_leds(idle=True)
-        print("Capture time", time.perf_counter() - self.capture_start_time)
+        #print("Capture time", time.perf_counter() - self.capture_start_time)
         self.exposure_settings = {
             "AnalogueGain": metadata["AnalogueGain"],
             "ExposureTime": metadata["ExposureTime"],
@@ -241,11 +232,14 @@ class PhotoBooth:
         print(self.exposure_settings)
         print(
                 "CAP",
-                "ena", metadata.get("AeEnable", ""),
-                "loc", metadata.get("AeLocked", ""),
-                "sat", metadata.get("Saturation", ""),
+                "AeEnable", metadata.get("AeEnable", ""),
+                "AeLocked", metadata.get("AeLocked", ""),
+                "Saturation", metadata.get("Saturation", ""),
             )
         #pprint(metadata)
+        print("Color gains", metadata["ColourGains"])
+        print("Color temp", metadata["ColourTemperature"])
+        print("Lux", metadata["Lux"])
         if self.state == "display_capture":
             qpicamera2.set_overlay(BLACK_OVERLAY)
             display_image = self.save_capture()
@@ -266,7 +260,6 @@ class PhotoBooth:
         
         formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
         h, w = final_image.shape[:2]
-        print("Saved image width, height", w, h)
         zeroth_ifd = {piexif.ImageIFD.Make: "colin",
                   piexif.ImageIFD.XResolution: (w, 1),
                   piexif.ImageIFD.YResolution: (h, 1),
@@ -391,6 +384,7 @@ class PhotoBooth:
                 self.capture_start_time = perf_counter
                 set_capture_overlay()
             else:
+                self.apply_timestamp_overlay()
                 if perf_counter > (end_time - LED_FADE_S):
                     time_to_photo = COUNT_S - (perf_counter - self.start_time)
                     led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
@@ -461,14 +455,11 @@ photo_booth = PhotoBooth(config)
             
 picam2 = Picamera2()
 picam2.options["quality"] = 95
-picam2.post_callback = photo_booth.apply_timestamp
 
 config = picam2.create_still_configuration(
-        #main={'size': (4056, 3040), 'format': 'YUV420'},
-        lores={"size": PREV_STREAM_DIMS},# 'format': 'YUV420'},
+        lores={"size": PREV_STREAM_DIMS},
         display="lores",
         buffer_count=3,
-        transform=libcamera.Transform(hflip=1)
     )
 print("Camera requested config:")
 pprint(config)
@@ -478,9 +469,6 @@ got_config = picam2.camera_configuration()
 print("Camera got config:")
 pprint(got_config)
 
-#print("Camera modes:")
-#pprint(picam2.sensor_modes)
-
 if not FOCUS_MODE:
     picam2.set_controls({
         "Sharpness": 1,
@@ -488,14 +476,21 @@ if not FOCUS_MODE:
         })
 picam2.set_controls({"AeEnable": True})
 picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
-picam2.set_controls({"AeExposureMode": controls.AeExposureModeEnum.Short})
+picam2.set_controls({"AeExposureMode": AE_MODE})
+picam2.set_controls({"AwbMode": AWB_MODE})
 
 def close_window(event):
     photo_booth.stop_pwm()
     sys.exit(0)
 
 app = QApplication([])
-qpicamera2 = QGlPicamera2(picam2, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, keep_ar=False)
+qpicamera2 = QGlPicamera2(
+                picam2,
+                width=DISPLAY_WIDTH,
+                height=DISPLAY_HEIGHT,
+                keep_ar=False,
+                transform=libcamera.Transform(hflip=1)
+            )
 qpicamera2.timer = QtCore.QTimer()
 qpicamera2.timer.start(25)
 qpicamera2.timer.timeout.connect(photo_booth.main_loop)
