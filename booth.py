@@ -276,7 +276,7 @@ class PhotoBooth:
         self._display_image_path = None
         for (cv_img, dir_i, postfix) in [
                 (gray_image, self._gray_image_dir, "_gray"),
-                (final_image, self._color_image_dir, ""),
+                (final_image, self._color_image_dir, "_color"),
                 (orig_image, self._original_image_dir, "_original")
                 ]:
             if dir_i:
@@ -289,7 +289,7 @@ class PhotoBooth:
                 
                 if postfix == "_gray" and self._display_gray:
                     self._display_image_path = image_path
-                elif postfix == "" and not self._display_gray:
+                elif postfix == "_color" and not self._display_gray:
                     self._display_image_path = image_path
         
         #return an image to display

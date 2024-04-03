@@ -18,21 +18,6 @@ def load_config():
         config = yaml.load(config_file, yaml.Loader)
     return config
 
-config = load_config() #TODO make this be in a function LOL 
-
-keys = get_keys("/home/colin/aws_key.yml")
-
-# Your AWS credentials - it's recommended to use environment variables for security
-aws_access_key_id = keys["public"]
-aws_secret_access_key = keys["private"]
-
-# Your S3 Bucket name
-bucket_name = keys["bucket_name"]
-
-# Initialize a session using Amazon S3
-session = boto3.session.Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-s3 = session.resource('s3')
-
 def upload_file_to_s3(file_path, bucket_name, file_name):
     # Upload file
     s3.Bucket(bucket_name).upload_file(Filename=file_path, Key=file_name)#, ExtraArgs={'ACL': 'public-read'})
@@ -70,6 +55,21 @@ def check_qr_codes(photo_dir, qr_dir):
         if photo not in qr_codes:
             missing_qr_codes.append(photo)
     return missing_qr_codes
+
+config = load_config() #TODO make this be in a function LOL 
+
+keys = get_keys("/home/colin/aws_key.yml")
+
+# Your AWS credentials - it's recommended to use environment variables for security
+aws_access_key_id = keys["public"]
+aws_secret_access_key = keys["private"]
+
+# Your S3 Bucket name
+bucket_name = keys["bucket_name"]
+
+# Initialize a session using Amazon S3
+session = boto3.session.Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+s3 = session.resource('s3')
 
 if config["display_gray"]:
     upload_dir = config["gray_image_dir"]
