@@ -13,10 +13,10 @@ import pickle
 from pprint import *
 import tqdm
 
-rows=9
-cols=7
+rows=8
+cols=6
 #rows=9
-#cols=3
+#cols=7
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -34,7 +34,8 @@ images = []
 #images += glob.glob('v4/*.jpg', recursive=True)
 #images += glob.glob('v5/*.jpg', recursive=True)
 #images += glob.glob('circles_v1/*.jpg', recursive=True)
-images += glob.glob('circles_v2/*.jpg', recursive=True)
+#images += glob.glob('circles_v2/*.jpg', recursive=True)
+images += glob.glob('v6_6by8/*.jpg', recursive=True)
 
 print("Found", len(images))
 #print(images)

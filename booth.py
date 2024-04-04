@@ -18,6 +18,7 @@ from datetime import datetime
 from PIL import Image
 import piexif
 import sys
+from upload_to_s3 import get_qr_path
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -145,6 +146,10 @@ class PhotoBooth:
         self._qr_dir = config.get("qr_dir", "")
         
         self._display_gray = config.get("display_gray", True)
+        
+        self._color_postfix = config["color_postfix"]
+        self._gray_postfix = config["gray_postfix"]
+        self._display_postfix = self._gray_postfix if self._display_gray else self._color_postfix 
         
         self._overlay = None
         self._displaying_qr_code = False
@@ -275,8 +280,8 @@ class PhotoBooth:
                     
         self._display_image_path = None
         for (cv_img, dir_i, postfix) in [
-                (gray_image, self._gray_image_dir, "_gray"),
-                (final_image, self._color_image_dir, "_color"),
+                (gray_image, self._gray_image_dir, self._gray_postfix),
+                (final_image, self._color_image_dir, self._color_postfix),
                 (orig_image, self._original_image_dir, "_original")
                 ]:
             if dir_i:
@@ -287,9 +292,9 @@ class PhotoBooth:
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
-                if postfix == "_gray" and self._display_gray:
+                if postfix == self._gray_postfix and self._display_gray:
                     self._display_image_path = image_path
-                elif postfix == "_color" and not self._display_gray:
+                elif postfix == self._color_postfix and not self._display_gray:
                     self._display_image_path = image_path
         
         #return an image to display
@@ -300,8 +305,8 @@ class PhotoBooth:
         return display_image
     
     def get_qr_code(self, image_path):
-        image_name = os.path.split(image_path)[-1][:-4]
-        qr_path = self._qr_dir + "/" + image_name + ".png"
+        image_filename = os.path.split(image_path)[-1]
+        qr_path = get_qr_path(image_filename, self._display_postfix, self._qr_dir)
         if os.path.isfile(qr_path):
             return cv2.imread(qr_path)
         else:

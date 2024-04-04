@@ -11,12 +11,14 @@ def get_keys(key_path):
         keys = yaml.load(key_file, yaml.Loader)
     return keys
 
+
 def load_config():
     parent_dir = os.path.dirname(os.path.realpath(__file__))
     config_path = os.path.join(parent_dir, "config.yaml")
     with open(config_path, "r") as config_file:
         config = yaml.load(config_file, yaml.Loader)
     return config
+
 
 def upload_file_to_s3(file_path, bucket_name, file_name):
     # Upload file
@@ -46,15 +48,28 @@ def create_qr_code(url, qr_code_file_path):
     img = qr.make_image(fill_color="black", back_color="white")
     img.save(qr_code_file_path)
 
+
+def get_qr_path(photo_filename, postfix, qr_dir):
+    raw_filename = photo_filename.split(postfix)[0]
+    qr_filename = raw_filename + ".png"
+    qr_path = os.path.join(qr_dir, qr_filename)
+	return qr_path
+	
+	
+def get_qr_target(photo_filename, postfix, page_url):
+    raw_filename = photo_filename.split(postfix)[0]
+    target_path = page_url + raw_filename
+    return target_path
+	
         
-def check_qr_codes(photo_dir, qr_dir):
+def check_qr_codes(photo_dir, postfix, qr_dir):
     missing_qr_codes = []
-    photos = [os.path.split(fn)[-1][:-4] for fn in glob.glob(photo_dir + "/*.jpg")]
-    qr_codes = [os.path.split(fn)[-1][:-4] for fn in glob.glob(qr_dir + "/*.png")]
+    photos = [os.path.split(fn)[-1] for fn in glob.glob(photo_dir + "/*.jpg")]
     for photo in photos:
-        if photo not in qr_codes:
+        if not os.path.isfile(get_qr_path(photo, postfix, qr_dir)):
             missing_qr_codes.append(photo)
     return missing_qr_codes
+
 
 config = load_config() #TODO make this be in a function LOL 
 
@@ -71,40 +86,38 @@ bucket_name = keys["bucket_name"]
 session = boto3.session.Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 s3 = session.resource('s3')
 
-if config["display_gray"]:
-    upload_dir = config["gray_image_dir"]
-else:
-    upload_dir = config["color_image_dir"]
+search_dir = config["color_image_dir"]
+postfix = config["color_postfix"]
+qr_dir = config["qr_dir"]
     
 print("Checking for new images in", upload_dir)
-print("Saving QR codes to", config["qr_dir"])
+print("Saving QR codes to", qr_dir)
     
 while True:
-    # Path to your file
-    missing_qr_codes = check_qr_codes(upload_dir, config["qr_dir"])
+    # Returns list of photo file names
+    missing_qr_codes = check_qr_codes(search_dir, postfix, qr_dir)
     
     if len(missing_qr_codes):
         print("Missing qr codes")
         print(missing_qr_codes)
         
-        config = load_config()
         if not config.get("enable_upload", True):
             print("Upload disabled, skipping")
             time.sleep(1)
             continue
     
-    for missing_qr in missing_qr_codes[:1]:
-        file_name = missing_qr + ".jpg"
-        file_path = upload_dir + "/" + file_name
+    for photo_filename in missing_qr_codes[:1]:
+        file_path = upload_dir + "/" + photo_filename
         
         try:
-            public_url = upload_file_to_s3(file_path, bucket_name, file_name)
+            public_url = upload_file_to_s3(file_path, bucket_name, photo_filename)
         except:
             continue
         print(f"File uploaded successfully. Public URL: {public_url}")
         os.makedirs(config["qr_dir"], exist_ok=True)
-        qr_path = config["qr_dir"] + "/" + missing_qr + ".png"
-        create_qr_code(public_url, qr_path)
+        qr_path = get_qr_path(photo_filename, postfix, qr_dir)
+        qr_target = get_qr_target(photo_filename, postfix)
+        create_qr_code(qr_target, qr_path)
         
     time.sleep(0.5)
     

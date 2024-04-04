@@ -13,3 +13,5 @@ crop_preview: true # normally True
 lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"
 continuous_cap: false # Capture photos constantly when in idle state, for debugging
 enable_upload: true
+color_postfix: "_color"
+gray_postfix: "_gray"
