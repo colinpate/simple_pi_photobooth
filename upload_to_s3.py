@@ -20,7 +20,7 @@ def load_config():
     return config
 
 
-def upload_file_to_s3(file_path, bucket_name, file_name):
+def upload_file_to_s3(file_path, bucket_name, file_name, s3):
     # Upload file
     s3.Bucket(bucket_name).upload_file(Filename=file_path, Key=file_name)#, ExtraArgs={'ACL': 'public-read'})
         
@@ -53,8 +53,8 @@ def get_qr_path(photo_filename, postfix, qr_dir):
     raw_filename = photo_filename.split(postfix)[0]
     qr_filename = raw_filename + ".png"
     qr_path = os.path.join(qr_dir, qr_filename)
-	return qr_path
-	
+    return qr_path
+        
 	
 def get_qr_target(photo_filename, postfix, page_url):
     raw_filename = photo_filename.split(postfix)[0]
@@ -70,56 +70,66 @@ def check_qr_codes(photo_dir, postfix, qr_dir):
             missing_qr_codes.append(photo)
     return missing_qr_codes
 
+def main():
+        config = load_config() #TODO make this be in a function LOL 
 
-config = load_config() #TODO make this be in a function LOL 
+        keys = get_keys("/home/colin/aws_key.yml")
 
-keys = get_keys("/home/colin/aws_key.yml")
+        # Your AWS credentials - it's recommended to use environment variables for security
+        aws_access_key_id = keys["public"]
+        aws_secret_access_key = keys["private"]
 
-# Your AWS credentials - it's recommended to use environment variables for security
-aws_access_key_id = keys["public"]
-aws_secret_access_key = keys["private"]
+        # Your S3 Bucket name
+        bucket_name = keys["bucket_name"]
 
-# Your S3 Bucket name
-bucket_name = keys["bucket_name"]
+        # Initialize a session using Amazon S3
+        session = boto3.session.Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        s3 = session.resource('s3')
 
-# Initialize a session using Amazon S3
-session = boto3.session.Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-s3 = session.resource('s3')
-
-search_dir = config["color_image_dir"]
-postfix = config["color_postfix"]
-qr_dir = config["qr_dir"]
-    
-print("Checking for new images in", upload_dir)
-print("Saving QR codes to", qr_dir)
-    
-while True:
-    # Returns list of photo file names
-    missing_qr_codes = check_qr_codes(search_dir, postfix, qr_dir)
-    
-    if len(missing_qr_codes):
-        print("Missing qr codes")
-        print(missing_qr_codes)
+        color_dir = config["color_image_dir"]
+        gray_dir = config["gray_image_dir"]
+        color_postfix = config["color_postfix"]
+        gray_postfix = config["gray_postfix"]
+        qr_dir = config["qr_dir"]
+        page_url = config["page_url"]
+            
+        print("Checking for new images in", color_dir)
+        print("Saving QR codes to", qr_dir)
+            
+        while True:
+            # Returns list of photo file names
+            missing_qr_codes = check_qr_codes(color_dir, color_postfix, qr_dir)
+            
+            if len(missing_qr_codes):
+                print("Missing qr codes")
+                print(missing_qr_codes)
+                
+                if not config.get("enable_upload", True):
+                    print("Upload disabled, skipping")
+                    time.sleep(1)
+                    continue
         
-        if not config.get("enable_upload", True):
-            print("Upload disabled, skipping")
-            time.sleep(1)
-            continue
-    
-    for photo_filename in missing_qr_codes[:1]:
-        file_path = upload_dir + "/" + photo_filename
-        
-        try:
-            public_url = upload_file_to_s3(file_path, bucket_name, photo_filename)
-        except:
-            continue
-        print(f"File uploaded successfully. Public URL: {public_url}")
-        os.makedirs(config["qr_dir"], exist_ok=True)
-        qr_path = get_qr_path(photo_filename, postfix, qr_dir)
-        qr_target = get_qr_target(photo_filename, postfix)
-        create_qr_code(qr_target, qr_path)
-        
-    time.sleep(0.5)
-    
-    
-# Upload the file and get the URL
+            for photo_filename in missing_qr_codes[:1]:
+                color_file_path = f"{color_dir}/{photo_filename}"
+                raw_filename = photo_filename.split(color_postfix)[0]
+                gray_filename = f"{raw_filename}{gray_postfix}.jpg"
+                gray_file_path = f"{gray_dir}/{gray_filename}"
+                print(gray_filename, gray_file_path)
+                
+                try:
+                    color_url = upload_file_to_s3(color_file_path, bucket_name, photo_filename, s3)
+                    gray_url = upload_file_to_s3(gray_file_path, bucket_name, gray_filename, s3)
+                except:
+                    continue
+                print(f"File uploaded successfully. Public URL: {color_url}")
+                os.makedirs(config["qr_dir"], exist_ok=True)
+                qr_path = get_qr_path(photo_filename, color_postfix, qr_dir)
+                qr_target = get_qr_target(photo_filename, color_postfix, page_url)
+                print("Qr target", qr_target)
+                create_qr_code(qr_target, qr_path)
+                print("Qr path", qr_path)
+                
+            time.sleep(0.5)
+            
+if __name__ == "__main__":
+    main()
