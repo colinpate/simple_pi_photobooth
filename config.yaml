@@ -3,7 +3,7 @@ color_image_dir: "/home/colin/booth_photos/color"
 original_image_dir: "/home/colin/booth_photos/original"
 qr_dir: "/home/colin/booth_qrs"
 qr_pos: [0, 465, 135, 135]
-page_url: "https://colinsphotobooth.s3.amazonaws.com/test_page.html?photoId="
+page_url: "https://colinsphotobooth.s3.amazonaws.com/display_photo.html?photoId="
 display_gray: true
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
 display_timeout: 1200 # 20 minutes
