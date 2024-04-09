@@ -33,4 +33,4 @@ class ImagePathDB:
             
     def update_file(self):
         with open(self._db_file_path, "w") as db_file:
-            db_file.dump(self.db)
+            json.dump(self.db, db_file)

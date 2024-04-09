@@ -73,13 +73,12 @@ def main():
         qr_dir = config["qr_dir"]
         page_url = config["page_url"]
         
-        print("Checking for new images in", color_dir)
         print("Saving QR codes to", qr_dir)
             
         while True:
             # Returns list of photo file names
-            self.photo_db.try_update_from_file()
-            missing_qr_names = list(self.photo_db.image_names() - self.qr_db.image_names())
+            photo_db.try_update_from_file()
+            missing_qr_names = list(photo_db.image_names() - qr_db.image_names())
             
             if len(missing_qr_names):
                 print("Missing qr codes")
@@ -90,21 +89,22 @@ def main():
                     time.sleep(1)
                     continue
         
-            for photo_name in missing_qr_codes[:1]:
+            for photo_name in missing_qr_names[:1]:
                 try:
                     for postfix in [color_postfix, gray_postfix]:
-                        file_path = self.photo_db.get_image_path(photo_name, postfix)
+                        file_path = photo_db.get_image_path(photo_name, postfix)
                         file_name = os.path.split(file_path)[-1]
                         url = upload_file_to_s3(file_path, bucket_name, file_name, s3)
                 except:
                     print("Failed to upload", photo_name)
                     continue
-                print(f"File uploaded successfully. Public URL: {color_url}")
+                print(f"File uploaded successfully. Public URL: {url}")
                 os.makedirs(config["qr_dir"], exist_ok=True)
                 qr_path = os.path.join(qr_dir, photo_name + ".png")
                 qr_target = page_url + photo_name
                 create_qr_code(qr_target, qr_path)
-                self.qr_db.update_file()
+                qr_db.add_image(photo_name, qr_path)
+                qr_db.update_file()
                 print("Qr target", qr_target)
                 print("Qr path", qr_path)
                 

@@ -324,7 +324,7 @@ class PhotoBooth:
             return None
     
     def display_random_file(self):
-        photo_names = self.photo_path_db.image_names()
+        photo_names = list(self.photo_path_db.image_names())
         num_files = len(photo_names)
         name = photo_names[random.randrange(num_files)]
         self._display_image_name = name

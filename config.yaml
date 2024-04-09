@@ -4,7 +4,7 @@ original_image_dir: "/home/colin/booth_photos/original"
 qr_dir: "/home/colin/booth_qrs"
 photo_path_db: "/home/colin/booth_photos/photo_db.json"
 qr_path_db: "/home/colin/booth_qrs/qr_db.json"
-qr_pos: [0, 465, 135, 135]
+qr_pos: [0, 400, 200, 200]
 page_url: "https://colinsphotobooth.s3.amazonaws.com/display_photo.html?photoId="
 display_gray: true
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
