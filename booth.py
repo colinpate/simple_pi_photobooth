@@ -18,7 +18,7 @@ from datetime import datetime
 from PIL import Image
 import piexif
 import sys
-from upload_to_s3 import get_qr_path
+from image_path_db import ImagePathDB
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -123,6 +123,23 @@ def load_lens_cal(cal_file):
         return pickle.load(file_obj)
     
     
+def get_exif(w, h):
+    formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
+    zeroth_ifd = {piexif.ImageIFD.Make: "colin",
+              piexif.ImageIFD.XResolution: (w, 1),
+              piexif.ImageIFD.YResolution: (h, 1),
+              piexif.ImageIFD.Software: "colin p"
+              }
+    exif_ifd = {piexif.ExifIFD.DateTimeOriginal: formatted_datetime,
+                piexif.ExifIFD.LensMake: "colin",
+                piexif.ExifIFD.Sharpness: 65535,
+                piexif.ExifIFD.LensSpecification: ((1, 1), (1, 1), (1, 1), (1, 1)),
+                }
+    exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
+    exif_bytes = piexif.dump(exif_dict)
+    return exif_bytes
+    
+    
 class PhotoBooth:
     def __init__(self, config):
         self.state = "idle"
@@ -143,7 +160,6 @@ class PhotoBooth:
         self._original_image_dir = config.get("original_image_dir", None)
         self._color_image_dir = config["color_image_dir"]
         self._gray_image_dir = config["gray_image_dir"]
-        self._qr_dir = config.get("qr_dir", "")
         
         self._display_gray = config.get("display_gray", True)
         
@@ -153,7 +169,10 @@ class PhotoBooth:
         
         self._overlay = None
         self._displaying_qr_code = False
-        self._display_image_path = None
+        self._display_image_name = None
+        
+        self.photo_path_db = ImagePathDB(config["photo_path_db"])
+        self.qr_path_db = ImagePathDB(config["qr_path_db"])
         
         for dir_i in [
                         self._gray_image_dir,
@@ -250,6 +269,7 @@ class PhotoBooth:
             display_image = self.save_capture()
             self.display_image(display_image)
     
+    
     def save_capture(self):
         orig_image = self.image_array
         
@@ -263,22 +283,12 @@ class PhotoBooth:
             
         gray_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2GRAY)
         
-        formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
         h, w = final_image.shape[:2]
-        zeroth_ifd = {piexif.ImageIFD.Make: "colin",
-                  piexif.ImageIFD.XResolution: (w, 1),
-                  piexif.ImageIFD.YResolution: (h, 1),
-                  piexif.ImageIFD.Software: "colin p"
-                  }
-        exif_ifd = {piexif.ExifIFD.DateTimeOriginal: formatted_datetime,
-                    piexif.ExifIFD.LensMake: "colin",
-                    piexif.ExifIFD.Sharpness: 65535,
-                    piexif.ExifIFD.LensSpecification: ((1, 1), (1, 1), (1, 1), (1, 1)),
-                    }
-        exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
-        exif_bytes = piexif.dump(exif_dict)
+        exif_bytes = get_exif(w, h)
                     
-        self._display_image_path = None
+        path_dict = {}
+        photo_name = self.cap_timestamp_str
+        self._display_image_name = photo_name
         for (cv_img, dir_i, postfix) in [
                 (gray_image, self._gray_image_dir, self._gray_postfix),
                 (final_image, self._color_image_dir, self._color_postfix),
@@ -287,15 +297,15 @@ class PhotoBooth:
             if dir_i:
                 image_path = os.path.join(
                     dir_i,
-                    self.cap_timestamp_str + postfix + ".jpg"
+                    photo_name + postfix + ".jpg"
                 )
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
-                if postfix == self._gray_postfix and self._display_gray:
-                    self._display_image_path = image_path
-                elif postfix == self._color_postfix and not self._display_gray:
-                    self._display_image_path = image_path
+                path_dict[postfix] = image_path
+                
+        self.photo_path_db.add_image(photo_name, path_dict)
+        self.photo_path_db.update_file()
         
         #return an image to display
         if self._display_gray:
@@ -304,26 +314,24 @@ class PhotoBooth:
             display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
         return display_image
     
-    def get_qr_code(self, image_path):
-        image_filename = os.path.split(image_path)[-1]
-        qr_path = get_qr_path(image_filename, self._display_postfix, self._qr_dir)
-        if os.path.isfile(qr_path):
+    def get_qr_code(self, image_name):
+        if not self.qr_path_db.try_update_from_file():
+            print("Error updating qr path db")
+        if self.qr_path_db.image_exists(image_name):
+            qr_path = self.qr_path_db.get_image_path(image_name)
             return cv2.imread(qr_path)
         else:
             return None
     
     def display_random_file(self):
-        if self._display_gray:
-            image_dir = self._config["gray_image_dir"]
-        else:
-            image_dir = self._config["color_image_dir"]
-        file_list = glob.glob(os.path.join(image_dir, "*.jpg"))
-        num_files = len(file_list)
-        photo_path = file_list[random.randrange(num_files)]
+        photo_names = self.photo_path_db.image_names()
+        num_files = len(photo_names)
+        name = photo_names[random.randrange(num_files)]
+        self._display_image_name = name
+        photo_path = self.photo_path_db.get_image_path(name, self._display_postfix)
         print("Randomly displaying", photo_path)
         image = cv2.imread(photo_path)
-        self._display_image_path = photo_path
-        self.display_image(image, qr_code=self.get_qr_code(photo_path))
+        self.display_image(image, qr_code=self.get_qr_code(name))
     
     def add_qr_code(self, qr_code):
         self._displaying_qr_code = True
@@ -436,10 +444,10 @@ class PhotoBooth:
             else:
                 if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.5):
                     self.timestamps["qr_code_check"] = perf_counter
-                    if self._display_image_path and not self._displaying_qr_code:
-                        qr_code = self.get_qr_code(self._display_image_path)
+                    if self._display_image_name and not self._displaying_qr_code:
+                        qr_code = self.get_qr_code(self._display_image_name)
                         if qr_code is not None:
-                            print("FOUND QR CODE", self._display_image_path)
+                            print("FOUND QR CODE", self._display_image_name)
                             self.add_qr_code(qr_code)
                             qpicamera2.set_overlay(self._overlay)
                 

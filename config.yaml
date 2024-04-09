@@ -2,6 +2,8 @@ gray_image_dir: "/home/colin/booth_photos/gray"
 color_image_dir: "/home/colin/booth_photos/color"
 original_image_dir: "/home/colin/booth_photos/original"
 qr_dir: "/home/colin/booth_qrs"
+photo_path_db: "/home/colin/booth_photos/photo_db.json"
+qr_path_db: "/home/colin/booth_qrs/qr_db.json"
 qr_pos: [0, 465, 135, 135]
 page_url: "https://colinsphotobooth.s3.amazonaws.com/display_photo.html?photoId="
 display_gray: true
