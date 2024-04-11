@@ -336,7 +336,7 @@ class PhotoBooth:
     def add_qr_code(self, qr_code):
         self._displaying_qr_code = True
         q_pos = self._config["qr_pos"]
-        resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]))
+        resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]), cv2.INTER_NEAREST)
         self._overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
         
     def display_image(self, bgr_image, qr_code=None):
@@ -432,7 +432,7 @@ class PhotoBooth:
             self.state = "display_capture"
             self.timestamps["display_capture"] = perf_counter
             self.timestamps["display_image"] = perf_counter
-            self.cap_timestamp_str = time.strftime("%y_%m_%d_%H_%M_%S")
+            self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
             picam2.capture_arrays(["main"], signal_function=qpicamera2.signal_done)
         elif self.state == "display_capture":
