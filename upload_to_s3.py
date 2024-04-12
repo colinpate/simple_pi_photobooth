@@ -40,8 +40,8 @@ def create_qr_code(url, qr_code_file_path):
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=3,
-        border=4,
+        box_size=4,
+        border=3,
     )
     qr.add_data(url)
     qr.make(fit=True)
@@ -71,7 +71,7 @@ def main():
         color_postfix = config["color_postfix"]
         gray_postfix = config["gray_postfix"]
         qr_dir = config["qr_dir"]
-        page_url = config["page_url"]
+        page_url = keys["page_url"]
         
         print("Saving QR codes to", qr_dir)
             
@@ -95,7 +95,8 @@ def main():
                         file_path = photo_db.get_image_path(photo_name, postfix)
                         file_name = os.path.split(file_path)[-1]
                         url = upload_file_to_s3(file_path, bucket_name, file_name, s3)
-                except:
+                except Exception as foo:
+                    print(foo)
                     print("Failed to upload", photo_name)
                     continue
                 print(f"File uploaded successfully. Public URL: {url}")
