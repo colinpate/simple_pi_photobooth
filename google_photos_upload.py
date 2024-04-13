@@ -5,6 +5,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 import os
 import requests
+from datetime import datetime
 
 def build_service_from_document(credentials):
     url = 'https://photoslibrary.googleapis.com/$discovery/rest?version=v1'
@@ -19,7 +20,7 @@ def authenticate_google_photos():
     # Path to your 'token.json' file which stores user's access and refresh tokens
     token_file = 'token.json'
     # Path to your 'credentials.json' file downloaded from the Google Developer Console
-    credentials_file = 'g_photos_creds.json'
+    credentials_file = '../g_photos_creds.json'
     
     if os.path.exists(token_file):
         creds = Credentials.from_authorized_user_file(token_file)
@@ -30,8 +31,9 @@ def authenticate_google_photos():
         else:
             scopes = ['https://www.googleapis.com/auth/photoslibrary',
                       'https://www.googleapis.com/auth/photoslibrary.sharing']
+                      
             flow = InstalledAppFlow.from_client_secrets_file(credentials_file, scopes=scopes)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=0, open_browser=False)
         # Save the credentials for the next run
         with open(token_file, 'w') as token:
             token.write(creds.to_json())
@@ -96,11 +98,12 @@ def upload_photo(service, creds, album_id, photo_file_path):
 
 def main():
     service, creds = authenticate_google_photos()
-    album_title = 'My Raspberry Pi Album 3'
+    formatted_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    album_title = 'Glowbot ' + formatted_datetime
     album_id, shareable_link = create_shared_album(service, album_title)
     print(f"Album created. Shareable link: {shareable_link}")
     
-    photo_path = '../party_photos/booth_photos/color/24_03_02_22_25_15.jpg'  # Update this with the path to your photo
+    photo_path = '/home/colin/booth_photos/color/240412_234902_color.jpg'  # Update this with the path to your photo
     url = upload_photo(service, creds, album_id, photo_path)
     print(url)
     print("Photo uploaded successfully to the album.")
