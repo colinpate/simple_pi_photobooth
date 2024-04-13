@@ -19,6 +19,7 @@ from PIL import Image
 import piexif
 import sys
 from image_path_db import ImagePathDB
+from timers import Timers
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -195,8 +196,11 @@ class PhotoBooth:
         self.init_gpio()
         self.set_leds(idle=True)
         
-        self.last_button_release = time.perf_counter()
+        #self.last_button_release = time.perf_counter()
         self.capture_start_time = time.perf_counter()
+        
+        self.timers = Timers()
+        self.timers.start("button_release", SHUTDOWN_HOLD_TIME)
 
     def init_gpio(self):
         self.init_button()
@@ -353,14 +357,14 @@ class PhotoBooth:
         
         qpicamera2.set_overlay(self._overlay)
         
-    def check_shutdown_button(self, perf_counter):
+    def check_shutdown_button(self):
         if self.is_button_pressed():
-            if perf_counter > (self.last_button_release + SHUTDOWN_HOLD_TIME):
+            if self.timers.check("button_release"):
                 self.stop_pwm()
                 print("Shutting down")
                 os.system("sudo shutdown now")
         else:
-            self.last_button_release = perf_counter
+            self.timers.restart("button_release")
             
     def set_button_led(self, perf_counter):
         if self.state == "countdown":
@@ -379,17 +383,16 @@ class PhotoBooth:
     def main_loop(self):
         perf_counter = time.perf_counter()
         
-        self.check_shutdown_button(perf_counter)
+        self.check_shutdown_button()
         
         self.set_button_led(perf_counter)
         
         if self.state == "idle":
             if self.is_button_pressed() or self._continuous_cap:
                 self.state = "countdown"
-                self.start_time = perf_counter
+                self.timers.start("counts", COUNT_S)
         elif self.state == "countdown":
-            end_time = self.start_time + COUNT_S
-            if perf_counter >= end_time:
+            if self.timers.check("counts"):
                 print("Capturing at", (perf_counter - self.start_time))
                 self.state = "capture"
                 self.exposure_set = False # Reset for next time
@@ -398,7 +401,8 @@ class PhotoBooth:
                 set_capture_overlay()
             else:
                 self.apply_timestamp_overlay()
-                if perf_counter > (end_time - LED_FADE_S):
+                time_left = self.timers.time_left("counts")
+                if time_left <= LED_FADE_S:
                     time_to_photo = COUNT_S - (perf_counter - self.start_time)
                     led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
                     self.set_leds(fade=led_fade)
@@ -407,7 +411,7 @@ class PhotoBooth:
                             print("LEDs full")
                             self.timestamps["leds_full"] = perf_counter
                     
-                if perf_counter >= (end_time - EXPOSURE_SET_S):
+                if time_left <= EXPOSURE_SET_S:
                     if not self.exposure_set:
                         print("Setting exposure at", (perf_counter - self.start_time))
                         picam2.set_controls(
@@ -415,12 +419,12 @@ class PhotoBooth:
                         )
                         self.exposure_set = True
                     else:
-                        if perf_counter <= (end_time - EXPOSURE_SET_S + 0.2):
+                        if time_left > (EXPOSURE_SET_S - 0.2):
                             # Spam this for 0.2s
                             print("Setting AE true")
                             picam2.set_controls({"AeEnable": True})
                         
-                if perf_counter > (end_time - PRE_CONTROL_S):
+                if time_left <= PRE_CONTROL_S:
                     if not self.mode_switched:
                         print("Switching mode at", (perf_counter - self.start_time))
                         picam2.set_controls({
