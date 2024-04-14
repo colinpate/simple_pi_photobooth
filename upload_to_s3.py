@@ -7,6 +7,7 @@ import time
 import os
 from image_path_db import ImagePathDB
 from photo_service import PhotoService
+from google_photos_upload import GooglePhotos
 
 
 def get_keys(key_path):
@@ -85,7 +86,10 @@ def main():
     
     print("Saving QR codes to", qr_dir)
     
-    service = GooglePhotos()
+    try:
+        service = GooglePhotos()
+    except:
+        service = S3Photos()
         
     while True:
         # Returns list of photo file names
