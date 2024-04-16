@@ -25,6 +25,7 @@ class GooglePhotos(PhotoService):
         print(f"Album '{album_title}' created. Shareable link: {self.album_link}")
         
     def upload_photo(self, photo_path, photo_name):
+        self.ensure_authenticated()
         url = self._upload_photo(self.album_id, photo_path)
         print("Photo uploaded successfully to the album.", url)
         return self.album_link
@@ -54,6 +55,14 @@ class GooglePhotos(PhotoService):
                 token.write(creds.to_json())
 
         return build_service_from_document(credentials=creds), creds
+
+    def ensure_authenticated(self):
+        if not self.service._credentials.valid:
+            if self.service._credentials.expired and self.service._credentials.refresh_token:
+                self.service._credentials.refresh(Request())
+            else:
+                self.service = authenticate_google_photos()
+        return self.service
 
     def create_shared_album(self, album_title):
         """Create a shared Google Photos album and return the album ID and shareable URL."""
