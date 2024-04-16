@@ -327,11 +327,14 @@ class PhotoBooth:
         photo_names = list(self.photo_path_db.image_names())
         num_files = len(photo_names)
         name = photo_names[random.randrange(num_files)]
-        self._display_image_name = name
         photo_path = self.photo_path_db.get_image_path(name, self._display_postfix)
-        print("Randomly displaying", photo_path)
-        image = cv2.imread(photo_path)
-        self.display_image(image, qr_code=self.get_qr_code(name))
+        if os.path.exists(photo_path):
+            self._display_image_name = name
+            print("Randomly displaying", photo_path)
+            image = cv2.imread(photo_path)
+            self.display_image(image, qr_code=self.get_qr_code(name))
+        else:
+            print("Error: Random photo", photo_path, "doesn't exist")
     
     def add_qr_code(self, qr_code):
         self._displaying_qr_code = True

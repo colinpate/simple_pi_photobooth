@@ -33,9 +33,9 @@ class GooglePhotos(PhotoService):
         """Authenticate to Google API and handle token refresh logic."""
         creds = None
         # Path to your 'token.json' file which stores user's access and refresh tokens
-        token_file = 'token.json'
+        token_file = '/home/colin/token.json'
         # Path to your 'credentials.json' file downloaded from the Google Developer Console
-        credentials_file = '../g_photos_creds.json'
+        credentials_file = '/home/colin/g_photos_creds.json'
         
         if os.path.exists(token_file):
             creds = Credentials.from_authorized_user_file(token_file)

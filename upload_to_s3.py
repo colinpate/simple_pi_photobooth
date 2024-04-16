@@ -8,6 +8,34 @@ import os
 from image_path_db import ImagePathDB
 from photo_service import PhotoService
 from google_photos_upload import GooglePhotos
+import socket
+import time
+
+
+def check_network_connection(host="8.8.8.8", port=53, timeout=3):
+    """
+    Check network connectivity by trying to connect to a specific host and port.
+    Google's public DNS server at 8.8.8.8 over port 53 (DNS) is used as default.
+    """
+    try:
+        socket.setdefaulttimeout(timeout)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+        sock.close()
+        return True
+    except socket.error as ex:
+        print(f"Network is not reachable. Error: {ex}")
+        return False
+
+
+def wait_for_network_connection():
+    """
+    Wait indefinitely until the network is available.
+    """
+    print("Waiting for network connection...")
+    while not check_network_connection():
+        time.sleep(5)  # wait for 5 seconds before checking again
+    print("Network connection established.")
 
 
 def get_keys(key_path):
@@ -86,9 +114,13 @@ def main():
     
     print("Saving QR codes to", qr_dir)
     
+    wait_for_network_connection()
+    
     try:
         service = GooglePhotos()
-    except:
+    except Exception as e:
+        with open("/home/colin/google_photos_error.txt", "w") as error_file:
+            error_file.write(str(e))
         service = S3Photos()
         
     while True:
@@ -111,7 +143,8 @@ def main():
                     file_path = photo_db.get_image_path(photo_name, postfix)
                     qr_target = service.upload_photo(file_path, photo_name)
             except Exception as foo:
-                print(foo)
+                with open("/home/colin/upload_error.txt", "w") as err_file:
+                    err_file.write(str(foo))
                 print("Failed to upload", photo_name)
                 continue
             
