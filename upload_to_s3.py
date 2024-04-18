@@ -86,7 +86,7 @@ def main():
     wait_for_network_connection()
     
     try:
-        service = GooglePhotos()
+        service = SmugMug()
     except Exception as e:
         with open("/home/colin/google_photos_error.txt", "w") as error_file:
             error_file.write(str(e))
