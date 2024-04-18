@@ -57,12 +57,11 @@ class GooglePhotos(PhotoService):
         return build_service_from_document(credentials=creds), creds
 
     def ensure_authenticated(self):
-        if not self.service._credentials.valid:
-            if self.service._credentials.expired and self.service._credentials.refresh_token:
-                self.service._credentials.refresh(Request())
+        if not self.creds.valid:
+            if self.creds.expired and self.creds.refresh_token:
+                self.creds.refresh(Request())
             else:
-                self.service = authenticate_google_photos()
-        return self.service
+                raise ValueError("Google photos needs reauth")
 
     def create_shared_album(self, album_title):
         """Create a shared Google Photos album and return the album ID and shareable URL."""
