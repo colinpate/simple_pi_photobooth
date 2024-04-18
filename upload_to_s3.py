@@ -1,15 +1,16 @@
-import boto3
-from botocore.exceptions import NoCredentialsError
 import yaml
 import qrcode
 import glob
 import time
 import os
+import socket
+import time
+from datetime import datetime
 from image_path_db import ImagePathDB
 from photo_service import PhotoService
 from google_photos_upload import GooglePhotos
-import socket
-import time
+from smugmug import SmugMug
+from s3_photos import S3Photos
 
 
 def check_network_connection(host="8.8.8.8", port=53, timeout=3):
@@ -36,12 +37,6 @@ def wait_for_network_connection():
     while not check_network_connection():
         time.sleep(5)  # wait for 5 seconds before checking again
     print("Network connection established.")
-
-
-def get_keys(key_path):
-    with open(key_path, "r") as key_file:
-        keys = yaml.load(key_file, yaml.Loader)
-    return keys
 
 
 def load_config():
@@ -71,36 +66,10 @@ def create_qr_code(url, qr_code_file_path):
     img.save(qr_code_file_path)
     
 
-class S3Photos(PhotoService):
-    def __init__(self):
-        keys = get_keys("/home/colin/aws_key.yml")
-
-        # Your AWS credentials - it's recommended to use environment variables for security
-        aws_access_key_id = keys["public"]
-        aws_secret_access_key = keys["private"]
-        self.page_url = keys["page_url"]
-
-        # Your S3 Bucket name
-        self.bucket_name = keys["bucket_name"]
-
-        # Initialize a session using Amazon S3
-        session = boto3.session.Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-        self.s3 = session.resource('s3')
-        
-    def upload_photo(self, photo_path, photo_name):
-        self.upload_file(photo_path)
-        qr_target_url = self.page_url + photo_name
-        return qr_target_url
-        
-    def upload_file(self, file_path):
-        # Upload file
-        file_name = os.path.split(file_path)[-1]
-        self.s3.Bucket(self.bucket_name).upload_file(Filename=file_path, Key=file_name)#, ExtraArgs={'ACL': 'public-read'})
-            
-        # Construct URL
-        location = boto3.client('s3').get_bucket_location(Bucket=self.bucket_name)['LocationConstraint']
-        url = f"https://{self.bucket_name}.s3.{location}.amazonaws.com/{file_name}"
-        return url
+def get_album_title():
+    formatted_datetime = datetime.now().strftime("%Y/%m/%d %H:%M")
+    album_title = 'Glowbot ' + formatted_datetime
+    return album_title
 
 
 def main():
@@ -123,6 +92,8 @@ def main():
             error_file.write(str(e))
         service = S3Photos()
         
+    service.create_album(get_album_title())
+        
     while True:
         # Returns list of photo file names
         photo_db.try_update_from_file()
@@ -134,7 +105,7 @@ def main():
             
             if not config.get("enable_upload", True):
                 print("Upload disabled, skipping")
-                time.sleep(1)
+                time.slget_keyseep(1)
                 continue
     
         for photo_name in missing_qr_names[:1]:

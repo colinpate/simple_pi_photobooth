@@ -5,7 +5,6 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 import os
 import requests
-from datetime import datetime
 from photo_service import PhotoService
 
 
@@ -20,7 +19,10 @@ def build_service_from_document(credentials):
 class GooglePhotos(PhotoService):
     def __init__(self):
         self.service, self.creds = self.authenticate_google_photos()
-        album_title = self.get_album_title()
+        self.album_id = None
+        self.album_link = None
+        
+    def create_album(self, album_name):    
         self.album_id, self.album_link = self.create_shared_album(album_title)
         print(f"Album '{album_title}' created. Shareable link: {self.album_link}")
         
@@ -119,11 +121,6 @@ class GooglePhotos(PhotoService):
         media_item_id = batch_response['newMediaItemResults'][0]['mediaItem']['id']
         photo_url = self.get_media_item(media_item_id)
         return photo_url
-
-    def get_album_title(self):
-        formatted_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        album_title = 'Glowbot ' + formatted_datetime
-        return album_title
 
 def main():
     gp = GooglePhotos()
