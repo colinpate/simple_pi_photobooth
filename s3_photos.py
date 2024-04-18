@@ -1,6 +1,8 @@
 import os
 import boto3
 from botocore.exceptions import NoCredentialsError
+from photo_service import PhotoService
+import yaml
 
 def get_keys(key_path):
     with open(key_path, "r") as key_file:

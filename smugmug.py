@@ -17,7 +17,7 @@ def load_creds(creds_file):
         
 class SmugMug(PhotoService):
     def __init__(self):
-        creds = load_creds("../smugmug.json")
+        creds = load_creds("/home/colin/smugmug.json")
         token = creds["token"]
         key = creds["key"]
         secret = creds["secret"]
@@ -80,6 +80,10 @@ class SmugMug(PhotoService):
             return None
 
     def create_album_under_node(self, node_id, album_name):
+        safe_album_name = album_name.replace(":", "")
+        safe_album_name = safe_album_name.replace("/", "")
+        safe_album_name = safe_album_name.replace(" ", "")
+        safe_album_name = safe_album_name[0].upper() + safe_album_name[1:].lower()
         url = f"https://api.smugmug.com/api/v2/node/{node_id}!children"
         print(url)
         headers = {
@@ -89,7 +93,7 @@ class SmugMug(PhotoService):
         payload = {
             "Type": "Album",
             "Name": album_name,
-            "UrlName": album_name[0].upper() + album_name[1:].replace(" ", "-").lower(),  # Creating a URL-friendly name
+            "UrlName": safe_album_name,  # Creating a URL-friendly name
             "Privacy": "Unlisted"  # or another privacy setting as required
         }
         response = self.session.post(url, json=payload, headers=headers)
