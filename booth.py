@@ -225,7 +225,6 @@ class PhotoBooth:
         return picam2
 
     def init_preview(self):
-        app = QApplication([])
         qpicamera2 = QGlPicamera2(
                         self.picam2,
                         width=DISPLAY_WIDTH,
@@ -235,14 +234,13 @@ class PhotoBooth:
                     )
         qpicamera2.timer = QtCore.QTimer()
         qpicamera2.timer.start(25)
-        qpicamera2.timer.timeout.connect(photo_booth.main_loop)
-        qpicamera2.done_signal.connect(photo_booth.capture_done)
+        qpicamera2.timer.timeout.connect(self.main_loop)
+        qpicamera2.done_signal.connect(self.capture_done)
         qpicamera2.mousePressEvent = close_window
 
         self.picam2.start()
 
         qpicamera2.showFullScreen()
-        app.exec()
         return qpicamera2
 
     def set_capture_overlay(self):
@@ -527,6 +525,7 @@ def load_config():
 
 
 config = load_config()
+app = QApplication([])
 photo_booth = PhotoBooth(config)
-
+app.exec()
 
