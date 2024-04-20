@@ -29,7 +29,6 @@ BUTTON_PIN = 14
 PWM_FREQ = 20000
 
 # Timing
-DISPLAY_S = 
 SHUTDOWN_HOLD_TIME = 4
 
 # Capture sequence timing
@@ -155,6 +154,7 @@ class PhotoBooth:
         
         self._display_gray = config.get("display_gray", True)
         self._display_timeout = config["display_timeout"]
+        self._display_shuffle_time = config["display_shuffle_time"]
         
         self._color_postfix = config["color_postfix"]
         self._gray_postfix = config["gray_postfix"]
@@ -504,7 +504,7 @@ class PhotoBooth:
                             self.add_qr_code(qr_code)
                             self.qpicamera2.set_overlay(self._overlay)
                 
-                shuffle_time = self._config["display_shuffle_time"]
+                shuffle_time = self._display_shuffle_time
                 if shuffle_time > 0:
                     if (perf_counter - shuffle_time) > self.timestamps["display_image"]:
                         self.display_random_file()
