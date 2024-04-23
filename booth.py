@@ -291,7 +291,7 @@ class PhotoBooth:
             self.timestamps["countdown"] = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            qpicamera2.set_overlay(overlay)
+            self.qpicamera2.set_overlay(overlay)
     
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
@@ -313,7 +313,7 @@ class PhotoBooth:
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
         if self.state == "display_capture":
-            qpicamera2.set_overlay(BLACK_OVERLAY)
+            self.qpicamera2.set_overlay(BLACK_OVERLAY)
             display_image = self.save_capture()
             self.display_image(display_image)
     
@@ -402,7 +402,7 @@ class PhotoBooth:
         if qr_code is not None:
             self.add_qr_code(qr_code)
         
-        qpicamera2.set_overlay(self._overlay)
+        self.qpicamera2.set_overlay(self._overlay)
         
     def check_shutdown_button(self, perf_counter):
         if self.is_button_pressed():
