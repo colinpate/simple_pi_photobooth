@@ -53,7 +53,6 @@ DISPLAY_IMG_HEIGHT = int(DISPLAY_IMG_WIDTH * FULL_IMG_HEIGHT / FULL_IMG_WIDTH)
 BORDER_HEIGHT = int((DISPLAY_HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
 
 FOCUS_MODE = False
-PREV_SATURATION = 0.0 # 0 for Black and White
 
 if FOCUS_MODE:
     HCROP_RATIO = 1/8
@@ -196,6 +195,7 @@ class PhotoBooth:
         self.capture_start_time = time.perf_counter()
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
+        self._prev_saturation = 0 if config["display_gray"] else 1
         
         self.picam2 = self.init_camera()
         self.qpicamera2 = self.init_preview()
@@ -216,7 +216,7 @@ class PhotoBooth:
         if not FOCUS_MODE:
             picam2.set_controls({
                 "Sharpness": 1,
-                "Saturation": PREV_SATURATION
+                "Saturation": self._prev_saturation
                 })
         picam2.set_controls({"AeEnable": True})
         picam2.set_controls({"ScalerCrop": get_prev_crop_rectangle(crop_to_screen=False)}) # Don't crop the initial preview
@@ -510,7 +510,7 @@ class PhotoBooth:
                 return
             self.picam2.set_controls({
                     "ScalerCrop": self._prev_crop_rectangle,
-                    "Saturation": PREV_SATURATION,
+                    "Saturation": self._prev_saturation,
                     "AeEnable": True,
                 })
             self.qpicamera2.set_overlay(None)
