@@ -17,3 +17,6 @@ continuous_cap: false # Capture photos constantly when in idle state, for debugg
 enable_upload: true
 color_postfix: "_color"
 gray_postfix: "_gray"
+smugmug_creds_path: "/home/patecolin/smugmug.json"
+photo_title: ""
+photo_caption: "Tap and hold to save!"

@@ -4,6 +4,7 @@ from rauth import OAuth1Session
 from pprint import pprint
 import random
 from photo_service import PhotoService
+from common import load_config
 
 BASE_URL = "https://api.smugmug.com/api/v2"
 UPLOAD_URL = "https://upload.smugmug.com/api/v2"
@@ -17,7 +18,8 @@ def load_creds(creds_file):
         
 class SmugMug(PhotoService):
     def __init__(self):
-        creds = load_creds("/home/colin/smugmug.json")
+        config = load_config()
+        creds = load_creds(config["smugmug_creds_path"])
         token = creds["token"]
         key = creds["key"]
         secret = creds["secret"]
@@ -35,14 +37,25 @@ class SmugMug(PhotoService):
         user_name = creds["user_name"]
         self.root_node = self.get_user_node(user_name)
         self.album_uri = None
+        
+        self._caption = config["photo_caption"]
+        self._title = config["photo_title"]
             
     def upload_photo(self, photo_path, photo_name):
-        uri = self._upload_photo(photo_path)
-        return uri["Image"]["URL"]
+        response = self._upload_photo(photo_path)
+        uri = response["Image"]["ImageUri"]
+        self.set_image_properties(uri)
+        return response["Image"]["URL"]
             
     def create_album(self, album_name):
         # Create an album
         self.album_uri = self.create_album_under_node(self.root_node, album_name)
+
+    def caption(self):
+        return self._caption
+        
+    def title(self):
+        return self._title
 
     def get_user_node(self, user_name):
         url = f"https://api.smugmug.com/api/v2/user/{user_name}"
@@ -140,6 +153,20 @@ class SmugMug(PhotoService):
         else:
             print(f"Failed to upload photo. Status code: {response.status_code}")
             return response.json()
+            
+    def set_image_properties(self, image_uri):
+        url = f'https://api.smugmug.com{image_uri}'
+        print("Patching", url)
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        payload = {
+            "Caption": self.caption(),
+            "Title": self.title()
+        }
+        response = self.session.patch(url, json=payload, headers=headers)
+        return response.json()
         
 
 def main():

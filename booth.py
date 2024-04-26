@@ -9,7 +9,6 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 import numpy as np
 import os
-import yaml
 import random
 import glob
 import pickle
@@ -19,6 +18,7 @@ from PIL import Image
 import piexif
 import sys
 from image_path_db import ImagePathDB
+from common import load_config
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -514,14 +514,6 @@ class PhotoBooth:
                     "AeEnable": True,
                 })
             self.qpicamera2.set_overlay(None)
-
-
-def load_config():
-    parent_dir = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(parent_dir, "config.yaml")
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.Loader)
-    return config
 
 
 config = load_config()
