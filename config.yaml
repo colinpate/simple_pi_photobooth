@@ -5,10 +5,10 @@ qr_dir: "/home/colin/booth_qrs"
 photo_path_db: "/home/colin/booth_photos/photo_db.json"
 qr_path_db: "/home/colin/booth_qrs/qr_db.json"
 qr_pos: [0, 405, 195, 195]
-display_gray: true
+display_gray: false
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
 display_timeout: 1200 # 20 minutes
-led_idle_brightness: 15
+led_idle_brightness: 15 # normally 15
 led_capture_brightness: 100 # normally 100
 button_pulse_time: 5
 crop_preview: true # normally True
@@ -17,6 +17,6 @@ continuous_cap: false # Capture photos constantly when in idle state, for debugg
 enable_upload: true
 color_postfix: "_color"
 gray_postfix: "_gray"
-smugmug_creds_path: "/home/patecolin/smugmug.json"
+smugmug_creds_path: "/home/colin/smugmug.json"
 photo_title: ""
 photo_caption: "Tap and hold to save!"
