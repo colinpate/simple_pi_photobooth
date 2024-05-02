@@ -9,7 +9,6 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 import numpy as np
 import os
-import yaml
 import random
 import glob
 import pickle
@@ -20,29 +19,17 @@ import piexif
 import sys
 from image_path_db import ImagePathDB
 from timers import Timers
+from common import load_config
 
 # Pi 5 stuff
 from gpiozero import Button
 from rpi_hardware_pwm import HardwarePWM
 
-def load_config():
-    parent_dir = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(parent_dir, "config.yaml")
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.Loader)
-    return config
-
-config = load_config() #TODO make this be in a function LOL
-
 # GPIO
 BUTTON_PIN = 14
 PWM_FREQ = 20000
-LED_COOL_IDLE_DC = config["led_idle_brightness"]
-LED_COOL_CAPTURE_DC = config["led_capture_brightness"] # for testing
-BUTTON_PULSE_TIME = config["button_pulse_time"]
 
 # Timing
-DISPLAY_S = config["display_timeout"]
 SHUTDOWN_HOLD_TIME = 4
 
 # Capture sequence timing
@@ -67,7 +54,6 @@ DISPLAY_IMG_HEIGHT = int(DISPLAY_IMG_WIDTH * FULL_IMG_HEIGHT / FULL_IMG_WIDTH)
 BORDER_HEIGHT = int((DISPLAY_HEIGHT - DISPLAY_IMG_HEIGHT) / 2)
 
 FOCUS_MODE = False
-PREV_SATURATION = 0.0 # 0 for Black and White
 
 if FOCUS_MODE:
     HCROP_RATIO = 1/8
@@ -86,20 +72,6 @@ FULL_CROP_RECTANGLE = (
         CROP_WIDTH,
         CROP_HEIGHT,
     )
-    
-# Crop the preview vertically so it doesn't look weird
-if config["crop_preview"]:
-    Y_RATIO = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (CROP_HEIGHT / CROP_WIDTH)
-else:
-    Y_RATIO = 1
-PREV_CROP_HEIGHT = int(CROP_HEIGHT * Y_RATIO)
-PREV_CROP_OFFSET_Y = int((FULL_IMG_HEIGHT - PREV_CROP_HEIGHT) / 2)
-PREV_CROP_RECTANGLE = (
-        CROP_OFFSET_X,
-        PREV_CROP_OFFSET_Y,
-        CROP_WIDTH,
-        PREV_CROP_HEIGHT
-)
 
 # Overlay stuff
 colour = (255, 255, 255, 255)
@@ -114,9 +86,27 @@ capture_overlay[:] = (255, 255, 255, 255)
 BLACK_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 BLACK_OVERLAY[:]  = (0, 0, 0, 255)
     
-
-def set_capture_overlay():
-    qpicamera2.set_overlay(capture_overlay)
+    
+def get_prev_crop_rectangle(crop_to_screen=True):
+    # Crop the preview vertically so it doesn't look weird
+    if crop_to_screen:
+        y_ratio = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (CROP_HEIGHT / CROP_WIDTH)
+    else:
+        y_ratio = 1
+    prev_crop_height = int(CROP_HEIGHT * y_ratio)
+    prev_crop_offset_y = int((FULL_IMG_HEIGHT - prev_crop_height) / 2)
+    prev_crop_rectangle = (
+            CROP_OFFSET_X,
+            prev_crop_height,
+            CROP_WIDTH,
+            prev_crop_height
+    )
+    return prev_crop_rectangle
+    
+    
+def close_window(event):
+    photo_booth.stop_pwm()
+    sys.exit(0)
     
     
 def load_lens_cal(cal_file):
@@ -163,10 +153,16 @@ class PhotoBooth:
         self._gray_image_dir = config["gray_image_dir"]
         
         self._display_gray = config.get("display_gray", True)
+        self._display_timeout = config["display_timeout"]
+        self._display_shuffle_time = config["display_shuffle_time"]
         
         self._color_postfix = config["color_postfix"]
         self._gray_postfix = config["gray_postfix"]
         self._display_postfix = self._gray_postfix if self._display_gray else self._color_postfix 
+        
+        self._led_idle_dc = config["led_idle_brightness"]
+        self._led_capture_dc = config["led_capture_brightness"] # for testing
+        self._button_pulse_time = config["button_pulse_time"]
         
         self._overlay = None
         self._displaying_qr_code = False
@@ -201,6 +197,58 @@ class PhotoBooth:
         
         self.timers = Timers()
         self.timers.start("button_release", SHUTDOWN_HOLD_TIME)
+        
+        self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
+        self._prev_saturation = 0 if config["display_gray"] else 1
+        
+        self.picam2 = self.init_camera()
+        self.qpicamera2 = self.init_preview()
+            
+    def init_camera(self):
+        picam2 = Picamera2()
+        picam2.options["quality"] = 95
+
+        still_config = picam2.create_still_configuration(
+                lores={"size": PREV_STREAM_DIMS},
+                display="lores",
+                buffer_count=3,
+            )
+
+        picam2.configure(still_config)
+        got_config = picam2.camera_configuration()
+
+        if not FOCUS_MODE:
+            picam2.set_controls({
+                "Sharpness": 1,
+                "Saturation": self._prev_saturation
+                })
+        picam2.set_controls({"AeEnable": True})
+        picam2.set_controls({"ScalerCrop": get_prev_crop_rectangle(crop_to_screen=False)}) # Don't crop the initial preview
+        picam2.set_controls({"AeExposureMode": AE_MODE})
+        picam2.set_controls({"AwbMode": AWB_MODE})
+        return picam2
+
+    def init_preview(self):
+        qpicamera2 = QGlPicamera2(
+                        self.picam2,
+                        width=DISPLAY_WIDTH,
+                        height=DISPLAY_HEIGHT,
+                        keep_ar=False,
+                        transform=libcamera.Transform(hflip=1)
+                    )
+        qpicamera2.timer = QtCore.QTimer()
+        qpicamera2.timer.start(25)
+        qpicamera2.timer.timeout.connect(self.main_loop)
+        qpicamera2.done_signal.connect(self.capture_done)
+        qpicamera2.mousePressEvent = close_window
+
+        self.picam2.start()
+
+        qpicamera2.showFullScreen()
+        return qpicamera2
+
+    def set_capture_overlay(self):
+        self.qpicamera2.set_overlay(capture_overlay)
 
     def init_gpio(self):
         self.init_button()
@@ -230,15 +278,15 @@ class PhotoBooth:
 
     def set_leds(self, idle=True, fade=0):
         if fade:
-            interval = LED_COOL_CAPTURE_DC - LED_COOL_IDLE_DC
+            interval = self._led_capture_dc - self._led_idle_dc
             fade = max(min(fade, 1), 0)
-            dc = min(100, interval * fade + LED_COOL_IDLE_DC)
+            dc = min(100, interval * fade + self._led_idle_dc)
             self.change_main_led_dc(dc)
         else:
             if idle:
-                self.change_main_led_dc(LED_COOL_IDLE_DC)
+                self.change_main_led_dc(self._led_idle_dc)
             else:
-                self.change_main_led_dc(LED_COOL_CAPTURE_DC)
+                self.change_main_led_dc(self._led_capture_dc)
         
     def apply_timestamp_overlay(self):
         perf_counter = time.perf_counter()
@@ -247,10 +295,10 @@ class PhotoBooth:
             self.timestamps["countdown"] = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            qpicamera2.set_overlay(overlay)
+            self.qpicamera2.set_overlay(overlay)
     
     def capture_done(self, job):
-        (self.image_array,), metadata = picam2.wait(job)
+        (self.image_array,), metadata = self.picam2.wait(job)
         self.set_leds(idle=True)
         #print("Capture time", time.perf_counter() - self.capture_start_time)
         self.exposure_settings = {
@@ -269,7 +317,7 @@ class PhotoBooth:
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
         if self.state == "display_capture":
-            qpicamera2.set_overlay(BLACK_OVERLAY)
+            self.qpicamera2.set_overlay(BLACK_OVERLAY)
             display_image = self.save_capture()
             self.display_image(display_image)
     
@@ -331,11 +379,14 @@ class PhotoBooth:
         photo_names = list(self.photo_path_db.image_names())
         num_files = len(photo_names)
         name = photo_names[random.randrange(num_files)]
-        self._display_image_name = name
         photo_path = self.photo_path_db.get_image_path(name, self._display_postfix)
-        print("Randomly displaying", photo_path)
-        image = cv2.imread(photo_path)
-        self.display_image(image, qr_code=self.get_qr_code(name))
+        if os.path.exists(photo_path):
+            self._display_image_name = name
+            print("Randomly displaying", photo_path)
+            image = cv2.imread(photo_path)
+            self.display_image(image, qr_code=self.get_qr_code(name))
+        else:
+            print("Error: Random photo", photo_path, "doesn't exist")
     
     def add_qr_code(self, qr_code):
         self._displaying_qr_code = True
@@ -355,7 +406,7 @@ class PhotoBooth:
         if qr_code is not None:
             self.add_qr_code(qr_code)
         
-        qpicamera2.set_overlay(self._overlay)
+        self.qpicamera2.set_overlay(self._overlay)
         
     def check_shutdown_button(self):
         if self.is_button_pressed():
@@ -370,10 +421,10 @@ class PhotoBooth:
         if self.state == "countdown":
             self.change_button_led_dc(100)
         elif (self.state == "idle") or (self.state == "display_capture"):
-            pulse_time = perf_counter % BUTTON_PULSE_TIME
-            half_pulse_time = BUTTON_PULSE_TIME / 2
+            pulse_time = perf_counter % self._button_pulse_time
+            half_pulse_time = self._button_pulse_time / 2
             if pulse_time > half_pulse_time:
-                pulse_time = BUTTON_PULSE_TIME - pulse_time
+                pulse_time = self._button_pulse_time - pulse_time
              
             ratio = pulse_time / half_pulse_time
             pwm_ratio = 1 - (np.exp(ratio * 3) / np.exp(3))
@@ -398,7 +449,7 @@ class PhotoBooth:
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
                 self.capture_start_time = perf_counter
-                set_capture_overlay()
+                self.set_capture_overlay()
             else:
                 self.apply_timestamp_overlay()
                 time_left = self.timers.time_left("counts")
@@ -414,7 +465,7 @@ class PhotoBooth:
                 if time_left <= EXPOSURE_SET_S:
                     if not self.exposure_set:
                         print("Setting exposure at", (perf_counter - self.start_time))
-                        picam2.set_controls(
+                        self.picam2.set_controls(
                             self.exposure_settings
                         )
                         self.exposure_set = True
@@ -422,12 +473,12 @@ class PhotoBooth:
                         if time_left > (EXPOSURE_SET_S - 0.2):
                             # Spam this for 0.2s
                             print("Setting AE true")
-                            picam2.set_controls({"AeEnable": True})
+                            self.picam2.set_controls({"AeEnable": True})
                         
                 if time_left <= PRE_CONTROL_S:
                     if not self.mode_switched:
                         print("Switching mode at", (perf_counter - self.start_time))
-                        picam2.set_controls({
+                        self.picam2.set_controls({
                                 "ScalerCrop": FULL_CROP_RECTANGLE,
                                 "Saturation": 1.0,
                             })
@@ -438,90 +489,39 @@ class PhotoBooth:
             self.timestamps["display_image"] = perf_counter
             self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
-            picam2.capture_arrays(["main"], signal_function=qpicamera2.signal_done)
+            self.picam2.capture_arrays(["main"], signal_function=self.qpicamera2.signal_done)
         elif self.state == "display_capture":
-            if perf_counter >= (self.timestamps["display_capture"] + DISPLAY_S):
+            if perf_counter >= (self.timestamps["display_capture"] + self._display_timeout):
                 self.state = "idle"
             elif self.is_button_pressed():
                 self.start_time = perf_counter
                 self.state = "countdown"
             else:
-                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.5):
+                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.25):
                     self.timestamps["qr_code_check"] = perf_counter
                     if self._display_image_name and not self._displaying_qr_code:
                         qr_code = self.get_qr_code(self._display_image_name)
                         if qr_code is not None:
                             print("FOUND QR CODE", self._display_image_name)
                             self.add_qr_code(qr_code)
-                            qpicamera2.set_overlay(self._overlay)
+                            self.qpicamera2.set_overlay(self._overlay)
                 
-                shuffle_time = self._config["display_shuffle_time"]
+                shuffle_time = self._display_shuffle_time
                 if shuffle_time > 0:
                     if (perf_counter - shuffle_time) > self.timestamps["display_image"]:
                         self.display_random_file()
                         self.timestamps["display_image"] = perf_counter
                 return
-            picam2.set_controls({
-                    "ScalerCrop": PREV_CROP_RECTANGLE,
-                    "Saturation": PREV_SATURATION,
+            self.picam2.set_controls({
+                    "ScalerCrop": self._prev_crop_rectangle,
+                    "Saturation": self._prev_saturation,
                     "AeEnable": True,
                 })
-            qpicamera2.set_overlay(None)
-            
-photo_booth = PhotoBooth(config)
-            
-picam2 = Picamera2()
-picam2.options["quality"] = 95
+            self.qpicamera2.set_overlay(None)
 
-config = picam2.create_still_configuration(
-        lores={"size": PREV_STREAM_DIMS},
-        display="lores",
-        buffer_count=3,
-    )
-print("Camera requested config:")
-pprint(config)
 
-picam2.configure(config)
-got_config = picam2.camera_configuration()
-print("Camera got config:")
-pprint(got_config)
-
-if not FOCUS_MODE:
-    picam2.set_controls({
-        "Sharpness": 1,
-        "Saturation": PREV_SATURATION
-        })
-picam2.set_controls({"AeEnable": True})
-picam2.set_controls({"ScalerCrop": PREV_CROP_RECTANGLE})
-picam2.set_controls({"AeExposureMode": AE_MODE})
-picam2.set_controls({"AwbMode": AWB_MODE})
-
-def close_window(event):
-    photo_booth.stop_pwm()
-    sys.exit(0)
-
+config = load_config()
 app = QApplication([])
-qpicamera2 = QGlPicamera2(
-                picam2,
-                width=DISPLAY_WIDTH,
-                height=DISPLAY_HEIGHT,
-                keep_ar=False,
-                transform=libcamera.Transform(hflip=1)
-            )
-qpicamera2.timer = QtCore.QTimer()
-qpicamera2.timer.start(25)
-qpicamera2.timer.timeout.connect(photo_booth.main_loop)
-qpicamera2.done_signal.connect(photo_booth.capture_done)
-qpicamera2.mousePressEvent = close_window
-
-picam2.start()
-
-# Uncomment for light testing
-#picam2.set_controls({"AeEnable": False})
-#picam2.set_controls({"ExposureTime": 30400, "AnalogueGain": 4.0})
-
-print("Camera properties")
-pprint(picam2.camera_properties)
-qpicamera2.showFullScreen()
+photo_booth = PhotoBooth(config)
 app.exec()
 
