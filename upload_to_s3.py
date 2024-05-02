@@ -74,6 +74,7 @@ def get_album_title():
 
 def main():
     config = load_config() #TODO make this be in a function LOL
+    display_gray = config.get("display_gray", True)
     qr_db = ImagePathDB(config["qr_path_db"])
     photo_db = ImagePathDB(config["photo_path_db"])
 
@@ -110,9 +111,10 @@ def main():
     
         for photo_name in missing_qr_names[:1]:
             try:
-                for postfix in [color_postfix, gray_postfix]:
-                    file_path = photo_db.get_image_path(photo_name, postfix)
-                    qr_target = service.upload_photo(file_path, photo_name)
+                color_file_path = photo_db.get_image_path(photo_name, color_postfix)
+                gray_file_path = photo_db.get_image_path(photo_name, gray_postfix)
+                file_path = gray_file_path if display_gray else color_file_path
+                qr_target = service.upload_photo(file_path, photo_name)
             except Exception as foo:
                 with open("/home/colin/upload_error.txt", "w") as err_file:
                     err_file.write(str(foo))
@@ -127,7 +129,7 @@ def main():
             print("Qr target", qr_target)
             print("Qr path", qr_path)
             
-        time.sleep(0.5)
+        time.sleep(0.25)
             
 if __name__ == "__main__":
     main()

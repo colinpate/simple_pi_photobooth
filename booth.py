@@ -493,7 +493,7 @@ class PhotoBooth:
                 self.start_time = perf_counter
                 self.state = "countdown"
             else:
-                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.5):
+                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.25):
                     self.timestamps["qr_code_check"] = perf_counter
                     if self._display_image_name and not self._displaying_qr_code:
                         qr_code = self.get_qr_code(self._display_image_name)
