@@ -112,9 +112,10 @@ def main():
         for photo_name in missing_qr_names[:1]:
             try:
                 color_file_path = photo_db.get_image_path(photo_name, color_postfix)
+                color_url = service.upload_photo(color_file_path, photo_name)
                 gray_file_path = photo_db.get_image_path(photo_name, gray_postfix)
-                file_path = gray_file_path if display_gray else color_file_path
-                qr_target = service.upload_photo(file_path, photo_name)
+                gray_url = service.upload_photo(gray_file_path, photo_name)
+                qr_target = gray_url if display_gray else color_url
             except Exception as foo:
                 with open("/home/colin/upload_error.txt", "w") as err_file:
                     err_file.write(str(foo))
