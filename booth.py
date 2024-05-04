@@ -48,7 +48,6 @@ AWB_MODES = [
     controls.AwbModeEnum.Tungsten,
     controls.AwbModeEnum.Fluorescent
     ]
-AWB_INDEX = 0
 
 # Image and display
 DISPLAY_WIDTH=1024
@@ -178,6 +177,7 @@ class PhotoBooth:
         
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
+        self.awb_index = 0
         
         for dir_i in [
                         self._gray_image_dir,
@@ -477,11 +477,11 @@ class PhotoBooth:
                             self.exposure_settings
                         )
                         self.exposure_set = True
-                        print("Setting AWB to", AWB_MODES[AWB_INDEX])
+                        print("Setting AWB to", AWB_MODES[self.awb_index])
                         self.picam2.set_controls(
-                            {"AwbMode": AWB_MODES[AWB_INDEX]}
+                            {"AwbMode": AWB_MODES[self.awb_index]}
                         )
-                        AWB_INDEX = (AWB_INDEX + 1) % len(AWB_MODES)
+                        self.awb_index = (self.awb_index + 1) % len(AWB_MODES)
                     else:
                         if perf_counter <= (end_time - EXPOSURE_SET_S + 0.2):
                             # Spam this for 0.2s
