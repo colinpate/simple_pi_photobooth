@@ -38,7 +38,7 @@ EXPOSURE_SET_S = 1.4 # How long before capture to set exposure
 PRE_CONTROL_S = 0.3 # How long before capture to set the camera controls
 COUNT_S = 5
 
-AWB_MODE = controls.AwbModeEnum.Indoor
+AWB_MODE = controls.AwbModeEnum.Fluorescent
 AE_MODE = controls.AeExposureModeEnum.Short
 
 # Image and display
