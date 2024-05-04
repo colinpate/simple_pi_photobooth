@@ -41,6 +41,15 @@ COUNT_S = 5
 AWB_MODE = controls.AwbModeEnum.Indoor
 AE_MODE = controls.AeExposureModeEnum.Short
 
+AWB_MODES = [
+    controls.AwbModeEnum.Indoor,
+    controls.AwbModeEnum.Cloudy,
+    controls.AwbModeEnum.Daylight,
+    controls.AwbModeEnum.Tungsten,
+    controls.AwbModeEnum.Fluorescent
+    ]
+AWB_INDEX = 0
+
 # Image and display
 DISPLAY_WIDTH=1024
 DISPLAY_HEIGHT=600
@@ -314,11 +323,11 @@ class PhotoBooth:
         print("Lux", metadata["Lux"])
         if self.state == "display_capture":
             self.qpicamera2.set_overlay(BLACK_OVERLAY)
-            display_image = self.save_capture()
+            display_image = self.save_capture(metadata)
             self.display_image(display_image)
     
     
-    def save_capture(self):
+    def save_capture(self, metadata):
         orig_image = self.image_array
         
         if self._lens_cal:
@@ -351,6 +360,9 @@ class PhotoBooth:
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
                 path_dict[postfix] = image_path
+                
+        with open(image_path + "_metadata.txt", "w") as metadata_file:
+            metadata_file.write(str(metadata))
                 
         self.photo_path_db.add_image(photo_name, path_dict)
         self.photo_path_db.update_file()
@@ -465,6 +477,11 @@ class PhotoBooth:
                             self.exposure_settings
                         )
                         self.exposure_set = True
+                        print("Setting AWB to", AWB_MODES[AWB_INDEX])
+                        self.picam2.set_controls(
+                            {"AwbMode": AWB_MODES[AWB_INDEX]}
+                        )
+                        AWB_INDEX = (AWB_INDEX + 1) % len(AWB_MODES)
                     else:
                         if perf_counter <= (end_time - EXPOSURE_SET_S + 0.2):
                             # Spam this for 0.2s
