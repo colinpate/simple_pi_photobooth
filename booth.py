@@ -38,7 +38,7 @@ EXPOSURE_SET_S = 1.4 # How long before capture to set exposure
 PRE_CONTROL_S = 0.3 # How long before capture to set the camera controls
 COUNT_S = 5
 
-AWB_MODE = controls.AwbModeEnum.Fluorescent
+AWB_MODE = controls.AwbModeEnum.Indoor
 AE_MODE = controls.AeExposureModeEnum.Short
 
 # Image and display
@@ -154,6 +154,7 @@ class PhotoBooth:
         self._display_gray = config.get("display_gray", True)
         self._display_timeout = config["display_timeout"]
         self._display_shuffle_time = config["display_shuffle_time"]
+        self._display_first_image_time = config["display_first_image_time"]
         
         self._color_postfix = config["color_postfix"]
         self._gray_postfix = config["gray_postfix"]
@@ -166,6 +167,7 @@ class PhotoBooth:
         self._overlay = None
         self._displaying_qr_code = False
         self._display_image_name = None
+        self._displaying_first_image = False
         
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
@@ -182,6 +184,7 @@ class PhotoBooth:
         self.exposure_settings = {
             "AnalogueGain": 4,
             "ExposureTime": 30000,
+            "AwbMode": AWB_MODE,
         }
         
         self.button = None
@@ -254,7 +257,7 @@ class PhotoBooth:
         self.button = Button(BUTTON_PIN)
         
     def init_pwm(self):
-        self.pwm_button_led = HardwarePWM(pwm_channel=2, hz=PWM_FREQ, chip=2) # This is GPIO 18 on Pi 5
+        self.pwm_button_led = HardwarePWM(pwm_channel=1, hz=PWM_FREQ, chip=2) # This is GPIO 13 on Pi 5
         self.pwm_main_leds = HardwarePWM(pwm_channel=0, hz=PWM_FREQ, chip=2) # This is GPIO 12 on Pi 5
         self.pwm_button_led.start(0)
         self.pwm_main_leds.start(0)
@@ -297,10 +300,8 @@ class PhotoBooth:
         (self.image_array,), metadata = self.picam2.wait(job)
         self.set_leds(idle=True)
         #print("Capture time", time.perf_counter() - self.capture_start_time)
-        self.exposure_settings = {
-            "AnalogueGain": metadata["AnalogueGain"],
-            "ExposureTime": metadata["ExposureTime"],
-        }
+        self.exposure_settings["AnalogueGain"] = metadata["AnalogueGain"]
+        self.exposure_settings["ExposureTime"] = metadata["ExposureTime"]
         print(self.exposure_settings)
         print(
                 "CAP",
@@ -415,7 +416,7 @@ class PhotoBooth:
             
     def set_button_led(self, perf_counter):
         if self.state == "countdown":
-            self.change_button_led_dc(100)
+            self.change_button_led_dc(0)
         elif (self.state == "idle") or (self.state == "display_capture"):
             pulse_time = perf_counter % self._button_pulse_time
             half_pulse_time = self._button_pulse_time / 2
@@ -423,7 +424,7 @@ class PhotoBooth:
                 pulse_time = self._button_pulse_time - pulse_time
              
             ratio = pulse_time / half_pulse_time
-            pwm_ratio = 1 - (np.exp(ratio * 3) / np.exp(3))
+            pwm_ratio = np.exp(ratio * 3) / np.exp(3)
             pwm_val = pwm_ratio * 100
             self.change_button_led_dc(pwm_val)
         
@@ -483,6 +484,7 @@ class PhotoBooth:
             self.state = "display_capture"
             self.timestamps["display_capture"] = perf_counter
             self.timestamps["display_image"] = perf_counter
+            self._displaying_first_image = True
             self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
             self.picam2.capture_arrays(["main"], signal_function=self.qpicamera2.signal_done)
@@ -502,9 +504,13 @@ class PhotoBooth:
                             self.add_qr_code(qr_code)
                             self.qpicamera2.set_overlay(self._overlay)
                 
-                shuffle_time = self._display_shuffle_time
+                if self._displaying_first_image:
+                    shuffle_time = self._display_first_image_time
+                else:
+                    shuffle_time = self._display_shuffle_time
                 if shuffle_time > 0:
                     if (perf_counter - shuffle_time) > self.timestamps["display_image"]:
+                        self._displaying_first_image = False
                         self.display_random_file()
                         self.timestamps["display_image"] = perf_counter
                 return
