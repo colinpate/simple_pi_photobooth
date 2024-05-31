@@ -6,6 +6,7 @@ import os
 import socket
 import time
 from datetime import datetime
+from common import load_config
 from image_path_db import ImagePathDB
 from photo_service import PhotoService
 from google_photos_upload import GooglePhotos
@@ -37,14 +38,6 @@ def wait_for_network_connection():
     while not check_network_connection():
         time.sleep(5)  # wait for 5 seconds before checking again
     print("Network connection established.")
-
-
-def load_config():
-    parent_dir = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(parent_dir, "config.yaml")
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.Loader)
-    return config
 
 
 def create_qr_code(url, qr_code_file_path):
@@ -93,7 +86,8 @@ def main():
             error_file.write(str(e))
         service = S3Photos()
         
-    service.create_album(get_album_title())
+    album_title = config.get("album_title", get_album_title())
+    service.create_album(album_title)
         
     while True:
         # Returns list of photo file names

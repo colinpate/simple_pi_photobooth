@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 from rauth import OAuth1Session
 from pprint import pprint
 import random
@@ -9,6 +10,31 @@ from common import load_config
 BASE_URL = "https://api.smugmug.com/api/v2"
 UPLOAD_URL = "https://upload.smugmug.com/api/v2"
 
+parent_dir = os.path.dirname(os.path.realpath(__file__))
+URI_FILE_PATH = os.path.join(parent_dir, "album_uris.json")
+
+
+def save_album_uri(album_title, album_uri):
+    album_uris = {}
+    if os.path.exists(URI_FILE_PATH):
+        with open(URI_FILE_PATH, "r") as f:
+            album_uris = json.load(f)
+    album_uris[album_title] = album_uri
+    with open(URI_FILE_PATH, "w") as f:
+        json.dump(album_uris, f)
+        
+        
+def load_album_uri(album_title):
+    if not os.path.exists(URI_FILE_PATH):
+        return None
+    with open(URI_FILE_PATH, "r") as f:
+        album_uris = json.load(f)
+    try:
+        album_uri = album_uris[album_title]
+        return album_uri
+    except KeyError:
+       return None
+            
             
 def load_creds(creds_file):
     with open(creds_file, "r") as file_obj:
@@ -49,7 +75,12 @@ class SmugMug(PhotoService):
             
     def create_album(self, album_name):
         # Create an album
-        self.album_uri = self.create_album_under_node(self.root_node, album_name)
+        album_uri = load_album_uri(album_name)
+        if album_uri == None:
+            self.album_uri = self.create_album_under_node(self.root_node, album_name)
+            save_album_uri(album_name, self.album_uri)
+        else:
+            self.album_uri = album_uri
 
     def caption(self):
         return self._caption
