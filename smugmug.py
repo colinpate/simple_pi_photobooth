@@ -74,12 +74,15 @@ class SmugMug(PhotoService):
         return response["Image"]["URL"]
             
     def create_album(self, album_name):
+        print("smugmug.py: Album title", album_name)
         # Create an album
         album_uri = load_album_uri(album_name)
         if album_uri == None:
+            print("Album URI not found, creating")
             self.album_uri = self.create_album_under_node(self.root_node, album_name)
             save_album_uri(album_name, self.album_uri)
         else:
+            print("Album URI found")
             self.album_uri = album_uri
 
     def caption(self):
@@ -127,6 +130,7 @@ class SmugMug(PhotoService):
         safe_album_name = album_name.replace(":", "")
         safe_album_name = safe_album_name.replace("/", "")
         safe_album_name = safe_album_name.replace(" ", "")
+        safe_album_name = safe_album_name.replace("&", "")
         safe_album_name = safe_album_name[0].upper() + safe_album_name[1:].lower()
         url = f"https://api.smugmug.com/api/v2/node/{node_id}!children"
         print(url)
