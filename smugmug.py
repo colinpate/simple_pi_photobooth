@@ -127,10 +127,10 @@ class SmugMug(PhotoService):
             return None
 
     def create_album_under_node(self, node_id, album_name):
-        safe_album_name = album_name.replace(":", "")
-        safe_album_name = safe_album_name.replace("/", "")
-        safe_album_name = safe_album_name.replace(" ", "")
-        safe_album_name = safe_album_name.replace("&", "")
+        safe_album_name = ""
+        for char in album_name:
+            if char.isalnum():
+                safe_album_name += char
         safe_album_name = safe_album_name[0].upper() + safe_album_name[1:].lower()
         url = f"https://api.smugmug.com/api/v2/node/{node_id}!children"
         print(url)
