@@ -366,24 +366,34 @@ class PhotoBooth:
     def get_qr_code(self, image_name):
         if not self.qr_path_db.try_update_from_file():
             print("Error updating qr path db")
+        qr_image = None
         if self.qr_path_db.image_exists(image_name):
             qr_path = self.qr_path_db.get_image_path(image_name)
-            return cv2.imread(qr_path)
-        else:
-            return None
+            try:
+                qr_image = cv2.imread(qr_path)
+            except:
+                print("Error: Failed to load QR ", qr_path)
+        return qr_image
     
     def display_random_file(self):
         photo_names = list(self.photo_path_db.image_names())
         num_files = len(photo_names)
         name = photo_names[random.randrange(num_files)]
         photo_path = self.photo_path_db.get_image_path(name, self._display_postfix)
+        loaded_image = False
+        image = None
         if os.path.exists(photo_path):
             self._display_image_name = name
             print("Randomly displaying", photo_path)
-            image = cv2.imread(photo_path)
-            self.display_image(image, qr_code=self.get_qr_code(name))
+            try:
+                image = cv2.imread(photo_path)
+                loaded_image = True
+            except:
+                print("Error: Failed to load ", image)
         else:
             print("Error: Random photo", photo_path, "doesn't exist")
+        if loaded_image:
+            self.display_image(image, qr_code=self.get_qr_code(name))
     
     def add_qr_code(self, qr_code):
         self._displaying_qr_code = True

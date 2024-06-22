@@ -100,7 +100,7 @@ def main():
             
             if not config.get("enable_upload", True):
                 print("Upload disabled, skipping")
-                time.slget_keyseep(1)
+                time.sleep(1)
                 continue
     
         for photo_name in missing_qr_names[:1]:
@@ -111,7 +111,8 @@ def main():
                 gray_url = service.upload_photo(gray_file_path, photo_name)
                 qr_target = gray_url if display_gray else color_url
             except Exception as foo:
-                with open("/home/colin/upload_error.txt", "w") as err_file:
+                with open("/home/colin/upload_error.txt", "a") as err_file:
+                    err_file.write("\n" + datetime.now() + "\n")
                     err_file.write(str(foo))
                 print("Failed to upload", photo_name)
                 continue
