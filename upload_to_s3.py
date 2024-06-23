@@ -111,10 +111,10 @@ def main():
                 gray_url = service.upload_photo(gray_file_path, photo_name)
                 qr_target = gray_url if display_gray else color_url
             except Exception as foo:
+                print("Failed to upload", photo_name)
                 with open("/home/colin/upload_error.txt", "a") as err_file:
                     err_file.write("\n" + datetime.now() + "\n")
                     err_file.write(str(foo))
-                print("Failed to upload", photo_name)
                 continue
             
             os.makedirs(config["qr_dir"], exist_ok=True)
