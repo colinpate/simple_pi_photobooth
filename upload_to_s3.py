@@ -102,6 +102,8 @@ def main():
                 print("Upload disabled, skipping")
                 time.sleep(1)
                 continue
+                
+        error_photos = []
     
         for photo_name in missing_qr_names:
             try:
@@ -113,9 +115,11 @@ def main():
             except Exception as foo:
                 print("Failed to upload", photo_name)
                 print("Exception", foo)
-                with open("/home/colin/upload_error.txt", "a") as err_file:
-                    err_file.write("\n" + str(datetime.now()) + "\n")
-                    err_file.write(str(foo))
+                if photo_name not in error_photos:
+                    with open("/home/colin/upload_error.txt", "a") as err_file:
+                        err_file.write("\n" + str(datetime.now()) + "\n")
+                        err_file.write(str(foo))
+                    error_photos.append(photo_name)
                 continue
             
             os.makedirs(config["qr_dir"], exist_ok=True)
