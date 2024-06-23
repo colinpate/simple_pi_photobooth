@@ -96,7 +96,6 @@ class SmugMug(PhotoService):
 
     def get_user_node(self, user_name):
         url = f"https://api.smugmug.com/api/v2/user/{user_name}"
-        print(url)
         headers = {
             "Accept": "application/json"
         }
@@ -136,7 +135,6 @@ class SmugMug(PhotoService):
                 safe_album_name += char
         safe_album_name = safe_album_name[0].upper() + safe_album_name[1:].lower()
         url = f"https://api.smugmug.com/api/v2/node/{node_id}!children"
-        print(url)
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -186,15 +184,14 @@ class SmugMug(PhotoService):
 
         # Check if the upload was successful
         if response.status_code == 200:
-            print("Upload successful.")
+            print("smugmug.py: Successfully uploaded", photo_path)
             return response.json()
         else:
-            print(f"Failed to upload photo. Status code: {response.status_code}")
+            print(f"smugmug.py: Failed to upload", photo_path, "Status code: {response.status_code}")
             return response.json()
             
     def set_image_properties(self, image_uri):
         url = f'https://api.smugmug.com{image_uri}'
-        print("Patching", url)
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json"
