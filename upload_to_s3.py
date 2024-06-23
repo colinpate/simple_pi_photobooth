@@ -103,7 +103,7 @@ def main():
                 time.sleep(1)
                 continue
     
-        for photo_name in missing_qr_names[:1]:
+        for photo_name in missing_qr_names:
             try:
                 color_file_path = photo_db.get_image_path(photo_name, color_postfix)
                 color_url = service.upload_photo(color_file_path, photo_name)

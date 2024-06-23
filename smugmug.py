@@ -72,8 +72,7 @@ class SmugMug(PhotoService):
         try:
             uri = response["Image"]["ImageUri"]
         except KeyError:
-            print("Key [Image][ImageUri] not found: " + str(response))
-            return
+            raise ValueError("Key [Image][ImageUri] not found: " + str(response))
         self.set_image_properties(uri)
         return response["Image"]["URL"]
             
