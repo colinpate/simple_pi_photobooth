@@ -69,7 +69,11 @@ class SmugMug(PhotoService):
             
     def upload_photo(self, photo_path, photo_name):
         response = self._upload_photo(photo_path)
-        uri = response["Image"]["ImageUri"]
+        try:
+            uri = response["Image"]["ImageUri"]
+        except KeyError:
+            print("Key [Image][ImageUri] not found: " + response)
+            return
         self.set_image_properties(uri)
         return response["Image"]["URL"]
             

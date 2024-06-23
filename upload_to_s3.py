@@ -113,7 +113,7 @@ def main():
             except Exception as foo:
                 print("Failed to upload", photo_name)
                 with open("/home/colin/upload_error.txt", "a") as err_file:
-                    err_file.write("\n" + datetime.now() + "\n")
+                    err_file.write("\n" + str(datetime.now()) + "\n")
                     err_file.write(str(foo))
                 continue
             
