@@ -119,6 +119,7 @@ def main():
         missing_qr_names = list(photo_db.image_names() - qr_db.image_names())
         
         if len(missing_qr_names):
+            print()
             print("upload_to_s3.py: Missing qr codes")
             print(missing_qr_names)
             
@@ -144,7 +145,7 @@ def main():
             print("upload_to_s3.py: Qr target", qr_target)
             print("upload_to_s3.py: Qr path", qr_path)
             
-        time.sleep(0.25)
+        time.sleep(0.5)
             
 if __name__ == "__main__":
     main()
