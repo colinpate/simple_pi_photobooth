@@ -70,7 +70,7 @@ def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
     image_url = None
     try:
         file_path = photo_db.get_image_path(photo_name, postfix)
-        image_url = service.upload_photo(display_file_path, photo_name)
+        image_url = service.upload_photo(file_path, photo_name)
         success = True
     except Exception as foo:
         photo_error_id = photo_name + postfix
