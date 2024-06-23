@@ -65,7 +65,7 @@ def get_album_title():
     return album_title
 
 
-def attempt_upload(photo_name, postfix, error_photos):
+def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
     success = False
     image_url = None
     try:
@@ -129,12 +129,12 @@ def main():
     
         for photo_name in missing_qr_names:
             # First upload the photo that the QR code will link to. If it fails, go to the next photo
-            upload_success, qr_target = attempt_upload(photo_name, display_postfix, error_photos)
+            upload_success, qr_target = attempt_upload(photo_name, display_postfix, error_photos, photo_db, service)
             if not upload_success:
                 continue
                 
             # Then if that succeeds, try to upload the other photo
-            attempt_upload(photo_name, other_postfix, error_photos)
+            attempt_upload(photo_name, other_postfix, error_photos, photo_db, service)
             
             os.makedirs(config["qr_dir"], exist_ok=True)
             qr_path = os.path.join(qr_dir, photo_name + ".png")
