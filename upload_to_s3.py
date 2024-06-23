@@ -112,6 +112,7 @@ def main():
                 qr_target = gray_url if display_gray else color_url
             except Exception as foo:
                 print("Failed to upload", photo_name)
+                print("Exception", foo)
                 with open("/home/colin/upload_error.txt", "a") as err_file:
                     err_file.write("\n" + str(datetime.now()) + "\n")
                     err_file.write(str(foo))
