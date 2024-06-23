@@ -88,6 +88,8 @@ def main():
         
     album_title = config.get("album_title", get_album_title())
     service.create_album(album_title)
+                
+    error_photos = []
         
     while True:
         # Returns list of photo file names
@@ -102,8 +104,6 @@ def main():
                 print("Upload disabled, skipping")
                 time.sleep(1)
                 continue
-                
-        error_photos = []
     
         for photo_name in missing_qr_names:
             try:
