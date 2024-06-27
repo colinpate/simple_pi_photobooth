@@ -79,7 +79,7 @@ def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
         photo_error_id = photo_name + postfix
         if photo_error_id not in error_photos:
             with open("/home/colin/upload_error.txt", "a") as err_file:
-                err_file.write("\n" + str(datetime.now()) + "\n")
+                err_file.write("\n" + photo_error_id + " upload failed at " + str(datetime.now()) + "\n")
                 err_file.write(str(foo))
             error_photos.append(photo_error_id)
     return success, image_url
@@ -117,6 +117,8 @@ def main():
         # Returns list of photo file names
         photo_db.try_update_from_file()
         missing_qr_names = list(photo_db.image_names() - qr_db.image_names())
+        missing_qr_names.sort() # Sort from oldest to newest
+        missing_qr_names = missing_qr_names[::-1] # Reverse order so we start from newest
         
         if len(missing_qr_names):
             print()
