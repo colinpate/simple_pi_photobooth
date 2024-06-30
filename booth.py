@@ -466,7 +466,7 @@ class PhotoBooth:
                             self.exposure_settings
                         )
                         self.exposure_set = True
-                    else:
+                    else: # After setting the exposure, turn on Autoexposure so it can adjust if needed
                         if perf_counter <= (end_time - EXPOSURE_SET_S + 0.2):
                             # Spam this for 0.2s
                             print("Setting AE true")
