@@ -293,7 +293,7 @@ class PhotoBooth:
         
     def apply_timestamp_overlay(self):
         perf_counter = time.perf_counter()
-        countdown = str(COUNT_S - int(np.floor(perf_counter - self.start_time)))
+        countdown = str(COUNT_S - int(np.floor(self.timers.time_left("counts"))))
         if countdown != self.timestamps.get("countdown", -1):
             self.timestamps["countdown"] = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
@@ -465,8 +465,7 @@ class PhotoBooth:
                 self.apply_timestamp_overlay()
                 time_left = self.timers.time_left("counts")
                 if time_left <= LED_FADE_S:
-                    time_to_photo = COUNT_S - (perf_counter - self.start_time)
-                    led_fade = (LED_FADE_S - time_to_photo) / (LED_FADE_S - LED_END_S)
+                    led_fade = (LED_FADE_S - time_left) / (LED_FADE_S - LED_END_S)
                     self.set_leds(fade=led_fade)
                     if led_fade > 1:
                         if self.timestamps.get("leds_full", 0) < self.start_time:
