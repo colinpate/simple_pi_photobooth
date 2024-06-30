@@ -6,6 +6,7 @@ import os
 import socket
 import time
 from datetime import datetime
+from common import load_config
 from image_path_db import ImagePathDB
 from photo_service import PhotoService
 from google_photos_upload import GooglePhotos
@@ -33,18 +34,10 @@ def wait_for_network_connection():
     """
     Wait indefinitely until the network is available.
     """
-    print("Waiting for network connection...")
+    print("upload_to_s3.py: Waiting for network connection...")
     while not check_network_connection():
         time.sleep(5)  # wait for 5 seconds before checking again
-    print("Network connection established.")
-
-
-def load_config():
-    parent_dir = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(parent_dir, "config.yaml")
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.Loader)
-    return config
+    print("upload_to_s3.py: Network connection established.")
 
 
 def create_qr_code(url, qr_code_file_path):
@@ -72,8 +65,28 @@ def get_album_title():
     return album_title
 
 
+def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
+    success = False
+    image_url = None
+    try:
+        file_path = photo_db.get_image_path(photo_name, postfix)
+        image_url = service.upload_photo(file_path, photo_name)
+        success = True
+    except Exception as foo:
+        photo_error_id = photo_name + postfix
+        print("upload_to_s3.py: Failed to upload", photo_error_id)
+        print("upload_to_s3.py: Exception", foo)
+        photo_error_id = photo_name + postfix
+        if photo_error_id not in error_photos:
+            with open("/home/colin/upload_error.txt", "a") as err_file:
+                err_file.write("\n" + str(datetime.now()) + "\n")
+                err_file.write(str(foo))
+            error_photos.append(photo_error_id)
+    return success, image_url
+
+
 def main():
-    config = load_config() #TODO make this be in a function LOL
+    config = load_config()
     display_gray = config.get("display_gray", True)
     qr_db = ImagePathDB(config["qr_path_db"])
     photo_db = ImagePathDB(config["photo_path_db"])
@@ -81,8 +94,10 @@ def main():
     color_postfix = config["color_postfix"]
     gray_postfix = config["gray_postfix"]
     qr_dir = config["qr_dir"]
+    display_postfix = gray_postfix if display_gray else color_postfix
+    other_postfix = color_postfix if display_gray else gray_postfix
     
-    print("Saving QR codes to", qr_dir)
+    print("upload_to_s3.py: Saving QR codes to", qr_dir)
     
     wait_for_network_connection()
     
@@ -93,7 +108,10 @@ def main():
             error_file.write(str(e))
         service = S3Photos()
         
-    service.create_album(get_album_title())
+    album_title = config.get("album_title", get_album_title())
+    service.create_album(album_title)
+                
+    error_photos = []
         
     while True:
         # Returns list of photo file names
@@ -101,35 +119,33 @@ def main():
         missing_qr_names = list(photo_db.image_names() - qr_db.image_names())
         
         if len(missing_qr_names):
-            print("Missing qr codes")
+            print()
+            print("upload_to_s3.py: Missing qr codes")
             print(missing_qr_names)
             
             if not config.get("enable_upload", True):
-                print("Upload disabled, skipping")
-                time.slget_keyseep(1)
+                print("upload_to_s3.py: Upload disabled, skipping")
+                time.sleep(1)
                 continue
     
-        for photo_name in missing_qr_names[:1]:
-            try:
-                color_file_path = photo_db.get_image_path(photo_name, color_postfix)
-                gray_file_path = photo_db.get_image_path(photo_name, gray_postfix)
-                file_path = gray_file_path if display_gray else color_file_path
-                qr_target = service.upload_photo(file_path, photo_name)
-            except Exception as foo:
-                with open("/home/colin/upload_error.txt", "w") as err_file:
-                    err_file.write(str(foo))
-                print("Failed to upload", photo_name)
+        for photo_name in missing_qr_names:
+            # First upload the photo that the QR code will link to. If it fails, go to the next photo
+            upload_success, qr_target = attempt_upload(photo_name, display_postfix, error_photos, photo_db, service)
+            if not upload_success:
                 continue
+                
+            # Then if that succeeds, try to upload the other photo
+            attempt_upload(photo_name, other_postfix, error_photos, photo_db, service)
             
             os.makedirs(config["qr_dir"], exist_ok=True)
             qr_path = os.path.join(qr_dir, photo_name + ".png")
             create_qr_code(qr_target, qr_path)
             qr_db.add_image(photo_name, qr_path)
             qr_db.update_file()
-            print("Qr target", qr_target)
-            print("Qr path", qr_path)
+            print("upload_to_s3.py: Qr target", qr_target)
+            print("upload_to_s3.py: Qr path", qr_path)
             
-        time.sleep(0.25)
+        time.sleep(0.5)
             
 if __name__ == "__main__":
     main()

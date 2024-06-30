@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 from rauth import OAuth1Session
 from pprint import pprint
 import random
@@ -9,6 +10,31 @@ from common import load_config
 BASE_URL = "https://api.smugmug.com/api/v2"
 UPLOAD_URL = "https://upload.smugmug.com/api/v2"
 
+parent_dir = os.path.dirname(os.path.realpath(__file__))
+URI_FILE_PATH = os.path.join(parent_dir, "album_uris.json")
+
+
+def save_album_uri(album_title, album_uri):
+    album_uris = {}
+    if os.path.exists(URI_FILE_PATH):
+        with open(URI_FILE_PATH, "r") as f:
+            album_uris = json.load(f)
+    album_uris[album_title] = album_uri
+    with open(URI_FILE_PATH, "w") as f:
+        json.dump(album_uris, f)
+        
+        
+def load_album_uri(album_title):
+    if not os.path.exists(URI_FILE_PATH):
+        return None
+    with open(URI_FILE_PATH, "r") as f:
+        album_uris = json.load(f)
+    try:
+        album_uri = album_uris[album_title]
+        return album_uri
+    except KeyError:
+       return None
+            
             
 def load_creds(creds_file):
     with open(creds_file, "r") as file_obj:
@@ -43,13 +69,24 @@ class SmugMug(PhotoService):
             
     def upload_photo(self, photo_path, photo_name):
         response = self._upload_photo(photo_path)
-        uri = response["Image"]["ImageUri"]
+        try:
+            uri = response["Image"]["ImageUri"]
+        except KeyError:
+            raise ValueError("Key [Image][ImageUri] not found: " + str(response))
         self.set_image_properties(uri)
         return response["Image"]["URL"]
             
     def create_album(self, album_name):
+        print("smugmug.py: Album title", album_name)
         # Create an album
-        self.album_uri = self.create_album_under_node(self.root_node, album_name)
+        album_uri = load_album_uri(album_name)
+        if album_uri == None:
+            print("Album URI not found, creating")
+            self.album_uri = self.create_album_under_node(self.root_node, album_name)
+            save_album_uri(album_name, self.album_uri)
+        else:
+            print("Album URI found")
+            self.album_uri = album_uri
 
     def caption(self):
         return self._caption
@@ -59,7 +96,6 @@ class SmugMug(PhotoService):
 
     def get_user_node(self, user_name):
         url = f"https://api.smugmug.com/api/v2/user/{user_name}"
-        print(url)
         headers = {
             "Accept": "application/json"
         }
@@ -93,12 +129,12 @@ class SmugMug(PhotoService):
             return None
 
     def create_album_under_node(self, node_id, album_name):
-        safe_album_name = album_name.replace(":", "")
-        safe_album_name = safe_album_name.replace("/", "")
-        safe_album_name = safe_album_name.replace(" ", "")
+        safe_album_name = ""
+        for char in album_name:
+            if char.isalnum():
+                safe_album_name += char
         safe_album_name = safe_album_name[0].upper() + safe_album_name[1:].lower()
         url = f"https://api.smugmug.com/api/v2/node/{node_id}!children"
-        print(url)
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -148,15 +184,14 @@ class SmugMug(PhotoService):
 
         # Check if the upload was successful
         if response.status_code == 200:
-            print("Upload successful.")
+            print("smugmug.py: Successfully uploaded", photo_path)
             return response.json()
         else:
-            print(f"Failed to upload photo. Status code: {response.status_code}")
+            print(f"smugmug.py: Failed to upload", photo_path, "Status code: {response.status_code}")
             return response.json()
             
     def set_image_properties(self, image_uri):
         url = f'https://api.smugmug.com{image_uri}'
-        print("Patching", url)
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json"
