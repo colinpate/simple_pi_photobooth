@@ -92,9 +92,8 @@ def get_prev_crop_rectangle(crop_to_screen=True):
         y_ratio = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (FULL_IMG_HEIGHT / FULL_IMG_WIDTH)
     else:
         y_ratio = 1
-    prev_height = PREV_STREAM_DIMS[1]
-    prev_crop_height = int(prev_height * y_ratio)
-    prev_crop_offset_y = int((prev_height - prev_crop_height) / 2)
+    prev_crop_height = int(CROP_HEIGHT * y_ratio)
+    prev_crop_offset_y = int((CROP_HEIGHT - prev_crop_height) / 2)
     prev_crop_rectangle = (
             CROP_OFFSET_X,
             prev_crop_offset_y,
