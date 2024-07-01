@@ -89,7 +89,7 @@ BLACK_OVERLAY[:]  = (0, 0, 0, 255)
 def get_prev_crop_rectangle(crop_to_screen=True):
     # Crop the preview vertically so it doesn't look weird
     if crop_to_screen:
-        y_ratio = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (FULL_IMAGE_HEIGHT / FULL_IMG_WIDTH)
+        y_ratio = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (FULL_IMG_HEIGHT / FULL_IMG_WIDTH)
     else:
         y_ratio = 1
     prev_height = PREV_STREAM_DIMS[1]
