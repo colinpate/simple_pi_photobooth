@@ -62,7 +62,7 @@ def create_qr_code(url, qr_code_file_path):
 def get_album_title(album_title_file):
     # Default to timestamped album
     formatted_datetime = datetime.now().strftime("%Y/%m/%d %H:%M")
-    album_title = 'Glowbot Photo Booth' + formatted_datetime
+    album_title = 'Glowbot Photo Booth ' + formatted_datetime
     
     if os.path.exists(album_title_file):
         with open(album_title_file, "r") as file_obj:
