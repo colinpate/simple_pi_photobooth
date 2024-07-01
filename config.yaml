@@ -12,6 +12,7 @@ display_timeout: 1200 # Go back to preview after 20 minutes
 led_idle_brightness: 15 # normally 15
 led_capture_brightness: 100 # normally 100
 button_pulse_time: 4
+qr_check_time: 0.25 # Interval to check for QR codes
 crop_preview: true # normally True
 lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"
 continuous_cap: false # Capture photos constantly when in idle state, for debugging

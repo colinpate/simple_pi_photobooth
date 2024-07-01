@@ -134,7 +134,6 @@ def get_exif(w, h, datetime_stamp, postfix=""):
 class PhotoBooth:
     def __init__(self, config):
         self.state = "idle"
-        self.start_time = 0
         self.cap_timestamp_str = ""
         self.mode_switched = False
         self.exposure_set = False
@@ -153,7 +152,6 @@ class PhotoBooth:
         self._gray_image_dir = config["gray_image_dir"]
         
         self._display_gray = config.get("display_gray", True)
-        self._display_timeout = config["display_timeout"]
         self._display_shuffle_time = config["display_shuffle_time"]
         self._display_first_image_time = config["display_first_image_time"]
         
@@ -195,11 +193,12 @@ class PhotoBooth:
         self.init_gpio()
         self.set_leds(idle=True)
         
-        #self.last_button_release = time.perf_counter()
         self.capture_start_time = time.perf_counter()
         
         self.timers = Timers()
         self.timers.start("button_release", SHUTDOWN_HOLD_TIME)
+        self.timers.setup("display_capture_timeout", config["display_timeout"])
+        self.timers.setup("qr_code_check", config["qr_check_time"])
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
@@ -292,8 +291,7 @@ class PhotoBooth:
                 self.change_main_led_dc(self._led_capture_dc)
         
     def apply_timestamp_overlay(self):
-        perf_counter = time.perf_counter()
-        countdown = str(COUNT_S - int(np.floor(self.timers.time_left("counts"))))
+        countdown = str(int(np.floor(self.timers.time_left("capture_countdown"))))
         if countdown != self.timestamps.get("countdown", -1):
             self.timestamps["countdown"] = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
@@ -433,6 +431,8 @@ class PhotoBooth:
             self.change_button_led_dc(pwm_val)
         
     def main_loop(self):
+        self.timers.update_time()
+    
         perf_counter = time.perf_counter()
         
         self.check_shutdown_button()
@@ -442,10 +442,10 @@ class PhotoBooth:
         if self.state == "idle":
             if self.is_button_pressed() or self._continuous_cap:
                 self.state = "countdown"
-                self.timers.start("counts", COUNT_S)
+                self.timers.start("capture_countdown", COUNT_S)
         elif self.state == "countdown":
-            if self.timers.check("counts"):
-                print("Capturing at", (perf_counter - self.start_time))
+            if self.timers.check("capture_countdown"):
+                print("Capturing at", self.timers.time_left("capture_countdown"))
                 self.state = "capture"
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
@@ -453,18 +453,14 @@ class PhotoBooth:
                 self.set_capture_overlay()
             else:
                 self.apply_timestamp_overlay()
-                time_left = self.timers.time_left("counts")
+                time_left = self.timers.time_left("capture_countdown")
                 if time_left <= LED_FADE_S:
                     led_fade = (LED_FADE_S - time_left) / (LED_FADE_S - LED_END_S)
                     self.set_leds(fade=led_fade)
-                    if led_fade > 1:
-                        if self.timestamps.get("leds_full", 0) < self.start_time:
-                            print("LEDs full")
-                            self.timestamps["leds_full"] = perf_counter
                     
                 if time_left <= EXPOSURE_SET_S:
                     if not self.exposure_set:
-                        print("Setting exposure at", (perf_counter - self.start_time))
+                        print("Setting exposure at", self.timers.time_left("capture_countdown"))
                         self.picam2.set_controls(
                             self.exposure_settings
                         )
@@ -477,7 +473,7 @@ class PhotoBooth:
                         
                 if time_left <= PRE_CONTROL_S:
                     if not self.mode_switched:
-                        print("Switching mode at", (perf_counter - self.start_time))
+                        print("Switching mode at", self.timers.time_left("capture_countdown"))
                         self.picam2.set_controls({
                                 "ScalerCrop": FULL_CROP_RECTANGLE,
                                 "Saturation": 1.0,
@@ -485,21 +481,20 @@ class PhotoBooth:
                         self.mode_switched = True
         elif self.state == "capture":
             self.state = "display_capture"
-            self.timestamps["display_capture"] = perf_counter
-            self.timestamps["display_image"] = perf_counter
-            self._displaying_first_image = True
+            self.timers.start("display_capture_timeout")
+            self.timers.start("display_image_timeout", self._display_first_image_time)
+            self.timers.start("qr_code_check")
             self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
             self.picam2.capture_arrays(["main"], signal_function=self.qpicamera2.signal_done)
         elif self.state == "display_capture":
-            if perf_counter >= (self.timestamps["display_capture"] + self._display_timeout):
+            if self.timers.check("display_capture_timeout"):
                 self.state = "idle"
             elif self.is_button_pressed():
-                self.start_time = perf_counter
+                self.timers.start("capture_countdown", COUNT_S)
                 self.state = "countdown"
             else:
-                if perf_counter > (self.timestamps.get("qr_code_check", 0) + 0.25):
-                    self.timestamps["qr_code_check"] = perf_counter
+                if self.timers.check("qr_code_check", auto_restart=True):
                     if self._display_image_name and not self._displaying_qr_code:
                         qr_code = self.get_qr_code(self._display_image_name)
                         if qr_code is not None:
@@ -507,15 +502,9 @@ class PhotoBooth:
                             self.add_qr_code(qr_code)
                             self.qpicamera2.set_overlay(self._overlay)
                 
-                if self._displaying_first_image:
-                    shuffle_time = self._display_first_image_time
-                else:
-                    shuffle_time = self._display_shuffle_time
-                if shuffle_time > 0:
-                    if (perf_counter - shuffle_time) > self.timestamps["display_image"]:
-                        self._displaying_first_image = False
-                        self.display_random_file()
-                        self.timestamps["display_image"] = perf_counter
+                if self.timers.check("display_image_timeout"):
+                    self.display_random_file()
+                    self.timers.start("display_image_timeout", self._display_shuffle_time)
                 return
             self.picam2.set_controls({
                     "ScalerCrop": self._prev_crop_rectangle,
