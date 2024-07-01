@@ -178,7 +178,8 @@ class SmugMug(PhotoService):
 
         # Read the image file in binary mode
         with open(photo_path, 'rb') as file:
-            files = {'file': file.read()}
+            filename = os.path.split(photo_path)[-1]
+            files = {filename: file.read()}
             # Send the POST request
             response = self.session.post(url, headers=headers, files=files)
 
