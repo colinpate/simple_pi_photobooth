@@ -59,9 +59,16 @@ def create_qr_code(url, qr_code_file_path):
     img.save(qr_code_file_path)
     
 
-def get_album_title():
+def get_album_title(album_title_file):
+    # Default to timestamped album
     formatted_datetime = datetime.now().strftime("%Y/%m/%d %H:%M")
-    album_title = 'Glowbot ' + formatted_datetime
+    album_title = 'Glowbot Photo Booth ' + formatted_datetime
+    
+    if os.path.exists(album_title_file):
+        with open(album_title_file, "r") as file_obj:
+            text = file_obj.read().strip()
+            if len(text):
+                album_title = text
     return album_title
 
 
@@ -79,7 +86,7 @@ def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
         photo_error_id = photo_name + postfix
         if photo_error_id not in error_photos:
             with open("/home/colin/upload_error.txt", "a") as err_file:
-                err_file.write("\n" + str(datetime.now()) + "\n")
+                err_file.write("\n" + photo_error_id + " upload failed at " + str(datetime.now()) + "\n")
                 err_file.write(str(foo))
             error_photos.append(photo_error_id)
     return success, image_url
@@ -108,7 +115,7 @@ def main():
             error_file.write(str(e))
         service = S3Photos()
         
-    album_title = config.get("album_title", get_album_title())
+    album_title = get_album_title(config.get("album_title_file", ""))
     service.create_album(album_title)
                 
     error_photos = []
@@ -117,6 +124,8 @@ def main():
         # Returns list of photo file names
         photo_db.try_update_from_file()
         missing_qr_names = list(photo_db.image_names() - qr_db.image_names())
+        missing_qr_names.sort() # Sort from oldest to newest
+        missing_qr_names = missing_qr_names[::-1] # Reverse order so we start from newest
         
         if len(missing_qr_names):
             print()

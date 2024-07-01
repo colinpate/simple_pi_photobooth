@@ -29,7 +29,7 @@ BUTTON_PIN = 14
 PWM_FREQ = 20000
 
 # Timing
-SHUTDOWN_HOLD_TIME = 4
+SHUTDOWN_HOLD_TIME = 3
 
 # Capture sequence timing
 LED_FADE_S = 2 # How long before capture to start brightening LEDs
@@ -89,14 +89,14 @@ BLACK_OVERLAY[:]  = (0, 0, 0, 255)
 def get_prev_crop_rectangle(crop_to_screen=True):
     # Crop the preview vertically so it doesn't look weird
     if crop_to_screen:
-        y_ratio = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (CROP_HEIGHT / CROP_WIDTH)
+        y_ratio = (DISPLAY_HEIGHT / DISPLAY_WIDTH) / (FULL_IMG_HEIGHT / FULL_IMG_WIDTH)
     else:
         y_ratio = 1
     prev_crop_height = int(CROP_HEIGHT * y_ratio)
-    prev_crop_offset_y = int((FULL_IMG_HEIGHT - prev_crop_height) / 2)
+    prev_crop_offset_y = int((CROP_HEIGHT - prev_crop_height) / 2)
     prev_crop_rectangle = (
             CROP_OFFSET_X,
-            prev_crop_height,
+            prev_crop_offset_y,
             CROP_WIDTH,
             prev_crop_height
     )
@@ -113,15 +113,15 @@ def load_lens_cal(cal_file):
         return pickle.load(file_obj)
     
     
-def get_exif(w, h):
-    formatted_datetime = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
-    zeroth_ifd = {piexif.ImageIFD.Make: "colin",
+def get_exif(w, h, datetime_stamp, postfix=""):
+    formatted_datetime = datetime_stamp.strftime("%Y:%m:%d %H:%M:%S")
+    zeroth_ifd = {piexif.ImageIFD.Make: "Glowbot Photo Booth " + postfix,
               piexif.ImageIFD.XResolution: (w, 1),
               piexif.ImageIFD.YResolution: (h, 1),
-              piexif.ImageIFD.Software: "colin p"
+              piexif.ImageIFD.Software: "Glowbot Photo Booth " + postfix
               }
     exif_ifd = {piexif.ExifIFD.DateTimeOriginal: formatted_datetime,
-                piexif.ExifIFD.LensMake: "colin",
+                piexif.ExifIFD.LensMake: "Glowbot Photo Booth " + postfix,
                 piexif.ExifIFD.Sharpness: 65535,
                 piexif.ExifIFD.LensSpecification: ((1, 1), (1, 1), (1, 1), (1, 1)),
                 }
@@ -333,7 +333,7 @@ class PhotoBooth:
         gray_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2GRAY)
         
         h, w = final_image.shape[:2]
-        exif_bytes = get_exif(w, h)
+        datetime_stamp = datetime.now()
                     
         path_dict = {}
         photo_name = self.cap_timestamp_str
@@ -344,6 +344,7 @@ class PhotoBooth:
                 (orig_image, self._original_image_dir, "_original")
                 ]:
             if dir_i:
+                exif_bytes = get_exif(w, h, datetime_stamp, postfix)
                 image_path = os.path.join(
                     dir_i,
                     photo_name + postfix + ".jpg"
@@ -369,10 +370,7 @@ class PhotoBooth:
         qr_image = None
         if self.qr_path_db.image_exists(image_name):
             qr_path = self.qr_path_db.get_image_path(image_name)
-            try:
-                qr_image = cv2.imread(qr_path)
-            except:
-                print("Error: Failed to load QR ", qr_path)
+            qr_image = cv2.imread(qr_path)
         return qr_image
     
     def display_random_file(self):
@@ -380,19 +378,11 @@ class PhotoBooth:
         num_files = len(photo_names)
         name = photo_names[random.randrange(num_files)]
         photo_path = self.photo_path_db.get_image_path(name, self._display_postfix)
-        loaded_image = False
         image = None
         if os.path.exists(photo_path):
             self._display_image_name = name
-            print("Randomly displaying", photo_path)
-            try:
-                image = cv2.imread(photo_path)
-                loaded_image = True
-            except:
-                print("Error: Failed to load ", image)
-        else:
-            print("Error: Random photo", photo_path, "doesn't exist")
-        if loaded_image:
+            image = cv2.imread(photo_path)
+        if image is not None:
             self.display_image(image, qr_code=self.get_qr_code(name))
     
     def add_qr_code(self, qr_code):
@@ -476,7 +466,7 @@ class PhotoBooth:
                             self.exposure_settings
                         )
                         self.exposure_set = True
-                    else:
+                    else: # After setting the exposure, turn on Autoexposure so it can adjust if needed
                         if perf_counter <= (end_time - EXPOSURE_SET_S + 0.2):
                             # Spam this for 0.2s
                             print("Setting AE true")
