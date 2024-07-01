@@ -291,7 +291,7 @@ class PhotoBooth:
                 self.change_main_led_dc(self._led_capture_dc)
         
     def apply_timestamp_overlay(self):
-        countdown = str(int(np.floor(self.timers.time_left("capture_countdown"))))
+        countdown = str(int(np.ceil(self.timers.time_left("capture_countdown"))))
         if countdown != self.timestamps.get("countdown", -1):
             self.timestamps["countdown"] = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
