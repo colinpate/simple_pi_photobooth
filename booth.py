@@ -97,7 +97,7 @@ def get_prev_crop_rectangle(crop_to_screen=True):
     prev_crop_offset_y = int((prev_height - prev_crop_height) / 2)
     prev_crop_rectangle = (
             CROP_OFFSET_X,
-            prev_crop_height,
+            prev_crop_offset_y,
             CROP_WIDTH,
             prev_crop_height
     )
