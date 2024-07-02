@@ -332,7 +332,7 @@ class PhotoBooth:
         else:
             final_image = orig_image
             
-        gray_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2GRAY)
+        gray_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2GRAY)
         
         h, w = final_image.shape[:2]
         datetime_stamp = datetime.now()
