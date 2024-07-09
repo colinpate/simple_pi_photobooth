@@ -160,8 +160,9 @@ class PhotoBooth:
         self._display_postfix = self._gray_postfix if self._display_gray else self._color_postfix 
         
         self._led_idle_dc = config["led_idle_brightness"]
-        self._led_capture_dc = config["led_capture_brightness"] # for testing
+        self._led_capture_dc = config["led_capture_brightness"]
         self._button_pulse_time = config["button_pulse_time"]
+        self._contrast = float(config["contrast"])
         
         self._overlay = None
         self._displaying_qr_code = False
@@ -477,6 +478,7 @@ class PhotoBooth:
                         self.picam2.set_controls({
                                 "ScalerCrop": FULL_CROP_RECTANGLE,
                                 "Saturation": 1.0,
+                                "Contrast": self._contrast,
                             })
                         self.mode_switched = True
         elif self.state == "capture":
