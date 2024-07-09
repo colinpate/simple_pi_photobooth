@@ -33,10 +33,10 @@ PWM_FREQ = 20000
 SHUTDOWN_HOLD_TIME = 3
 
 # Capture sequence timing
-LED_FADE_S = 2 # How long before capture to start brightening LEDs
-LED_END_S = 1 # How long before capture to hit 100% brightness
-EXPOSURE_SET_S = 1.4 # How long before capture to set exposure
-PRE_CONTROL_S = 0.3 # How long before capture to set the camera controls
+LED_FADE_S = 1.61 # How long before capture to start brightening LEDs
+LED_END_S = 0.61 # How long before capture to hit 100% brightness
+EXPOSURE_SET_S = 1.41 # How long before capture to set exposure
+PRE_CONTROL_S = 0.31 # How long before capture to set the camera controls
 COUNT_S = 5
 
 AWB_MODE = controls.AwbModeEnum.Indoor
@@ -451,7 +451,6 @@ class PhotoBooth:
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
                 self.capture_start_time = perf_counter
-                self.set_capture_overlay()
             else:
                 self.apply_timestamp_overlay()
                 time_left = self.timers.time_left("capture_countdown")
@@ -480,6 +479,7 @@ class PhotoBooth:
                                 "Saturation": 1.0,
                                 "Contrast": self._contrast,
                             })
+                        self.set_capture_overlay()
                         self.mode_switched = True
         elif self.state == "capture":
             self.state = "display_capture"
