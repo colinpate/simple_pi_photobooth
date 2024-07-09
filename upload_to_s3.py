@@ -142,9 +142,6 @@ def main():
             upload_success, qr_target = attempt_upload(photo_name, display_postfix, error_photos, photo_db, service)
             if not upload_success:
                 continue
-                
-            # Then if that succeeds, try to upload the other photo
-            attempt_upload(photo_name, other_postfix, error_photos, photo_db, service)
             
             os.makedirs(config["qr_dir"], exist_ok=True)
             qr_path = os.path.join(qr_dir, photo_name + ".png")
@@ -153,8 +150,11 @@ def main():
             qr_db.update_file()
             print("upload_to_s3.py: Qr target", qr_target)
             print("upload_to_s3.py: Qr path", qr_path)
+                
+            # Then if that succeeds, try to upload the other photo
+            attempt_upload(photo_name, other_postfix, error_photos, photo_db, service)
             
-        time.sleep(0.5)
+        time.sleep(0.25)
             
 if __name__ == "__main__":
     main()
