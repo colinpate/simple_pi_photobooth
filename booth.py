@@ -33,9 +33,9 @@ PWM_FREQ = 20000
 SHUTDOWN_HOLD_TIME = 3
 
 # Capture sequence timing
-LED_FADE_S = 1.61 # How long before capture to start brightening LEDs
-LED_END_S = 0.61 # How long before capture to hit 100% brightness
-EXPOSURE_SET_S = 1.41 # How long before capture to set exposure
+LED_FADE_S = 1.71 # How long before capture to start brightening LEDs
+LED_END_S = 0.71 # How long before capture to hit 100% brightness
+EXPOSURE_SET_S = 1.31 # How long before capture to set exposure
 PRE_CONTROL_S = 0.31 # How long before capture to set the camera controls
 COUNT_S = 5
 
