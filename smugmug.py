@@ -66,6 +66,7 @@ class SmugMug(PhotoService):
         
         self._caption = config["photo_caption"]
         self._title = config["photo_title"]
+        self._timeout = config["request_timeout"]
             
     def upload_photo(self, photo_path, photo_name):
         response = self._upload_photo(photo_path)
@@ -181,7 +182,7 @@ class SmugMug(PhotoService):
             filename = os.path.split(photo_path)[-1]
             files = {filename: file.read()}
             # Send the POST request
-            response = self.session.post(url, headers=headers, files=files)
+            response = self.session.post(url, headers=headers, files=files, timeout=self._timeout)
 
         # Check if the upload was successful
         if response.status_code == 200:
@@ -201,7 +202,7 @@ class SmugMug(PhotoService):
             "Caption": self.caption(),
             "Title": self.title()
         }
-        response = self.session.patch(url, json=payload, headers=headers)
+        response = self.session.patch(url, json=payload, headers=headers, timeout=self._timeout)
         return response.json()
         
 
