@@ -21,19 +21,6 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
 
-#Builder.load_string(
-'''
-<ImageGallery>:
-    viewclass: 'AsyncImage'
-    RecycleBoxLayout:
-        default_size: None, 400
-        default_size_hint: 1, None
-        size_hint_y: None
-        height: self.minimum_height
-        orientation: 'vertical'
-'''
-#)
-
 Builder.load_string(
 '''
 <ImageGallery>:
@@ -87,6 +74,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             image_base = image_base[:-5]
         color_source = image_base + ".jpg"
         gray_source = image_base + "_gray.jpg"
+        
         image = AsyncImage(source=color_source, allow_stretch=True, size_hint=(0.8, 0.8), pos_hint={'x': 0.1, 'y': 0.2})
         layout.add_widget(image)
         
@@ -120,18 +108,39 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         
         def on_print(instance):
             popup.dismiss()
+            self.show_confirm_print_popup(source)
         
-        print_button.bind(on_release=popup.dismiss)
+        print_button.bind(on_release=on_print)
         
         popup.open()
 
+    def show_confirm_print_popup(self, source):
+        layout = FloatLayout()
+        popup = Popup(title='Confirm print?',
+                      content=layout,
+                      size_hint=(0.5, 0.3))
+                      
+        yes_button = Button(text='Yes', size_hint=(0.5, 1),
+                              pos_hint={'x': 0, 'y': 0})
+        yes_button.bind(on_release=popup.dismiss)
+        layout.add_widget(yes_button)
+                      
+        no_button = Button(text='No', size_hint=(0.5, 1),
+                              pos_hint={'x': 0.5, 'y': 0})
+        no_button.bind(on_release=popup.dismiss)
+        layout.add_widget(no_button)
+        
+        popup.open()
+        
 
 class ImageGallery(RecycleView):
     def __init__(self, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
         #self.image_dir = "../party_photos/becca_party_4_13_24/booth_photos/color/"
-        self.image_dir = "../party_photos/Mead_5th_Grade/"
+        
+        self.image_dir = "../../party_photos/Mead_5th_Grade/"
         self.image_paths = glob(self.image_dir + "*.png")
+        
         self.data = [{'source': i} for i in self.image_paths]  # Replace with your image paths
         print(self.data)
         print("Layout manager added to the RecycleView.")
