@@ -48,12 +48,17 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
 
     def on_touch_down(self, touch):
         ''' Add selection on touch down '''
-        if super(SelectableImage, self).on_touch_down(touch):
-            return True
         if self.collide_point(*touch.pos) and self.selectable:
-            self.show_image_popup(self.source)
+            self.touch_start_pos = touch.pos
             #return self.parent.select_with_touch(self.index, touch)
-
+            
+    def on_touch_up(self, touch): 
+        if self.collide_point(*touch.pos) and self.selectable:
+            distance = ((touch.pos[0] - self.touch_start_pos[0]) ** 2 + 
+                        (touch.pos[1] - self.touch_start_pos[1]) ** 2) ** 0.5
+            if distance < dp(10):
+                self.show_image_popup(self.source)
+                
     def apply_selection(self, rv, index, is_selected):
         ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
@@ -136,9 +141,9 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
 class ImageGallery(RecycleView):
     def __init__(self, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
-        #self.image_dir = "../party_photos/becca_party_4_13_24/booth_photos/color/"
+        self.image_dir = "../../party_photos/becca_party_4_13_24/booth_photos/color/"
         
-        self.image_dir = "../../party_photos/Mead_5th_Grade/"
+        #self.image_dir = "../../party_photos/Mead_5th_Grade/"
         self.image_paths = glob(self.image_dir + "*.png")
         
         self.data = [{'source': i} for i in self.image_paths]  # Replace with your image paths
