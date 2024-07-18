@@ -14,13 +14,28 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.metrics import dp  # Import dp function
 from kivy.lang import Builder
-from glob import glob
-
 
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
 
+from glob import glob
+import yaml
+import cv2
+import os
+
+from common.image_path_db import ImagePathDB
+
+def load_config(config_path):
+    with open(config_path, "r") as config_file:
+        config = yaml.load(config_file, yaml.Loader)
+    return config
+    
+def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
+    image = cv2.imread(photo_path)
+    out = cv2.resize(image, dsize=(size_x, size_y))
+    cv2.imwrite(thumbnail_path, out)
+    
 Builder.load_string(
 '''
 <ImageGallery>:
@@ -40,6 +55,9 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     selected = BooleanProperty(False)
     selectable = BooleanProperty(True)
     source = StringProperty()
+    color_photo_path = StringProperty()
+    gray_photo_path = StringProperty()
+    touch_start_pos = [0, 0]
 
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
@@ -74,11 +92,13 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                       content=layout,
                       size_hint=(0.8, 0.8))
         
-        image_base = source.split("_thumb")[0]
-        if image_base.endswith("_gray"):
-            image_base = image_base[:-5]
-        color_source = image_base + ".jpg"
-        gray_source = image_base + "_gray.jpg"
+        #image_base = source.split("_thumb")[0]
+        #if image_base.endswith("_gray"):
+        #    image_base = image_base[:-5]
+        #color_source = image_base + ".jpg"
+        #gray_source = image_base + "_gray.jpg"
+        color_source = self.color_photo_path
+        gray_source = self.gray_photo_path
         
         image = AsyncImage(source=color_source, allow_stretch=True, size_hint=(0.8, 0.8), pos_hint={'x': 0.1, 'y': 0.2})
         layout.add_widget(image)
@@ -141,14 +161,64 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
 class ImageGallery(RecycleView):
     def __init__(self, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
-        self.image_dir = "../../party_photos/becca_party_4_13_24/booth_photos/color/"
         
+        config = load_config("print_config.yaml")
+        
+        self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
+        self.photo_path_db = ImagePathDB(config["photo_path_db"])
+        self.thumbnail_dir = config["thumbnail_dir"]
+        self.data = []
+        self.fill_image_path_db("../party_photos/becca_party_4_13_24/booth_photos/color/")
+        self.update_thumbnails()
+        self.update_data()
+        
+        #self.image_dir = "../../party_photos/becca_party_4_13_24/booth_photos/color/"
         #self.image_dir = "../../party_photos/Mead_5th_Grade/"
-        self.image_paths = glob(self.image_dir + "*.png")
+        #self.image_paths = glob(self.image_dir + "*.png")
+        #self.data = [{'source': i} for i in self.image_paths]  # Replace with your image paths
+        #print(self.data)
         
-        self.data = [{'source': i} for i in self.image_paths]  # Replace with your image paths
-        print(self.data)
-        print("Layout manager added to the RecycleView.")
+    def fill_image_path_db(self, color_dir):
+        color_images = glob(color_dir + "/*.jpg")
+        for color_image in color_images:
+            filename = os.path.split(color_image)[-1]
+            image_name = filename.split("_color")[0]
+            paths = {}
+            for dirname in ["color", "gray", "original"]:
+                postfix = "_" + dirname
+                image_filename = filename.replace("_color", postfix)
+                image_dir = color_dir[:-6] + dirname
+                image_path = os.path.join(image_dir, image_filename)
+                paths[postfix] = image_path
+            print(image_name, paths)
+            self.photo_path_db.add_image(image_name, paths)
+                
+    def update_data(self):
+        # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
+        thumbnail_names_sorted = sorted(list(self.thumbnail_path_db.image_names()))
+        if len(thumbnail_names_sorted) > len(self.data):
+            self.data = [
+                    {
+                        'source': self.thumbnail_path_db.get_image_path(i),
+                        'gray_photo_path': self.photo_path_db.get_image_path(i, "_gray"),
+                        'color_photo_path': self.photo_path_db.get_image_path(i, "_color"),
+                    }
+                for i in thumbnail_names_sorted]
+            
+    def update_thumbnails(self):
+        self.photo_path_db.try_update_from_file()
+        missing_thumbnails = list(self.photo_path_db.image_names() - self.thumbnail_path_db.image_names())
+        for missing_thumbnail_name in missing_thumbnails[:1]:
+            print("Creating thumbnail for", missing_thumbnail_name)
+            thumbnail_path = os.path.join(self.thumbnail_dir, missing_thumbnail_name + ".png")
+            create_thumbnail(
+                photo_path=self.photo_path_db.get_image_path(missing_thumbnail_name, postfix="_color"),
+                thumbnail_path=thumbnail_path,
+                size_x=400,
+                size_y=300
+                )
+            self.thumbnail_path_db.add_image(missing_thumbnail_name, thumbnail_path)
+        self.thumbnail_path_db.update_file()
 
 class ImageGalleryApp(App):
     def build(self):

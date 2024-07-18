@@ -1,0 +1,3 @@
+photo_path_db: "print_kiosk/photo_path_db.json"
+thumbnail_path_db: "print_kiosk/thumbnail_path_db.json"
+thumbnail_dir: "print_kiosk/thumbnails"
