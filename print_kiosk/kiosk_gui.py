@@ -63,6 +63,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     color_photo_path = StringProperty()
     gray_photo_path = StringProperty()
     touch_start_pos = [0, 0]
+    popup_is_open = False
 
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
@@ -93,6 +94,9 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             print("selection removed for {0}".format(rv.data[index]))
             
     def show_image_popup(self, source):
+        if self.popup_is_open:
+            return
+        self.popup_is_open = True
         ''' Show a popup with the expanded image '''
         layout = FloatLayout()
         popup = Popup(title='Expanded Image View',
@@ -106,6 +110,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         #gray_source = image_base + "_gray.jpg"
         color_source = self.color_photo_path
         gray_source = self.gray_photo_path
+        print("Color source:", color_source, "Gray source:", gray_source)
         
         image = AsyncImage(source=color_source, allow_stretch=True, size_hint=(0.8, 0.8), pos_hint={'x': 0.1, 'y': 0.2})
         layout.add_widget(image)
@@ -113,7 +118,12 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         # Define the close button
         close_button = Button(text='Close', size_hint=(0.1, 0.1),
                               pos_hint={'x': 0.6, 'y': 0})
-        close_button.bind(on_release=popup.dismiss)
+                              
+        def close_popup(instance):
+            self.popup_is_open = False
+            popup.dismiss()
+                              
+        close_button.bind(on_release=close_popup)
         layout.add_widget(close_button)
         
         # Define the toggle button and its callback
@@ -141,7 +151,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         layout.add_widget(print_button)
         
         def on_print(instance):
-            popup.dismiss()
+            close_popup(None)
             self.show_confirm_print_popup(source)
         
         print_button.bind(on_release=on_print)
