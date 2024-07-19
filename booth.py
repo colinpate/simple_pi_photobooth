@@ -163,6 +163,7 @@ class PhotoBooth:
         self._led_capture_dc = config["led_capture_brightness"]
         self._button_pulse_time = config["button_pulse_time"]
         self._contrast = float(config["contrast"])
+        self._brightness = float(config["brightness"])
         
         self._overlay = None
         self._displaying_qr_code = False
@@ -478,6 +479,7 @@ class PhotoBooth:
                                 "ScalerCrop": FULL_CROP_RECTANGLE,
                                 "Saturation": 1.0,
                                 "Contrast": self._contrast,
+                                "Brightness": self._brightness,
                             })
                         self.set_capture_overlay()
                         self.mode_switched = True
