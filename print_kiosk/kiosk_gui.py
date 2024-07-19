@@ -14,10 +14,15 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.metrics import dp  # Import dp function
 from kivy.lang import Builder
+from kivy.clock import Clock
+
+from kivy.config import Config
+Config.set('graphics', 'fullscreen', 'auto')
 
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
+#import cups
 
 from glob import glob
 import yaml
@@ -62,6 +67,8 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
         self.index = index
+        self.parent_gallery = rv
+        print("Refreshed")
         return super(SelectableImage, self).refresh_view_attrs(rv, index, data)
 
     def on_touch_down(self, touch):
@@ -119,9 +126,11 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             if instance.state == 'down':
                 instance.text = 'Color'
                 image.source = gray_source
+                self.print_source = gray_source
             else:
                 instance.text = 'Black & White'
                 image.source = color_source
+                self.print_source = color_source
             image.reload()
         
         toggle_button.bind(on_press=on_toggle)
@@ -147,7 +156,11 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                       
         yes_button = Button(text='Yes', size_hint=(0.5, 1),
                               pos_hint={'x': 0, 'y': 0})
-        yes_button.bind(on_release=popup.dismiss)
+                              
+        def print_image(instance):
+            popup.dismiss()
+                              
+        yes_button.bind(on_release=print_image)
         layout.add_widget(yes_button)
                       
         no_button = Button(text='No', size_hint=(0.5, 1),
@@ -156,6 +169,9 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         layout.add_widget(no_button)
         
         popup.open()
+        
+    def print_image(self):
+        prit()
         
 
 class ImageGallery(RecycleView):
@@ -168,9 +184,8 @@ class ImageGallery(RecycleView):
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.thumbnail_dir = config["thumbnail_dir"]
         self.data = []
-        self.fill_image_path_db("../party_photos/becca_party_4_13_24/booth_photos/color/")
-        self.update_thumbnails()
-        self.update_data()
+        #self.fill_image_path_db("../party_photos/becca_party_4_13_24/booth_photos/color/")
+        Clock.schedule_once(self.update_data, 5)
         
         #self.image_dir = "../../party_photos/becca_party_4_13_24/booth_photos/color/"
         #self.image_dir = "../../party_photos/Mead_5th_Grade/"
@@ -193,32 +208,40 @@ class ImageGallery(RecycleView):
             print(image_name, paths)
             self.photo_path_db.add_image(image_name, paths)
                 
-    def update_data(self):
+    def update_data(self, dt):
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
-        thumbnail_names_sorted = sorted(list(self.thumbnail_path_db.image_names()))
-        if len(thumbnail_names_sorted) > len(self.data):
+        print("Updating data")
+        self.photo_path_db.try_update_from_file()
+        new_photo_names = list(self.photo_path_db.image_names())
+        new_num_photos = len(new_photo_names)
+        if new_num_photos > len(self.data):
+            print(new_num_photos - len(self.data), "new photos!")
+            photo_names_sorted = sorted(new_photo_names)
             self.data = [
                     {
-                        'source': self.thumbnail_path_db.get_image_path(i),
+                        'source': self.get_thumbnail(i),
                         'gray_photo_path': self.photo_path_db.get_image_path(i, "_gray"),
                         'color_photo_path': self.photo_path_db.get_image_path(i, "_color"),
                     }
-                for i in thumbnail_names_sorted]
+                for i in photo_names_sorted]
+        Clock.schedule_once(self.update_data, 5)
             
-    def update_thumbnails(self):
-        self.photo_path_db.try_update_from_file()
-        missing_thumbnails = list(self.photo_path_db.image_names() - self.thumbnail_path_db.image_names())
-        for missing_thumbnail_name in missing_thumbnails[:1]:
-            print("Creating thumbnail for", missing_thumbnail_name)
-            thumbnail_path = os.path.join(self.thumbnail_dir, missing_thumbnail_name + ".png")
-            create_thumbnail(
-                photo_path=self.photo_path_db.get_image_path(missing_thumbnail_name, postfix="_color"),
-                thumbnail_path=thumbnail_path,
-                size_x=400,
-                size_y=300
-                )
-            self.thumbnail_path_db.add_image(missing_thumbnail_name, thumbnail_path)
-        self.thumbnail_path_db.update_file()
+    def get_thumbnail(self, thumbnail_name):
+        # Returns path to thumbnail if it exists, creates it if not
+        if self.thumbnail_path_db.image_exists(thumbnail_name):
+            return self.thumbnail_path_db.get_image_path(thumbnail_name)
+        else:
+            thumbnail_path = os.path.join(self.thumbnail_dir, thumbnail_name + ".png")
+            if not os.path.isfile(thumbnail_path):
+                print("Creating thumbnail for", thumbnail_name)
+                create_thumbnail(
+                    photo_path=self.photo_path_db.get_image_path(thumbnail_name, postfix="_color"),
+                    thumbnail_path=thumbnail_path,
+                    size_x=400,
+                    size_y=300
+                    )
+            self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
+            return thumbnail_path
 
 class ImageGalleryApp(App):
     def build(self):
