@@ -18,6 +18,7 @@ from kivy.clock import Clock
 
 from kivy.config import Config
 Config.set('graphics', 'fullscreen', 'auto')
+Config.set('input', 'mouse', 'None')
 
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
@@ -141,6 +142,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                 instance.text = 'Black & White'
                 image.source = color_source
                 self.print_source = color_source
+            print(image.source)
             image.reload()
         
         toggle_button.bind(on_press=on_toggle)
@@ -151,14 +153,17 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         layout.add_widget(print_button)
         
         def on_print(instance):
-            close_popup(None)
-            self.show_confirm_print_popup(source)
+            close_popup(instance)
+            Clock.schedule_once(self.show_confirm_print_popup, 0)
         
         print_button.bind(on_release=on_print)
         
         popup.open()
 
-    def show_confirm_print_popup(self, source):
+    def show_confirm_print_popup(self, instance):
+        if self.popup_is_open:
+            return
+        self.popup_is_open = True
         layout = FloatLayout()
         popup = Popup(title='Confirm print?',
                       content=layout,
@@ -166,16 +171,21 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                       
         yes_button = Button(text='Yes', size_hint=(0.5, 1),
                               pos_hint={'x': 0, 'y': 0})
+            
+        def close_popup(instance):
+            self.popup_is_open = False
+            popup.dismiss()
                               
         def print_image(instance):
-            popup.dismiss()
+            print("Printing", self.print_source)
+            close_popup(instance)
                               
         yes_button.bind(on_release=print_image)
         layout.add_widget(yes_button)
                       
         no_button = Button(text='No', size_hint=(0.5, 1),
                               pos_hint={'x': 0.5, 'y': 0})
-        no_button.bind(on_release=popup.dismiss)
+        no_button.bind(on_release=close_popup)
         layout.add_widget(no_button)
         
         popup.open()
@@ -202,6 +212,12 @@ class ImageGallery(RecycleView):
         #self.image_paths = glob(self.image_dir + "*.png")
         #self.data = [{'source': i} for i in self.image_paths]  # Replace with your image paths
         #print(self.data)
+        
+    def on_touch_down(self, touch):
+        if touch.device == 'mouse':
+            print("Denied")
+            return False
+        return super(ImageGallery, self).on_touch_down(touch)
         
     def fill_image_path_db(self, color_dir):
         color_images = glob(color_dir + "/*.jpg")
