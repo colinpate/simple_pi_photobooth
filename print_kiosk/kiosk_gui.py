@@ -180,7 +180,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             print("Printing", self.print_source)
             close_popup(instance)
             self.print_image()
-            Clock.schedule_once(self.show_printing_popup)
+            Clock.schedule_once(self.show_printing_popup, 0)
                               
         yes_button.bind(on_release=print_image)
         layout.add_widget(yes_button)
