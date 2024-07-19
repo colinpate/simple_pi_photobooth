@@ -131,6 +131,9 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         toggle_button = ToggleButton(text='Black & White', size_hint=(0.2, 0.1),
                                      pos_hint={'x': 0.4, 'y': 0})
         layout.add_widget(toggle_button)
+
+        # Default to color
+        self.print_source = color_source
         
         def on_toggle(instance):
             print(instance.state)
