@@ -23,7 +23,7 @@ Config.set('input', 'mouse', 'None')
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
-#import cups
+import cups
 
 from glob import glob
 import yaml
@@ -41,6 +41,13 @@ def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
     out = cv2.resize(image, dsize=(size_x, size_y))
     cv2.imwrite(thumbnail_path, out)
+
+def rotate_image(image_path):
+    image = cv2.imread(image_path)
+    image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    file_path = "rotated.jpg"
+    cv2.imwrite(file_path, image)
+    return file_path
     
 Builder.load_string(
 '''
@@ -70,14 +77,12 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         ''' Catch and handle the view changes '''
         self.index = index
         self.parent_gallery = rv
-        print("Refreshed")
         return super(SelectableImage, self).refresh_view_attrs(rv, index, data)
 
     def on_touch_down(self, touch):
         ''' Add selection on touch down '''
         if self.collide_point(*touch.pos) and self.selectable:
             self.touch_start_pos = touch.pos
-            #return self.parent.select_with_touch(self.index, touch)
             
     def on_touch_up(self, touch): 
         if self.collide_point(*touch.pos) and self.selectable:
@@ -104,11 +109,6 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                       content=layout,
                       size_hint=(0.8, 0.8))
         
-        #image_base = source.split("_thumb")[0]
-        #if image_base.endswith("_gray"):
-        #    image_base = image_base[:-5]
-        #color_source = image_base + ".jpg"
-        #gray_source = image_base + "_gray.jpg"
         color_source = self.color_photo_path
         gray_source = self.gray_photo_path
         print("Color source:", color_source, "Gray source:", gray_source)
@@ -179,6 +179,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         def print_image(instance):
             print("Printing", self.print_source)
             close_popup(instance)
+            self.print_image()
                               
         yes_button.bind(on_release=print_image)
         layout.add_widget(yes_button)
@@ -191,7 +192,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         popup.open()
         
     def print_image(self):
-        prit()
+        self.parent_gallery.print_image(self.print_source)
         
 
 class ImageGallery(RecycleView):
@@ -204,14 +205,19 @@ class ImageGallery(RecycleView):
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.thumbnail_dir = config["thumbnail_dir"]
         self.data = []
-        #self.fill_image_path_db("../party_photos/becca_party_4_13_24/booth_photos/color/")
         Clock.schedule_once(self.update_data, 5)
-        
-        #self.image_dir = "../../party_photos/becca_party_4_13_24/booth_photos/color/"
-        #self.image_dir = "../../party_photos/Mead_5th_Grade/"
-        #self.image_paths = glob(self.image_dir + "*.png")
-        #self.data = [{'source': i} for i in self.image_paths]  # Replace with your image paths
-        #print(self.data)
+
+        self.setup_printer()
+
+    def setup_printer(self):
+        self.conn = cups.Connection()
+        printers = self.conn.getPrinters()
+        self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
+
+    def print_image(self, image_path):
+        rotated_path = rotate_image(image_path)
+        options={}
+        self.conn.printFile(self.printer_name, rotated_path, "Photo Print", options)
         
     def on_touch_down(self, touch):
         if touch.device == 'mouse':
@@ -263,8 +269,8 @@ class ImageGallery(RecycleView):
                 create_thumbnail(
                     photo_path=self.photo_path_db.get_image_path(thumbnail_name, postfix="_color"),
                     thumbnail_path=thumbnail_path,
-                    size_x=400,
-                    size_y=300
+                    size_x=520,
+                    size_y=390
                     )
             self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
             return thumbnail_path
@@ -273,7 +279,7 @@ class ImageGalleryApp(App):
     def build(self):
         gallery = ImageGallery()
         gallery.scroll_type = ['content', 'bars']
-        gallery.bar_width = '30dp'
+        gallery.bar_width = '50dp'
         print("ImageGallery instance created and configured.")
         return gallery
 
