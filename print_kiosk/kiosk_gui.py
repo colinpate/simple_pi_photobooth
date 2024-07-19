@@ -210,10 +210,10 @@ class ImageGallery(RecycleView):
                 
     def update_data(self, dt):
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
-        print("Updating data")
         self.photo_path_db.try_update_from_file()
         new_photo_names = list(self.photo_path_db.image_names())
         new_num_photos = len(new_photo_names)
+        print("Updating data,", new_num_photos, "photos in database")
         if new_num_photos > len(self.data):
             print(new_num_photos - len(self.data), "new photos!")
             photo_names_sorted = sorted(new_photo_names)
