@@ -260,7 +260,7 @@ class ImageGallery(RecycleView):
         print("Updating data,", new_num_photos, "photos in database")
         if new_num_photos > len(self.data):
             print(new_num_photos - len(self.data), "new photos!")
-            photo_names_sorted = sorted(new_photo_names)
+            photo_names_sorted = sorted(new_photo_names)[::-1]
             self.data = [
                     {
                         'source': self.get_thumbnail(i),
