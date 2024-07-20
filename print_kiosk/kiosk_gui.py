@@ -39,8 +39,12 @@ def load_config(config_path):
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
-    out = cv2.resize(image, dsize=(size_x, size_y))
-    cv2.imwrite(thumbnail_path, out)
+    if image is not None:
+        out = cv2.resize(image, dsize=(size_x, size_y))
+        cv2.imwrite(thumbnail_path, out)
+        return True
+    else:
+        return False
 
 def rotate_image(image_path):
     image = cv2.imread(image_path)
@@ -260,17 +264,20 @@ class ImageGallery(RecycleView):
         new_photo_names = list(self.photo_path_db.image_names())
         new_num_photos = len(new_photo_names)
         print("Updating data,", new_num_photos, "photos in database")
-        if new_num_photos > len(self.data):
+        if new_num_photos != len(self.data):
             print(new_num_photos - len(self.data), "new photos!")
             photo_names_sorted = sorted(new_photo_names)[::-1]
-            self.data = [
-                    {
-                        'source': self.get_thumbnail(i),
-                        'gray_photo_path': self.photo_path_db.get_image_path(i, "_gray"),
-                        'color_photo_path': self.photo_path_db.get_image_path(i, "_color"),
-                    }
-                for i in photo_names_sorted]
-        Clock.schedule_once(self.update_data, 5)
+            new_data = []
+            for photo_name in photo_names_sorted:
+                thumbnail_path = self.get_thumbnail(photo_name)
+                if thumbnail_path is not None:
+                    new_data.append({
+                            'source': thumbnail_path,
+                            'gray_photo_path': self.photo_path_db.get_image_path(photo_name, "_gray"),
+                            'color_photo_path': self.photo_path_db.get_image_path(photo_name, "_color"),
+                        })
+            self.data = new_data
+        Clock.schedule_once(self.update_data, 2)
             
     def get_thumbnail(self, thumbnail_name):
         # Returns path to thumbnail if it exists, creates it if not
@@ -280,12 +287,14 @@ class ImageGallery(RecycleView):
             thumbnail_path = os.path.join(self.thumbnail_dir, thumbnail_name + ".png")
             if not os.path.isfile(thumbnail_path):
                 print("Creating thumbnail for", thumbnail_name)
-                create_thumbnail(
+                success = create_thumbnail(
                     photo_path=self.photo_path_db.get_image_path(thumbnail_name, postfix="_color"),
                     thumbnail_path=thumbnail_path,
                     size_x=520,
                     size_y=390
                     )
+                if not success:
+                    return None
             self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
             return thumbnail_path
 
