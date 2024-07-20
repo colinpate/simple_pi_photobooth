@@ -203,6 +203,8 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         
         Clock.schedule_once(popup.dismiss, 10)
         
+        popup.open()
+        
     def print_image(self):
         self.parent_gallery.print_image(self.print_source)
         
