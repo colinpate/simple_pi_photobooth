@@ -359,6 +359,8 @@ class PhotoBooth:
                     dir_i,
                     photo_name + postfix + ".jpg"
                 )
+                if self._watermarker is not None:
+                    self._watermarker.apply_watermark(img)
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
