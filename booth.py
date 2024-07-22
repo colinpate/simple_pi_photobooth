@@ -20,6 +20,7 @@ import sys
 from image_path_db import ImagePathDB
 from timers import Timers
 from common import load_config
+from apply_watermark import ApplyWatermark
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -204,6 +205,11 @@ class PhotoBooth:
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
+        
+        if "watermark" in config:
+            self._watermarker = ApplyWatermark(**config["watermark"])
+        else:
+            self._watermarker = None
         
         self.picam2 = self.init_camera()
         self.qpicamera2 = self.init_preview()
