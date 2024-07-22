@@ -210,7 +210,7 @@ class PhotoBooth:
             try:
                 self._watermarker = ApplyWatermark(**config["watermark"])
             except Exception as e:
-                print("Failed to load watermarker:" e)
+                print("Failed to load watermarker:", e)
                 self._watermarker = None
         else:
             self._watermarker = None
