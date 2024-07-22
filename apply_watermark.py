@@ -2,12 +2,11 @@ import cv2
 import numpy as np
 
 class ApplyWatermark:
-    def __init__(self, watermark_path, watermark_position="lr", weight=1, h_scale=0, offset_x=0, offset_y=0):
+    def __init__(self, watermark_path, watermark_position="lr", weight=1, h_size=0, offset_x=0, offset_y=0):
         watermark_in = cv2.imread(watermark_path, cv2.IMREAD_UNCHANGED)
-        if h_scale == 0:
+        if h_size == 0:
             watermark = watermark_in
         else:
-            h_size = h_scale * in_image.shape[1]
             v_size = (h_size / watermark_in.shape[1]) * watermark_in.shape[0]
             watermark = cv2.resize(watermark_in, dsize=(int(h_size), int(v_size)))
             

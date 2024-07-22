@@ -29,6 +29,6 @@ request_timeout: 20
 watermark:
     watermark_path: "/home/colin/watermarks/larger_aquafest_logo.png"
     weight: 1
-    h_scale: 0.25
+    h_size: 950
     offset_x: 100
     offset_y: 90
