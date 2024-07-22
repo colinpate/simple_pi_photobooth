@@ -4,6 +4,8 @@ import numpy as np
 class ApplyWatermark:
     def __init__(self, watermark_path, watermark_position="lr", weight=1, h_size=0, offset_x=0, offset_y=0):
         watermark_in = cv2.imread(watermark_path, cv2.IMREAD_UNCHANGED)
+        if watermark_in == None:
+            raise FileNotFoundError("Couldn't load watermark")
         watermark_in = cv2.cvtColor(watermark_in, cv2.COLOR_RGBA2BGRA)
         if h_size == 0:
             watermark = watermark_in
@@ -48,7 +50,7 @@ class ApplyWatermark:
     
 if __name__ == "__main__":
     #in_image = cv2.imread("../photobooth_site/240713_163044_color.jpg")
-    in_image = cv2.imread("../booth_photos/240720_150954_color.jpg")
+    in_image = cv2.imread("../booth_photos/240720_150954_gray.jpg")
 
     print(in_image.shape)
     #watermark = cv2.imread("../photobooth_site/watermarks/doug_anne_watermark.png", cv2.IMREAD_UNCHANGED)
@@ -65,6 +67,7 @@ if __name__ == "__main__":
         )
         
     watermarker.apply_watermark(in_image)
+    in_image = cv2.cvtColor(in_image, cv2.COLOR_RGB2BGR)
 
-    cv2.imwrite("watermarked.jpg", in_image)
+    cv2.imwrite("watermarked_gray.jpg", in_image)
     

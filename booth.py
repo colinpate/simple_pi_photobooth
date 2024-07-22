@@ -207,7 +207,11 @@ class PhotoBooth:
         self._prev_saturation = 0 if config["display_gray"] else 1
         
         if "watermark" in config:
-            self._watermarker = ApplyWatermark(**config["watermark"])
+            try:
+                self._watermarker = ApplyWatermark(**config["watermark"])
+            except Exception as e:
+                print("Failed to load watermarker:" e)
+                self._watermarker = None
         else:
             self._watermarker = None
         
