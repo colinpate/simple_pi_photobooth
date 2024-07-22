@@ -341,6 +341,7 @@ class PhotoBooth:
             final_image = orig_image
             
         gray_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2GRAY)
+        gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2BGR)
         
         h, w = final_image.shape[:2]
         datetime_stamp = datetime.now()
@@ -359,8 +360,8 @@ class PhotoBooth:
                     dir_i,
                     photo_name + postfix + ".jpg"
                 )
-                if self._watermarker is not None:
-                    self._watermarker.apply_watermark(img)
+                if (self._watermarker is not None) and (postfix != "_original"):
+                    self._watermarker.apply_watermark(cv_img)
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
@@ -371,7 +372,7 @@ class PhotoBooth:
         
         #return an image to display
         if self._display_gray:
-            display_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
+            display_image = gray_image
         else:
             display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
         return display_image
