@@ -4,7 +4,7 @@ import numpy as np
 class ApplyWatermark:
     def __init__(self, watermark_path, watermark_position="lr", weight=1, h_size=0, offset_x=0, offset_y=0):
         watermark_in = cv2.imread(watermark_path, cv2.IMREAD_UNCHANGED)
-        if watermark_in == None:
+        if watermark_in is None:
             raise FileNotFoundError("Couldn't load watermark")
         watermark_in = cv2.cvtColor(watermark_in, cv2.COLOR_RGBA2BGRA)
         if h_size == 0:
