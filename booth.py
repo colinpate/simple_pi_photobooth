@@ -372,7 +372,7 @@ class PhotoBooth:
         
         #return an image to display
         if self._display_gray:
-            display_image = gray_image
+            display_image = cv2.cvtColor(gray_image, cv2.COLOR_BGR2RGB)
         else:
             display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
         return display_image
