@@ -34,6 +34,17 @@ import os
 
 from common.image_path_db import ImagePathDB
 
+def is_nfs_mounted(mount_point):
+    if os.path.ismount(mount_point):
+        try:
+            # Check if the mount point is available by listing its contents
+            subprocess.check_output(['ls', mount_point], timeout=5)
+            return True
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return False
+    else:
+        return False
+
 def load_config(config_path):
     with open(config_path, "r") as config_file:
         config = yaml.load(config_file, yaml.Loader)
@@ -77,7 +88,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     color_photo_path = StringProperty()
     gray_photo_path = StringProperty()
     touch_start_pos = [0, 0]
-    popup_is_open = False
+    #popup_is_open = False
 
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
@@ -108,7 +119,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     def show_image_popup(self, source):
         #if self.popup_is_open:
         #    return
-        self.popup_is_open = True
+        #self.popup_is_open = True
         ''' Show a popup with the expanded image '''
         layout = FloatLayout()
         popup = Popup(title='Expanded Image View',
@@ -127,7 +138,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                               pos_hint={'x': 0.6, 'y': 0})
                               
         def close_popup(instance):
-            self.popup_is_open = False
+            #self.popup_is_open = False
             popup.dismiss()
                               
         close_button.bind(on_release=close_popup)
@@ -172,7 +183,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     def show_confirm_print_popup(self, instance):
         #if self.popup_is_open:
         #    return
-        self.popup_is_open = True
+        #self.popup_is_open = True
         layout = FloatLayout()
         popup = Popup(title='Confirm print?',
                       content=layout,
@@ -182,7 +193,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                               pos_hint={'x': 0, 'y': 0})
             
         def close_popup(instance):
-            self.popup_is_open = False
+            #self.popup_is_open = False
             popup.dismiss()
                               
         def print_image(instance):
@@ -224,6 +235,8 @@ class ImageGallery(RecycleView):
         self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.thumbnail_dir = config["thumbnail_dir"]
+        self.photo_dir = config["photo_dir"]
+        self.not_available_popup = None
         self.data = []
         Clock.schedule_once(self.update_data, 5)
 
@@ -239,11 +252,11 @@ class ImageGallery(RecycleView):
         options={}
         self.conn.printFile(self.printer_name, rotated_path, "Photo Print", options)
         
-    def on_touch_down(self, touch):
-        if touch.device == 'mouse':
-            print("Denied")
-            return False
-        return super(ImageGallery, self).on_touch_down(touch)
+    #def on_touch_down(self, touch):
+    #    if touch.device == 'mouse':
+    #        print("Denied")
+    #        return False
+    #    return super(ImageGallery, self).on_touch_down(touch)
         
     def fill_image_path_db(self, color_dir):
         color_images = glob(color_dir + "/*.jpg")
@@ -259,27 +272,44 @@ class ImageGallery(RecycleView):
                 paths[postfix] = image_path
             print(image_name, paths)
             self.photo_path_db.add_image(image_name, paths)
+
+    def show_not_available_popup(self, instance):
+        layout = FloatLayout()
+        popup = Popup(title='Error',
+                      content=layout,
+                      size_hint=(0.5, 0.3))
+        
+        popup.open()
+        
+        self.not_available_popup = popup
                 
     def update_data(self, dt):
-        # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
-        self.photo_path_db.try_update_from_file()
-        new_photo_names = list(self.photo_path_db.image_names())
-        new_num_photos = len(new_photo_names)
-        print("Updating data,", new_num_photos, "photos in database")
-        if new_num_photos != len(self.data):
-            print(new_num_photos - len(self.data), "new photos!")
-            photo_names_sorted = sorted(new_photo_names)[::-1]
-            new_data = []
-            for photo_name in photo_names_sorted:
-                thumbnail_path = self.get_thumbnail(photo_name)
-                if thumbnail_path is not None:
-                    new_data.append({
-                            'source': thumbnail_path,
-                            'gray_photo_path': self.photo_path_db.get_image_path(photo_name, "_gray"),
-                            'color_photo_path': self.photo_path_db.get_image_path(photo_name, "_color"),
-                        })
-            self.data = new_data
-        Clock.schedule_once(self.update_data, 2)
+        if is_nfs_mounted(photo_dir):
+            if self.not_available_popup is not None:
+                self.not_available_popup.dismiss()
+                self.not_available_popup = None
+            # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
+            self.photo_path_db.try_update_from_file()
+            new_photo_names = list(self.photo_path_db.image_names())
+            new_num_photos = len(new_photo_names)
+            print("Updating data,", new_num_photos, "photos in database")
+            if new_num_photos != len(self.data):
+                print(new_num_photos - len(self.data), "new photos!")
+                photo_names_sorted = sorted(new_photo_names)[::-1]
+                new_data = []
+                for photo_name in photo_names_sorted:
+                    thumbnail_path = self.get_thumbnail(photo_name)
+                    if thumbnail_path is not None:
+                        new_data.append({
+                                'source': thumbnail_path,
+                                'gray_photo_path': self.photo_path_db.get_image_path(photo_name, "_gray"),
+                                'color_photo_path': self.photo_path_db.get_image_path(photo_name, "_color"),
+                            })
+                self.data = new_data
+            Clock.schedule_once(self.update_data, 2)
+        else:
+            if self.not_available_popup is None:
+                Clock.schedule_once(self.show_not_available_popup, 0)
             
     def get_thumbnail(self, thumbnail_name):
         # Returns path to thumbnail if it exists, creates it if not

@@ -1,3 +1,4 @@
 photo_path_db: "/home/colin/booth_photos/photo_db.json"
 thumbnail_path_db: "print_kiosk/thumbnail_path_db.json"
-thumbnail_dir: "/home/colin/simple_pi_photobooth/print_kiosk/thumbnails"
+thumbnail_dir: "/home/colin/simple_pi_photobooth/print_kiosk/thumbnails";
+photo_dir: "/home/colin/booth_photos/"
