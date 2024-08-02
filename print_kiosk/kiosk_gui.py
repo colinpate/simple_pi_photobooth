@@ -19,6 +19,8 @@ from kivy.clock import Clock
 from kivy.config import Config
 Config.set('graphics', 'fullscreen', 'auto')
 Config.set('input', 'mouse', 'None')
+Config.set('graphics', 'rotation', '270')
+
 
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
@@ -58,7 +60,7 @@ Builder.load_string(
 <ImageGallery>:
     viewclass: 'SelectableImage'
     RecycleGridLayout:
-        cols: 2
+        cols: 1
         default_size: None, 400
         default_size_hint: 1, None
         size_hint_y: None
@@ -104,20 +106,20 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             print("selection removed for {0}".format(rv.data[index]))
             
     def show_image_popup(self, source):
-        if self.popup_is_open:
-            return
+        #if self.popup_is_open:
+        #    return
         self.popup_is_open = True
         ''' Show a popup with the expanded image '''
         layout = FloatLayout()
         popup = Popup(title='Expanded Image View',
                       content=layout,
-                      size_hint=(0.8, 0.8))
+                      size_hint=(1, 0.6))
         
         color_source = self.color_photo_path
         gray_source = self.gray_photo_path
         print("Color source:", color_source, "Gray source:", gray_source)
         
-        image = AsyncImage(source=color_source, allow_stretch=True, size_hint=(0.8, 0.8), pos_hint={'x': 0.1, 'y': 0.2})
+        image = AsyncImage(source=color_source, allow_stretch=True, size_hint=(1, 1), pos_hint={'x': 0, 'y': 0.1})
         layout.add_widget(image)
         
         # Define the close button
@@ -168,8 +170,8 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         popup.open()
 
     def show_confirm_print_popup(self, instance):
-        if self.popup_is_open:
-            return
+        #if self.popup_is_open:
+        #    return
         self.popup_is_open = True
         layout = FloatLayout()
         popup = Popup(title='Confirm print?',
