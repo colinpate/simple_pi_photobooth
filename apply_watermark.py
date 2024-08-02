@@ -45,14 +45,13 @@ class ApplyWatermark:
         
         in_image_float = np.array(in_image[start_x:end_x,start_y:end_y,:3], dtype=np.float32)
         in_image_float *= self.watermark_alpha_inv
-        in_image[start_x:end_x, start_y:end_y,:3] = in_image_float + self.watermark_alphad\
+        in_image[start_x:end_x, start_y:end_y,:3] = in_image_float + self.watermark_alphad
                 
     
 if __name__ == "__main__":
     #in_image = cv2.imread("../photobooth_site/240713_163044_color.jpg")
-    in_image = cv2.imread("../booth_photos/240720_150954_gray.jpg")
 
-    print(in_image.shape)
+    #print(in_image.shape)
     #watermark = cv2.imread("../photobooth_site/watermarks/doug_anne_watermark.png", cv2.IMREAD_UNCHANGED)
     #watermark = cv2.imread("../photobooth_site/watermarks/small_watermark.png", cv2.IMREAD_UNCHANGED)
     #watermark = cv2.imread("../photobooth_site/watermarks/larger_aquafest_logo.png", cv2.IMREAD_UNCHANGED)
@@ -62,12 +61,21 @@ if __name__ == "__main__":
         watermark_path=watermark_path,
         weight=1,
         h_size=950, 
-        offset_x=100, 
-        offset_y=90
+        offset_x=80, 
+        offset_y=100
         )
         
-    watermarker.apply_watermark(in_image)
-    in_image = cv2.cvtColor(in_image, cv2.COLOR_RGB2BGR)
+    import glob
+    import os
+    images = glob.glob("../party_photos/Aquafest_2024/booth_photos/gray/*.jpg")
+    for image in images:
+        in_image = cv2.imread(image)
+        in_image = cv2.cvtColor(in_image, cv2.COLOR_RGB2BGR)
+            
+        watermarker.apply_watermark(in_image)
 
-    cv2.imwrite("watermarked_gray.jpg", in_image)
+        image_name = os.path.split(image)[-1]
+        print("Writing", image_name)
+        in_image = cv2.cvtColor(in_image, cv2.COLOR_BGR2RGB)
+        cv2.imwrite("../party_photos/Aquafest_2024/watermarked/" + image_name, in_image)
     
