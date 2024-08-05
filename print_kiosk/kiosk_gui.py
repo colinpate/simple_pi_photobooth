@@ -282,7 +282,7 @@ class ImageGallery(RecycleView):
         self.not_available_popup = popup
                 
     def update_data(self, dt):
-        if is_nfs_mounted(self.photo_dir) or LOCAL_TEST:
+        if is_nfs_mounted(self.remote_photo_dir) or LOCAL_TEST:
             if self.not_available_popup is not None:
                 self.not_available_popup.dismiss()
                 self.not_available_popup = None
