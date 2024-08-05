@@ -11,27 +11,28 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.recyclegridlayout import RecycleGridLayout
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.popup import Popup
+from kivy.uix.togglebutton import ToggleButton
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.metrics import dp  # Import dp function
 from kivy.lang import Builder
 from kivy.clock import Clock
-
 from kivy.config import Config
-Config.set('graphics', 'fullscreen', 'auto')
-Config.set('input', 'mouse', 'None')
-Config.set('graphics', 'rotation', '270')
-
-
-from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.popup import Popup
-from kivy.uix.togglebutton import ToggleButton
-import cups
 
 from glob import glob
 import yaml
 import cv2
 import os
 import subprocess
+
+LOCAL_TEST = True
+
+if not LOCAL_TEST:
+    import cups
+    Config.set('graphics', 'fullscreen', 'auto')
+    Config.set('input', 'mouse', 'None')
+    Config.set('graphics', 'rotation', '270')
 
 from common.image_path_db import ImagePathDB
 
@@ -233,7 +234,10 @@ class ImageGallery(RecycleView):
     def __init__(self, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
         
-        config = load_config("print_config.yaml")
+        if LOCAL_TEST:
+            config = load_config("print_config_test.yaml")
+        else:
+            config = load_config("print_config.yaml")
         
         self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
@@ -243,7 +247,8 @@ class ImageGallery(RecycleView):
         self.data = []
         Clock.schedule_once(self.update_data, 5)
 
-        self.setup_printer()
+        if not LOCAL_TEST:
+            self.setup_printer()
 
     def setup_printer(self):
         self.conn = cups.Connection()
@@ -287,7 +292,7 @@ class ImageGallery(RecycleView):
         self.not_available_popup = popup
                 
     def update_data(self, dt):
-        if is_nfs_mounted(self.photo_dir):
+        if is_nfs_mounted(self.photo_dir) or LOCAL_TEST:
             if self.not_available_popup is not None:
                 self.not_available_popup.dismiss()
                 self.not_available_popup = None
@@ -329,6 +334,7 @@ class ImageGallery(RecycleView):
                     size_y=390
                     )
                 if not success:
+                    print("Failed to create thumbnail")
                     return None
             self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
             return thumbnail_path

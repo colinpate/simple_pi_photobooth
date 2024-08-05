@@ -4,17 +4,28 @@ import os
 class ImagePathDB:
     def __init__(self, db_file_path):
         self._db_file_path = db_file_path
+        self._root_folder = os.path.split(db_file_path)[0]
         self.db = {}
         self.try_update_from_file()
         
     def add_image(self, image_name, val):
-        self.db[image_name] = val
+        if isinstance(val, dict):
+            self.db[image_name] = {
+                postfix: os.path.relpath(path, start=self._root_folder)
+                for postfix, path in val.items()
+            }
+        elif isinstance(val, str):
+            self.db[image_name] = os.path.relpath(path, start=self._root_folder)
         
     def get_image_path(self, image_name, postfix=None):
         if not postfix:
-            return self.db[image_name]
+            path = self.db[image_name]
         else:
-            return self.db[image_name][postfix]
+            path = self.db[image_name][postfix]
+        if os.path.isabs(path):
+            return path
+        else:
+            return os.path.join(self._root_folder, path)
         
     def image_exists(self, image_name):
         return image_name in self.db.keys()
