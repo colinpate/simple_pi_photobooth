@@ -26,7 +26,10 @@ import cv2
 import os
 import subprocess
 
-LOCAL_TEST = True
+if os.path.isfile("print_config_test.yaml"):
+    LOCAL_TEST = True
+else:
+    LOCAL_TEST = False
 
 if not LOCAL_TEST:
     import cups
