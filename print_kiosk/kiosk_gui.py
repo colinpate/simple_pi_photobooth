@@ -25,6 +25,7 @@ import yaml
 import cv2
 import os
 import subprocess
+from selectable_image import SelectableImage
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -85,144 +86,6 @@ Builder.load_string(
         height: self.minimum_height
 '''
 )
-
-class SelectableImage(RecycleDataViewBehavior, AsyncImage):
-    ''' Add selection support to the Image '''
-    index = None
-    selected = BooleanProperty(False)
-    selectable = BooleanProperty(True)
-    source = StringProperty()
-    color_photo_path = StringProperty()
-    gray_photo_path = StringProperty()
-    touch_start_pos = [0, 0]
-    #popup_is_open = False
-
-    def refresh_view_attrs(self, rv, index, data):
-        ''' Catch and handle the view changes '''
-        self.index = index
-        self.parent_gallery = rv
-        return super(SelectableImage, self).refresh_view_attrs(rv, index, data)
-
-    def on_touch_down(self, touch):
-        ''' Add selection on touch down '''
-        if self.collide_point(*touch.pos) and self.selectable:
-            self.touch_start_pos = touch.pos
-            
-    def on_touch_up(self, touch): 
-        if self.collide_point(*touch.pos) and self.selectable:
-            distance = ((touch.pos[0] - self.touch_start_pos[0]) ** 2 + 
-                        (touch.pos[1] - self.touch_start_pos[1]) ** 2) ** 0.5
-            if distance < dp(10):
-                self.show_image_popup(self.source)
-                
-    def apply_selection(self, rv, index, is_selected):
-        ''' Respond to the selection of items in the view. '''
-        self.selected = is_selected
-        if is_selected:
-            print("selection changed to {0}".format(rv.data[index]))
-        else:
-            print("selection removed for {0}".format(rv.data[index]))
-            
-    def show_image_popup(self, source):
-        ''' Show a popup with the expanded image '''
-        layout = FloatLayout()
-        popup = Popup(title='Expanded Image View',
-                      content=layout,
-                      size_hint=(1, 0.6))
-        
-        color_source = self.color_photo_path
-        gray_source = self.gray_photo_path
-        print("Color source:", color_source, "Gray source:", gray_source)
-        
-        image = AsyncImage(source=color_source, allow_stretch=True, size_hint=(1, 1), pos_hint={'x': 0, 'y': 0.1})
-        layout.add_widget(image)
-        
-        # Define the close button
-        close_button = Button(text='Close', size_hint=(0.1, 0.1),
-                              pos_hint={'x': 0.6, 'y': 0})
-                              
-        def close_popup(instance):
-            popup.dismiss()
-                              
-        close_button.bind(on_release=close_popup)
-        layout.add_widget(close_button)
-        
-        # Define the toggle button and its callback
-        toggle_button = ToggleButton(text='Black & White', size_hint=(0.2, 0.1),
-                                     pos_hint={'x': 0.4, 'y': 0})
-        layout.add_widget(toggle_button)
-
-        # Default to color
-        self.print_source = color_source
-        
-        def on_toggle(instance):
-            print(instance.state)
-            if instance.state == 'down':
-                instance.text = 'Color'
-                image.source = gray_source
-                self.print_source = gray_source
-            else:
-                instance.text = 'Black & White'
-                image.source = color_source
-                self.print_source = color_source
-            print(image.source)
-            image.reload()
-        
-        toggle_button.bind(on_press=on_toggle)
-        
-        # Define the print button and its callback
-        print_button = Button(text='Print', size_hint=(0.1, 0.1),
-                              pos_hint={'x': 0.3, 'y': 0})
-        layout.add_widget(print_button)
-        
-        def on_print(instance):
-            close_popup(instance)
-            Clock.schedule_once(self.show_confirm_print_popup, 0)
-        
-        print_button.bind(on_release=on_print)
-        
-        popup.open()
-
-    def show_confirm_print_popup(self, instance):
-        layout = FloatLayout()
-        popup = Popup(title='Confirm print?',
-                      content=layout,
-                      size_hint=(0.5, 0.3))
-                      
-        yes_button = Button(text='Yes', size_hint=(0.5, 1),
-                              pos_hint={'x': 0, 'y': 0})
-            
-        def close_popup(instance):
-            popup.dismiss()
-                              
-        def print_image(instance):
-            print("Printing", self.print_source)
-            close_popup(instance)
-            self.print_image()
-            Clock.schedule_once(self.show_printing_popup, 0)
-                              
-        yes_button.bind(on_release=print_image)
-        layout.add_widget(yes_button)
-                      
-        no_button = Button(text='No', size_hint=(0.5, 1),
-                              pos_hint={'x': 0.5, 'y': 0})
-        no_button.bind(on_release=close_popup)
-        layout.add_widget(no_button)
-        
-        popup.open()
-
-    def show_printing_popup(self, instance):
-        layout = FloatLayout()
-        popup = Popup(title='Printing!',
-            content=layout,
-            size_hint=(0.8, 0.8))
-        
-        Clock.schedule_once(popup.dismiss, 10)
-        
-        popup.open()
-        
-    def print_image(self):
-        self.parent_gallery.print_image(self.print_source)
         
 
 class ImageGallery(RecycleView):
@@ -234,11 +97,14 @@ class ImageGallery(RecycleView):
         else:
             config = load_config("print_config.yaml")
         
-        self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
+        #self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
         self.photo_path_db = ImagePathDB(config["photo_path_db"], old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
+        self.separate_gray_thumbnails = False
+        
+        self.old_num_photos = 0
         self.not_available_popup = None
         self.data = []
         Clock.schedule_once(self.update_data, 5)
@@ -286,51 +152,74 @@ class ImageGallery(RecycleView):
             if self.not_available_popup is not None:
                 self.not_available_popup.dismiss()
                 self.not_available_popup = None
-            print("Syncing remote to local")
-            print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
+            if not LOCAL_TEST:
+                print("Syncing remote to local")
+                print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
             # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
             self.photo_path_db.try_update_from_file()
             new_photo_names = list(self.photo_path_db.image_names())
             new_num_photos = len(new_photo_names)
             print("Updating data,", new_num_photos, "photos in database")
-            if new_num_photos != len(self.data):
-                print(new_num_photos - len(self.data), "new photos!")
+            if new_num_photos != self.old_num_photos:
+                self.old_num_photos = new_num_photos
+                print(new_num_photos - self.old_num_photos, "new photos!")
                 photo_names_sorted = sorted(new_photo_names)[::-1]
                 new_data = []
                 for photo_name in photo_names_sorted:
-                    thumbnail_path = self.get_thumbnail(photo_name)
-                    if thumbnail_path is not None:
-                        new_data.append({
-                                'source': thumbnail_path,
-                                'gray_photo_path': self.photo_path_db.get_image_path(photo_name, "_gray"),
-                                'color_photo_path': self.photo_path_db.get_image_path(photo_name, "_color"),
-                            })
+                    if self.separate_gray_thumbnails:
+                        thumbnail_images = [
+                                {"gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray"), "color_photo_path": ""},
+                                {"color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"), "gray_photo_path": ""}
+                            ]
+                    else:
+                        thumbnail_images = [
+                                {
+                                    "color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"),
+                                    "gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray")
+                                }
+                            ]
+                        
+                    for photo_dict in thumbnail_images:
+                        if photo_dict["color_photo_path"]:
+                            thumb_photo_path = photo_dict["color_photo_path"]
+                        else:
+                            thumb_photo_path = photo_dict["gray_photo_path"]
+                        thumbnail_path = self.get_thumbnail(thumb_photo_path)
+                        if thumbnail_path is not None:
+                            new_entry = {
+                                    'source': thumbnail_path,
+                                }
+                            new_entry.update(photo_dict)
+                            new_data.append(new_entry)
+                            
                 self.data = new_data
-                self.thumbnail_path_db.update_file()
+                #self.thumbnail_path_db.update_file()
         else:
             if self.not_available_popup is None:
                 Clock.schedule_once(self.show_not_available_popup, 0)
         Clock.schedule_once(self.update_data, 2)
             
-    def get_thumbnail(self, thumbnail_name):
+    def get_thumbnail(self, image_path):
         # Returns path to thumbnail if it exists, creates it if not
-        if self.thumbnail_path_db.image_exists(thumbnail_name):
-            return self.thumbnail_path_db.get_image_path(thumbnail_name)
-        else:
-            thumbnail_path = os.path.join(self.thumbnail_dir, thumbnail_name + ".png")
-            if not os.path.isfile(thumbnail_path):
-                print("Creating thumbnail for", thumbnail_name)
-                success = create_thumbnail(
-                    photo_path=self.photo_path_db.get_image_path(thumbnail_name, postfix="_color"),
-                    thumbnail_path=thumbnail_path,
-                    size_x=520,
-                    size_y=390
-                    )
-                if not success:
-                    print("Failed to create thumbnail")
-                    return None
-            self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
-            return thumbnail_path
+        #if self.thumbnail_path_db.image_exists(image_path):
+        #    return self.thumbnail_path_db.get_image_path(image_path)
+        #else:
+        filename = os.path.split(image_path)[1]
+        filename = filename.split(".")[0]
+        thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
+        if not os.path.isfile(thumbnail_path):
+            print("Creating thumbnail for", filename)
+            success = create_thumbnail(
+                photo_path=image_path,
+                thumbnail_path=thumbnail_path,
+                size_x=520,
+                size_y=390
+                )
+            if not success:
+                print("Failed to create thumbnail")
+                return None
+        #self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
+        return thumbnail_path
 
 class ImageGalleryApp(App):
     def build(self):
