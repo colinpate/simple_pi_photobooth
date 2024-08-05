@@ -121,9 +121,6 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             print("selection removed for {0}".format(rv.data[index]))
             
     def show_image_popup(self, source):
-        #if self.popup_is_open:
-        #    return
-        #self.popup_is_open = True
         ''' Show a popup with the expanded image '''
         layout = FloatLayout()
         popup = Popup(title='Expanded Image View',
@@ -142,7 +139,6 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                               pos_hint={'x': 0.6, 'y': 0})
                               
         def close_popup(instance):
-            #self.popup_is_open = False
             popup.dismiss()
                               
         close_button.bind(on_release=close_popup)
@@ -185,9 +181,6 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         popup.open()
 
     def show_confirm_print_popup(self, instance):
-        #if self.popup_is_open:
-        #    return
-        #self.popup_is_open = True
         layout = FloatLayout()
         popup = Popup(title='Confirm print?',
                       content=layout,
@@ -197,7 +190,6 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                               pos_hint={'x': 0, 'y': 0})
             
         def close_popup(instance):
-            #self.popup_is_open = False
             popup.dismiss()
                               
         def print_image(instance):
@@ -240,7 +232,7 @@ class ImageGallery(RecycleView):
             config = load_config("print_config.yaml")
         
         self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
-        self.photo_path_db = ImagePathDB(config["photo_path_db"])
+        self.photo_path_db = ImagePathDB(config["photo_path_db"], old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.not_available_popup = None
@@ -259,12 +251,6 @@ class ImageGallery(RecycleView):
         rotated_path = rotate_image(image_path)
         options={}
         self.conn.printFile(self.printer_name, rotated_path, "Photo Print", options)
-        
-    #def on_touch_down(self, touch):
-    #    if touch.device == 'mouse':
-    #        print("Denied")
-    #        return False
-    #    return super(ImageGallery, self).on_touch_down(touch)
         
     def fill_image_path_db(self, color_dir):
         color_images = glob(color_dir + "/*.jpg")
@@ -314,6 +300,7 @@ class ImageGallery(RecycleView):
                                 'color_photo_path': self.photo_path_db.get_image_path(photo_name, "_color"),
                             })
                 self.data = new_data
+                self.thumbnail_path_db.update_file()
         else:
             if self.not_available_popup is None:
                 Clock.schedule_once(self.show_not_available_popup, 0)
@@ -341,11 +328,16 @@ class ImageGallery(RecycleView):
 
 class ImageGalleryApp(App):
     def build(self):
+        root = FloatLayout()
         gallery = ImageGallery()
         gallery.scroll_type = ['content', 'bars']
         gallery.bar_width = '50dp'
         print("ImageGallery instance created and configured.")
-        return gallery
+        root.add_widget(gallery)
+        settings_button = Button(text='Settings', size_hint=(None, None), size=(100, 50),
+                                 pos_hint={'right': 1, 'top': 1})
+        root.add_widget(settings_button)
+        return root
 
 if __name__ == '__main__':
     ImageGalleryApp().run()
