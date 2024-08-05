@@ -79,7 +79,7 @@ Builder.load_string(
     viewclass: 'SelectableImage'
     RecycleGridLayout:
         cols: 2
-        default_size: None, 400
+        default_size: None, 300
         default_size_hint: 1, None
         size_hint_y: None
         height: self.minimum_height
