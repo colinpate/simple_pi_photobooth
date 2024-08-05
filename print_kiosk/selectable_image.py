@@ -115,7 +115,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         layout.add_widget(print_button)
         
         def on_print(instance):
-            close_popup(instance)
+            popup.dismiss()
             Clock.schedule_once(self.show_confirm_print_popup, 0)
         
         print_button.bind(on_release=on_print)

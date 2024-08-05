@@ -80,9 +80,11 @@ Builder.load_string(
     viewclass: 'SelectableImage'
     RecycleGridLayout:
         cols: 2
-        default_size: None, 300
+        default_size: None, 212
         default_size_hint: 1, None
         size_hint_y: None
+        spacing: 10
+        padding: 10
         height: self.minimum_height
 '''
 )
@@ -102,7 +104,7 @@ class ImageGallery(RecycleView):
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
-        self.separate_gray_thumbnails = False
+        self.separate_gray_thumbnails = True
         
         self.old_num_photos = 0
         self.not_available_popup = None
