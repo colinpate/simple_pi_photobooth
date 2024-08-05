@@ -76,7 +76,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             gray_source = None
         print("Main source:", main_source, "Gray source:", gray_source)
         
-        image = AsyncImage(source=main_source, allow_stretch=True, size_hint=(1, 1), pos_hint={'x': 0, 'y': 0.1})
+        image = AsyncImage(source=self.source, allow_stretch=True, size_hint=(1, 1), pos_hint={'x': 0, 'y': 0.1})
         layout.add_widget(image)
         
         # Define the close button
@@ -102,7 +102,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                     self.print_source = gray_source
                 else:
                     instance.text = 'Black & White'
-                    image.source = main_source
+                    image.source = self.source
                     self.print_source = main_source
                 print(image.source)
                 image.reload()
