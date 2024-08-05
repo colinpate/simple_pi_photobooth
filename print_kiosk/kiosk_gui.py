@@ -31,6 +31,7 @@ from glob import glob
 import yaml
 import cv2
 import os
+import subprocess
 
 from common.image_path_db import ImagePathDB
 
@@ -40,9 +41,11 @@ def is_nfs_mounted(mount_point):
             # Check if the mount point is available by listing its contents
             subprocess.check_output(['ls', mount_point], timeout=5)
             return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+            print(exception)
             return False
     else:
+        print("Not mounted!")
         return False
 
 def load_config(config_path):
@@ -284,7 +287,7 @@ class ImageGallery(RecycleView):
         self.not_available_popup = popup
                 
     def update_data(self, dt):
-        if is_nfs_mounted(photo_dir):
+        if is_nfs_mounted(self.photo_dir):
             if self.not_available_popup is not None:
                 self.not_available_popup.dismiss()
                 self.not_available_popup = None
@@ -306,10 +309,10 @@ class ImageGallery(RecycleView):
                                 'color_photo_path': self.photo_path_db.get_image_path(photo_name, "_color"),
                             })
                 self.data = new_data
-            Clock.schedule_once(self.update_data, 2)
         else:
             if self.not_available_popup is None:
                 Clock.schedule_once(self.show_not_available_popup, 0)
+        Clock.schedule_once(self.update_data, 2)
             
     def get_thumbnail(self, thumbnail_name):
         # Returns path to thumbnail if it exists, creates it if not
