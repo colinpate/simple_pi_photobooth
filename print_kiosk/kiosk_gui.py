@@ -238,6 +238,7 @@ class ImageGallery(RecycleView):
         self.photo_path_db = ImagePathDB(config["photo_path_db"], old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
+        self.remote_photo_dir = config["remote_photo_dir"]
         self.not_available_popup = None
         self.data = []
         Clock.schedule_once(self.update_data, 5)
@@ -285,6 +286,8 @@ class ImageGallery(RecycleView):
             if self.not_available_popup is not None:
                 self.not_available_popup.dismiss()
                 self.not_available_popup = None
+            print("Syncing remote to local")
+            print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
             # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
             self.photo_path_db.try_update_from_file()
             new_photo_names = list(self.photo_path_db.image_names())
