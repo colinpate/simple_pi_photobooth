@@ -14,6 +14,7 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
+from kivy.graphics import Color, Rectangle
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.metrics import dp  # Import dp function
 from kivy.lang import Builder
@@ -38,6 +39,9 @@ if not LOCAL_TEST:
     Config.set('graphics', 'fullscreen', 'auto')
     Config.set('input', 'mouse', 'None')
     Config.set('graphics', 'rotation', '270')
+else:
+    Config.set('graphics', 'width', '600')
+    Config.set('graphics', 'height', '1024')
 
 from common.image_path_db import ImagePathDB
 
@@ -96,6 +100,8 @@ class PrintFormatter:
     
 Builder.load_string(
 '''
+<Label>:
+    font_size: sp(20)
 <ImageGallery>:
     viewclass: 'SelectableImage'
     SelectableRecycleGridLayout:
@@ -112,13 +118,26 @@ Builder.load_string(
 )
 
 
+class ColoredLabel(Label):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(size=self.update_rect, pos=self.update_rect)
+        with self.canvas.before:
+            Color(1, 1, 1, 0.5)  # Set the color (R, G, B, A)
+            self.rect = Rectangle(size=self.size, pos=self.pos)
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+    
+    
 class SelectableRecycleGridLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleGridLayout):
     ''' Adds selection and focus behavior to the view. '''
         
 
 class ImageGallery(RecycleView):
-    def __init__(self, **kwargs):
+    def __init__(self, status_label, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
         #print(vars(self))
         #print(self.layout_manager.clear_selection)
@@ -130,11 +149,15 @@ class ImageGallery(RecycleView):
         
         #self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
         self.photo_path_db = ImagePathDB(config["photo_path_db"], old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
+        
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
         self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
         self.print_formatter = PrintFormatter(config["print_format"])
+        if "fill_dir" in config.keys():
+            self.fill_image_path_db(config["fill_dir"])
+        self.status_label = status_label
         
         self.old_num_photos = 0
         self.not_available_popup = None
@@ -156,39 +179,50 @@ class ImageGallery(RecycleView):
         self.show_print_preview_popup(formatted_path, preview_path)
         self.layout_manager.clear_selection()
 
+    def update_status_label(self):
+        num_selected = len(self.print_selections)
+        need = self.print_formatter.num_photos()
+        rem = need - num_selected
+        if rem == 0:
+            text = "Processing..."
+        elif rem == 1:
+            text = "Select 1 image"
+        else:
+            text = f"Select {rem} images"
+        self.status_label.text = text
+
     def add_print_selection(self, image_path):
         if image_path not in self.print_selections:
             self.print_selections.append(image_path)
-            print(self.print_selections)
-            
-        if len(self.print_selections) == self.print_formatter.num_photos():
-            Clock.schedule_once(self.prepare_print, 0)
+            self.update_status_label()
+            if len(self.print_selections) == self.print_formatter.num_photos():
+                Clock.schedule_once(self.prepare_print, 0)
         
     def remove_print_selection(self, image_path):
         if image_path in self.print_selections:
             self.print_selections.remove(image_path)
-            print(self.print_selections)
+            self.update_status_label()
             
     def show_print_preview_popup(self, formatted_path, preview_path):
         ''' Show a popup with the expanded image '''
         layout = FloatLayout()
-        popup = Popup(title='Expanded Image View',
+        popup = Popup(title='Print Preview',
                       content=layout,
-                      size_hint=(0.8, 0.8))
-        print(formatted_path)
-        image = Image(source=os.path.abspath(preview_path), allow_stretch=True, size_hint=(0.7*2/3, 0.7), pos_hint={'x': 0, 'y': 0.2})
+                      size_hint=(0.8, 0.9))
+        image = AsyncImage(source=os.path.abspath(preview_path), allow_stretch=True, size_hint=(1, 0.8), pos_hint={'x': 0, 'y': 0.15})
+        image.reload()
         layout.add_widget(image)
         
         # Define the close button
-        close_button = Button(text='Close', size_hint=(0.1, 0.1),
+        close_button = Button(text='Cancel', size_hint=(0.3, 0.1),
                               pos_hint={'x': 0.6, 'y': 0})
                               
         close_button.bind(on_release=popup.dismiss)
         layout.add_widget(close_button)
         
         # Define the print button and its callback
-        print_button = Button(text='Print', size_hint=(0.1, 0.1),
-                              pos_hint={'x': 0.3, 'y': 0})
+        print_button = Button(text='Print!', size_hint=(0.3, 0.1),
+                              pos_hint={'x': 0.1, 'y': 0})
         layout.add_widget(print_button)
         
         def on_print(instance):
@@ -312,13 +346,16 @@ class ImageGallery(RecycleView):
 class ImageGalleryApp(App):
     def build(self):
         root = FloatLayout()
-        gallery = ImageGallery()
+        status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
+                                 pos_hint={'x': 0, 'bottom': 1})
+        gallery = ImageGallery(status_label)
         gallery.scroll_type = ['content', 'bars']
         gallery.bar_width = '50dp'
         print("ImageGallery instance created and configured.")
         root.add_widget(gallery)
-        settings_button = Button(text='Settings', size_hint=(None, None), size=(100, 50),
-                                 pos_hint={'right': 1, 'top': 1})
+        root.add_widget(status_label)
+        settings_button = Button(text="...", size_hint=(None, None), size=(25, 25),
+                                 pos_hint={'left': 1, 'top': 1})
         root.add_widget(settings_button)
         return root
 
