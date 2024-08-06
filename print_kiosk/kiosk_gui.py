@@ -104,7 +104,7 @@ Builder.load_string(
     font_size: sp(20)
 <ImageGallery>:
     viewclass: 'SelectableImage'
-    SelectableRecycleGridLayout:
+    RecycleGridLayout:
         cols: 2
         default_size: None, 212
         default_size_hint: 1, None
@@ -112,9 +112,9 @@ Builder.load_string(
         spacing: 10
         padding: 10
         height: self.minimum_height
-        multiselect: True
-        touch_multiselect: True
 '''
+#        multiselect: True
+#        touch_multiselect: True
 )
 
 
@@ -131,9 +131,9 @@ class ColoredLabel(Label):
         self.rect.size = self.size
     
     
-class SelectableRecycleGridLayout(FocusBehavior, LayoutSelectionBehavior,
-                                 RecycleGridLayout):
-    ''' Adds selection and focus behavior to the view. '''
+#class SelectableRecycleGridLayout(FocusBehavior, LayoutSelectionBehavior,
+#                                 RecycleGridLayout):
+#    ''' Adds selection and focus behavior to the view. '''
         
 
 class ImageGallery(RecycleView):
@@ -173,11 +173,18 @@ class ImageGallery(RecycleView):
         printers = self.conn.getPrinters()
         self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
         
+    def clear_selection(self):
+        # Update the data model
+        for item in self.data:
+            item['selected'] = False
+        # Refresh the data to ensure the view is updated
+        self.refresh_from_data()
+        
     def prepare_print(self, instance):
         formatted_path, preview_path = self.print_formatter.format_print(self.print_selections)
         print("Showing preview popup")
         self.show_print_preview_popup(formatted_path, preview_path)
-        self.layout_manager.clear_selection()
+        self.clear_selection()
 
     def update_status_label(self):
         num_selected = len(self.print_selections)
@@ -190,7 +197,7 @@ class ImageGallery(RecycleView):
         else:
             text = f"Select {rem} images"
         self.status_label.text = text
-
+                    
     def add_print_selection(self, image_path):
         if image_path not in self.print_selections:
             self.print_selections.append(image_path)
@@ -310,6 +317,7 @@ class ImageGallery(RecycleView):
                         if thumbnail_path is not None:
                             new_entry = {
                                     'source': thumbnail_path,
+                                    'selected': False
                                 }
                             new_entry.update(photo_dict)
                             new_data.append(new_entry)

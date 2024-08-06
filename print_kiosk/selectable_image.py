@@ -37,6 +37,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         ''' Catch and handle the view changes '''
         self.index = index
         self.parent_gallery = rv
+        self.apply_selection(data['selected'])
         return super(SelectableImage, self).refresh_view_attrs(rv, index, data)
 
     def on_touch_down(self, touch):
@@ -45,7 +46,8 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
             return True
         if self.collide_point(*touch.pos) and self.selectable:
             self.touch_start_pos = touch.pos
-            return self.parent.select_with_touch(self.index, touch)
+            self.apply_selection(not self.selected)
+            #return self.parent.select_with_touch(self.index, touch)
             
     def on_touch_up(self, touch): 
         if self.collide_point(*touch.pos) and self.selectable:
@@ -55,18 +57,20 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
                 if self.selected and not self.parent_gallery.separate_gray_thumbnails:
                     Clock.schedule_once(self.show_image_popup, 0)
                 
-    def apply_selection(self, rv, index, is_selected):
+    def apply_selection(self, is_selected):
         ''' Respond to the selection of items in the view. '''
+        rv = self.parent_gallery
+        index = self.index
         if is_selected:
             self.color = [1, 1, 1, 0.1]
             self.parent_gallery.add_print_selection(rv.data[index]["print_source"])
             print("selection added for {0}".format(rv.data[index]["print_source"]))
         else:
             self.color = [1, 1, 1, 1]
-            if self.selected:
-                self.parent_gallery.remove_print_selection(rv.data[index]["print_source"])
-                print("selection removed for {0}".format(rv.data[index]["print_source"]))
+            self.parent_gallery.remove_print_selection(rv.data[index]["print_source"])
+            print("selection removed for {0}".format(rv.data[index]["print_source"]))
         self.selected = is_selected
+        rv.data[index]["selected"] = is_selected
         
     def show_image_popup(self, foo):
         ''' Show a popup with the expanded image '''
