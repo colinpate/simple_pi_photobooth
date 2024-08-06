@@ -26,6 +26,7 @@ import yaml
 import cv2
 import os
 import subprocess
+import numpy as np
 from selectable_image import SelectableImage
 from collections import OrderedDict
 
@@ -78,9 +79,19 @@ class PrintFormatter:
         self.print_format = print_format
         if print_format == "4x3":
             self._num_photos = 2
+            self._media = "custom_119.21x156.15mm_119.21x156.15mm"
+        elif self.print_format == "2x6":
+            self._num_photos = 3
+            self._media = "custom_119.21x155.45mm_119.21x155.45mm"
             
     def num_photos(self):
         return self._num_photos
+        
+    def print_options(self):
+        options = {
+            "media": self._media
+        }
+        return options
 
     def format_print(self, image_paths):
         if self.print_format == "4x3":
@@ -90,8 +101,27 @@ class PrintFormatter:
                 images.append(image)
             out_image = cv2.vconcat(images)
             preview_image = cv2.resize(out_image, (400, 600))
-            preview_path = "preview.jpg"
+            preview_path = "preview.png"
             cv2.imwrite(preview_path, preview_image)
+            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+            file_path = "formatted.jpg"
+            cv2.imwrite(file_path, out_image)
+        elif self.print_format == "2x6":
+            image_width = 600
+            image_height = int(image_width * 3/4)
+            canvas_width = image_width
+            canvas_height = image_width * 3
+            y_padding = int((image_width - image_height) / 2)
+            canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
+            y = 0
+            for (i, image_path) in enumerate(image_paths):
+                image = cv2.imread(image_path)
+                resized = cv2.resize(image, (image_width, image_height))
+                canvas[y + y_padding : y + y_padding + image_height, :, :] = resized
+                y += image_width
+            preview_path = "preview.png"
+            cv2.imwrite(preview_path, canvas)
+            out_image = cv2.hconcat([canvas, canvas])
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
             file_path = "formatted.jpg"
             cv2.imwrite(file_path, out_image)
@@ -243,7 +273,7 @@ class ImageGallery(RecycleView):
     def print_images(self, formatted_path):
         print("Printing", formatted_path)
         if not LOCAL_TEST:
-            options={}
+            options=self.print_formatter.options()
             self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
         
     def fill_image_path_db(self, color_dir):

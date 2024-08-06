@@ -31,7 +31,6 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     gray_photo_path = StringProperty()
     print_source = StringProperty()
     touch_start_pos = [0, 0]
-    #popup_is_open = False
 
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
