@@ -1,6 +1,6 @@
 import kivy
 from kivy.app import App
-from kivy.uix.image import AsyncImage
+from kivy.uix.image import AsyncImage, Image
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.behaviors import FocusBehavior
@@ -85,8 +85,9 @@ class PrintFormatter:
                 image = cv2.imread(image_path)
                 images.append(image)
             out_image = cv2.vconcat(images)
+            preview_image = cv2.resize(out_image, (400, 600))
             preview_path = "preview.jpg"
-            cv2.imwrite(preview_path, out_image)
+            cv2.imwrite(preview_path, preview_image)
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
             file_path = "formatted.jpg"
             cv2.imwrite(file_path, out_image)
@@ -173,8 +174,9 @@ class ImageGallery(RecycleView):
         layout = FloatLayout()
         popup = Popup(title='Expanded Image View',
                       content=layout,
-                      size_hint=(1, 0.6))
-        image = AsyncImage(source=preview_path, allow_stretch=True, size_hint=(1, 0.7), pos_hint={'x': 0, 'y': 0.1})
+                      size_hint=(0.8, 0.8))
+        print(formatted_path)
+        image = Image(source=os.path.abspath(preview_path), allow_stretch=True, size_hint=(0.7*2/3, 0.7), pos_hint={'x': 0, 'y': 0.2})
         layout.add_widget(image)
         
         # Define the close button
