@@ -16,7 +16,7 @@ from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
 from kivy.graphics import Color, Rectangle
 from kivy.properties import BooleanProperty, StringProperty
-from kivy.metrics import dp  # Import dp function
+from kivy.metrics import dp, sp  # Import dp and sp functions
 from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.config import Config
@@ -25,10 +25,12 @@ from glob import glob
 import yaml
 import cv2
 import os
+import sys
 import subprocess
-import numpy as np
-from selectable_image import SelectableImage
 from collections import OrderedDict
+
+from selectable_image import SelectableImage
+from print_formatter import PrintFormatter
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -72,66 +74,12 @@ def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
         return True
     else:
         return False
-
-
-class PrintFormatter:
-    def __init__(self, print_format):
-        self.print_format = print_format
-        if print_format == "4x3":
-            self._num_photos = 2
-            self._media = "custom_119.21x156.15mm_119.21x156.15mm"
-        elif self.print_format == "2x6":
-            self._num_photos = 3
-            self._media = "custom_119.21x155.45mm_119.21x155.45mm"
-            
-    def num_photos(self):
-        return self._num_photos
-        
-    def print_options(self):
-        options = {
-            "media": self._media
-        }
-        return options
-
-    def format_print(self, image_paths):
-        if self.print_format == "4x3":
-            images = []
-            for image_path in image_paths:
-                image = cv2.imread(image_path)
-                images.append(image)
-            out_image = cv2.vconcat(images)
-            preview_image = cv2.resize(out_image, (400, 600))
-            preview_path = "preview.png"
-            cv2.imwrite(preview_path, preview_image)
-            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
-            file_path = "formatted.jpg"
-            cv2.imwrite(file_path, out_image)
-        elif self.print_format == "2x6":
-            image_width = 600
-            image_height = int(image_width * 3/4)
-            canvas_width = image_width
-            canvas_height = image_width * 3
-            y_padding = int((image_width - image_height) / 2)
-            canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
-            y = 0
-            for (i, image_path) in enumerate(image_paths):
-                image = cv2.imread(image_path)
-                resized = cv2.resize(image, (image_width, image_height))
-                canvas[y + y_padding : y + y_padding + image_height, :, :] = resized
-                y += image_width
-            preview_path = "preview.png"
-            cv2.imwrite(preview_path, canvas)
-            out_image = cv2.hconcat([canvas, canvas])
-            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
-            file_path = "formatted.jpg"
-            cv2.imwrite(file_path, out_image)
-        return file_path, preview_path
     
     
 Builder.load_string(
 '''
 <Label>:
-    font_size: sp(20)
+    font_size: sp(30)
 <ImageGallery>:
     viewclass: 'SelectableImage'
     RecycleGridLayout:
@@ -143,8 +91,6 @@ Builder.load_string(
         padding: 10
         height: self.minimum_height
 '''
-#        multiselect: True
-#        touch_multiselect: True
 )
 
 
@@ -159,36 +105,30 @@ class ColoredLabel(Label):
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
-    
-    
-#class SelectableRecycleGridLayout(FocusBehavior, LayoutSelectionBehavior,
-#                                 RecycleGridLayout):
-#    ''' Adds selection and focus behavior to the view. '''
         
 
 class ImageGallery(RecycleView):
     def __init__(self, status_label, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
-        #print(vars(self))
-        #print(self.layout_manager.clear_selection)
         
         if LOCAL_TEST:
             config = load_config("print_config_test.yaml")
         else:
             config = load_config("print_config.yaml")
         
-        #self.thumbnail_path_db = ImagePathDB(config["thumbnail_path_db"])
         self.photo_path_db = ImagePathDB(config["photo_path_db"], old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
         
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
         self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
-        self.print_formatter = PrintFormatter(config["print_format"])
+        self.print_formatter = PrintFormatter(
+                **config
+            )
         if "fill_dir" in config.keys():
             self.fill_image_path_db(config["fill_dir"])
-        self.status_label = status_label
         
+        self.status_label = status_label
         self.old_num_photos = 0
         self.not_available_popup = None
         self.data = []
@@ -223,9 +163,9 @@ class ImageGallery(RecycleView):
         if rem == 0:
             text = "Processing..."
         elif rem == 1:
-            text = "Select 1 image"
+            text = "Select 1 photo"
         else:
-            text = f"Select {rem} images"
+            text = f"Select {rem} photos"
         self.status_label.text = text
                     
     def add_print_selection(self, image_path):
@@ -273,7 +213,7 @@ class ImageGallery(RecycleView):
     def print_images(self, formatted_path):
         print("Printing", formatted_path)
         if not LOCAL_TEST:
-            options=self.print_formatter.options()
+            options=self.print_formatter.print_options()
             self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
         
     def fill_image_path_db(self, color_dir):
@@ -315,7 +255,6 @@ class ImageGallery(RecycleView):
             self.photo_path_db.try_update_from_file()
             new_photo_names = list(self.photo_path_db.image_names())
             new_num_photos = len(new_photo_names)
-            #print("Updating data,", new_num_photos, "photos in database")
             if new_num_photos != self.old_num_photos:
                 self.old_num_photos = new_num_photos
                 print(new_num_photos - self.old_num_photos, "new photos!")
@@ -353,17 +292,12 @@ class ImageGallery(RecycleView):
                             new_data.append(new_entry)
                             
                 self.data = new_data
-                #self.thumbnail_path_db.update_file()
         else:
             if self.not_available_popup is None:
                 Clock.schedule_once(self.show_not_available_popup, 0)
         Clock.schedule_once(self.update_data, 2)
             
     def get_thumbnail(self, image_path):
-        # Returns path to thumbnail if it exists, creates it if not
-        #if self.thumbnail_path_db.image_exists(image_path):
-        #    return self.thumbnail_path_db.get_image_path(image_path)
-        #else:
         filename = os.path.split(image_path)[1]
         filename = filename.split(".")[0]
         thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
@@ -378,14 +312,13 @@ class ImageGallery(RecycleView):
             if not success:
                 print("Failed to create thumbnail")
                 return None
-        #self.thumbnail_path_db.add_image(thumbnail_name, thumbnail_path)
         return thumbnail_path
 
 class ImageGalleryApp(App):
     def build(self):
         root = FloatLayout()
         status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
-                                 pos_hint={'x': 0, 'bottom': 1})
+                                 pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
         gallery = ImageGallery(status_label)
         gallery.scroll_type = ['content', 'bars']
         gallery.bar_width = '50dp'
@@ -394,8 +327,42 @@ class ImageGalleryApp(App):
         root.add_widget(status_label)
         settings_button = Button(text="...", size_hint=(None, None), size=(25, 25),
                                  pos_hint={'left': 1, 'top': 1})
+        settings_button.bind(on_release=self.show_settings_popup)
         root.add_widget(settings_button)
         return root
+        
+    def show_settings_popup(self, instance):
+        ''' Show a popup with the expanded image '''
+        layout = GridLayout(cols=1)
+        popup = Popup(title='Print Preview',
+                      content=layout,
+                      size_hint=(0.8, 0.9))
+                      
+        exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
+        def close(instance):
+            sys.exit(0)
+        exit_button.bind(on_release=close)
+        layout.add_widget(exit_button)
+                      
+        shutdown_button = Button(text='Shutdown', size_hint=(0.3, 0.1))
+        def shutdown(instance):
+            os.system("sudo shutdown now")
+            sys.exit(0)
+        shutdown_button.bind(on_release=shutdown)
+        layout.add_widget(shutdown_button)
+                      
+        restart_button = Button(text='Reboot', size_hint=(0.3, 0.1))
+        def restart(instance):
+            os.system("sudo reboot")
+            sys.exit(0)
+        restart_button.bind(on_release=restart)
+        layout.add_widget(restart_button)
+         
+        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
+        close_button.bind(on_release=popup.dismiss)
+        layout.add_widget(close_button)
+        
+        popup.open()
 
 if __name__ == '__main__':
     ImageGalleryApp().run()
