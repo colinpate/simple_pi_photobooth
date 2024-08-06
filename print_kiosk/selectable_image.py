@@ -29,6 +29,7 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     source = StringProperty()
     color_photo_path = StringProperty()
     gray_photo_path = StringProperty()
+    print_source = StringProperty()
     touch_start_pos = [0, 0]
     #popup_is_open = False
 
@@ -40,25 +41,34 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
 
     def on_touch_down(self, touch):
         ''' Add selection on touch down '''
+        if super(SelectableImage, self).on_touch_down(touch):
+            return True
         if self.collide_point(*touch.pos) and self.selectable:
             self.touch_start_pos = touch.pos
+            return self.parent.select_with_touch(self.index, touch)
             
     def on_touch_up(self, touch): 
         if self.collide_point(*touch.pos) and self.selectable:
             distance = ((touch.pos[0] - self.touch_start_pos[0]) ** 2 + 
                         (touch.pos[1] - self.touch_start_pos[1]) ** 2) ** 0.5
             if distance < dp(10):
-                self.show_image_popup(self.source)
+                if self.selected and not self.parent_gallery.separate_gray_thumbnails:
+                    Clock.schedule_once(self.show_image_popup, 0)
                 
     def apply_selection(self, rv, index, is_selected):
         ''' Respond to the selection of items in the view. '''
-        self.selected = is_selected
         if is_selected:
-            print("selection changed to {0}".format(rv.data[index]))
+            self.color = [1, 1, 1, 0.1]
+            self.parent_gallery.add_print_selection(rv.data[index]["print_source"])
+            print("selection added for {0}".format(rv.data[index]["print_source"]))
         else:
-            print("selection removed for {0}".format(rv.data[index]))
-            
-    def show_image_popup(self, source):
+            self.color = [1, 1, 1, 1]
+            if self.selected:
+                self.parent_gallery.remove_print_selection(rv.data[index]["print_source"])
+                print("selection removed for {0}".format(rv.data[index]["print_source"]))
+        self.selected = is_selected
+        
+    def show_image_popup(self, foo):
         ''' Show a popup with the expanded image '''
         layout = FloatLayout()
         popup = Popup(title='Expanded Image View',
@@ -161,4 +171,4 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         popup.open()
         
     def print_image(self):
-        self.parent_gallery.print_image(self.print_source)
+        self.parent_gallery.add_print_selection(self.print_source)

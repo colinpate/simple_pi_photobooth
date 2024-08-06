@@ -26,6 +26,7 @@ import cv2
 import os
 import subprocess
 from selectable_image import SelectableImage
+from collections import OrderedDict
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -50,7 +51,7 @@ def is_nfs_mounted(mount_point):
             print(exception)
             return False
     else:
-        print("Not mounted!")
+        #print("Not mounted!")
         return False
 
 def load_config(config_path):
@@ -67,18 +68,36 @@ def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     else:
         return False
 
-def rotate_image(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-    file_path = "rotated.jpg"
-    cv2.imwrite(file_path, image)
-    return file_path
+
+class PrintFormatter:
+    def __init__(self, print_format):
+        self.print_format = print_format
+        if print_format == "4x3":
+            self._num_photos = 2
+            
+    def num_photos(self):
+        return self._num_photos
+
+    def format_print(self, image_paths):
+        if self.print_format == "4x3":
+            images = []
+            for image_path in image_paths:
+                image = cv2.imread(image_path)
+                images.append(image)
+            out_image = cv2.vconcat(images)
+            preview_path = "preview.jpg"
+            cv2.imwrite(preview_path, out_image)
+            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+            file_path = "formatted.jpg"
+            cv2.imwrite(file_path, out_image)
+        return file_path, preview_path
+    
     
 Builder.load_string(
 '''
 <ImageGallery>:
     viewclass: 'SelectableImage'
-    RecycleGridLayout:
+    SelectableRecycleGridLayout:
         cols: 2
         default_size: None, 212
         default_size_hint: 1, None
@@ -86,13 +105,22 @@ Builder.load_string(
         spacing: 10
         padding: 10
         height: self.minimum_height
+        multiselect: True
+        touch_multiselect: True
 '''
 )
+
+
+class SelectableRecycleGridLayout(FocusBehavior, LayoutSelectionBehavior,
+                                 RecycleGridLayout):
+    ''' Adds selection and focus behavior to the view. '''
         
 
 class ImageGallery(RecycleView):
     def __init__(self, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
+        #print(vars(self))
+        #print(self.layout_manager.clear_selection)
         
         if LOCAL_TEST:
             config = load_config("print_config_test.yaml")
@@ -104,11 +132,13 @@ class ImageGallery(RecycleView):
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
-        self.separate_gray_thumbnails = True
+        self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
+        self.print_formatter = PrintFormatter(config["print_format"])
         
         self.old_num_photos = 0
         self.not_available_popup = None
         self.data = []
+        self.print_selections = []
         Clock.schedule_once(self.update_data, 5)
 
         if not LOCAL_TEST:
@@ -118,11 +148,60 @@ class ImageGallery(RecycleView):
         self.conn = cups.Connection()
         printers = self.conn.getPrinters()
         self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
+        
+    def prepare_print(self, instance):
+        formatted_path, preview_path = self.print_formatter.format_print(self.print_selections)
+        print("Showing preview popup")
+        self.show_print_preview_popup(formatted_path, preview_path)
+        self.layout_manager.clear_selection()
 
-    def print_image(self, image_path):
-        rotated_path = rotate_image(image_path)
-        options={}
-        self.conn.printFile(self.printer_name, rotated_path, "Photo Print", options)
+    def add_print_selection(self, image_path):
+        if image_path not in self.print_selections:
+            self.print_selections.append(image_path)
+            print(self.print_selections)
+            
+        if len(self.print_selections) == self.print_formatter.num_photos():
+            Clock.schedule_once(self.prepare_print, 0)
+        
+    def remove_print_selection(self, image_path):
+        if image_path in self.print_selections:
+            self.print_selections.remove(image_path)
+            print(self.print_selections)
+            
+    def show_print_preview_popup(self, formatted_path, preview_path):
+        ''' Show a popup with the expanded image '''
+        layout = FloatLayout()
+        popup = Popup(title='Expanded Image View',
+                      content=layout,
+                      size_hint=(1, 0.6))
+        image = AsyncImage(source=preview_path, allow_stretch=True, size_hint=(1, 0.7), pos_hint={'x': 0, 'y': 0.1})
+        layout.add_widget(image)
+        
+        # Define the close button
+        close_button = Button(text='Close', size_hint=(0.1, 0.1),
+                              pos_hint={'x': 0.6, 'y': 0})
+                              
+        close_button.bind(on_release=popup.dismiss)
+        layout.add_widget(close_button)
+        
+        # Define the print button and its callback
+        print_button = Button(text='Print', size_hint=(0.1, 0.1),
+                              pos_hint={'x': 0.3, 'y': 0})
+        layout.add_widget(print_button)
+        
+        def on_print(instance):
+            popup.dismiss()
+            self.print_images(formatted_path)
+            
+        print_button.bind(on_release=on_print)
+            
+        popup.open()
+        
+    def print_images(self, formatted_path):
+        print("Printing", formatted_path)
+        if not LOCAL_TEST:
+            options={}
+            self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
         
     def fill_image_path_db(self, color_dir):
         color_images = glob(color_dir + "/*.jpg")
@@ -154,30 +233,35 @@ class ImageGallery(RecycleView):
             if self.not_available_popup is not None:
                 self.not_available_popup.dismiss()
                 self.not_available_popup = None
+                
             if not LOCAL_TEST:
                 print("Syncing remote to local")
                 print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
+                
             # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
             self.photo_path_db.try_update_from_file()
             new_photo_names = list(self.photo_path_db.image_names())
             new_num_photos = len(new_photo_names)
-            print("Updating data,", new_num_photos, "photos in database")
+            #print("Updating data,", new_num_photos, "photos in database")
             if new_num_photos != self.old_num_photos:
                 self.old_num_photos = new_num_photos
                 print(new_num_photos - self.old_num_photos, "new photos!")
                 photo_names_sorted = sorted(new_photo_names)[::-1]
                 new_data = []
                 for photo_name in photo_names_sorted:
+                    gray_path = self.photo_path_db.get_image_path(photo_name, "_gray")
+                    color_path = self.photo_path_db.get_image_path(photo_name, "_color")
                     if self.separate_gray_thumbnails:
                         thumbnail_images = [
-                                {"gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray"), "color_photo_path": ""},
-                                {"color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"), "gray_photo_path": ""}
+                                {"print_source": gray_path, "gray_photo_path": "", "color_photo_path": ""},
+                                {"print_source": color_path, "gray_photo_path": "", "color_photo_path": ""}
                             ]
                     else:
                         thumbnail_images = [
                                 {
                                     "color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"),
-                                    "gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray")
+                                    "gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray"),
+                                    "print_source": ""
                                 }
                             ]
                         
@@ -185,7 +269,7 @@ class ImageGallery(RecycleView):
                         if photo_dict["color_photo_path"]:
                             thumb_photo_path = photo_dict["color_photo_path"]
                         else:
-                            thumb_photo_path = photo_dict["gray_photo_path"]
+                            thumb_photo_path = photo_dict["print_source"]
                         thumbnail_path = self.get_thumbnail(thumb_photo_path)
                         if thumbnail_path is not None:
                             new_entry = {
