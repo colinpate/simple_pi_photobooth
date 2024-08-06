@@ -3,5 +3,5 @@ thumbnail_dir: "/home/colin/simple_pi_photobooth/print_kiosk/thumbnails"
 photo_dir: "/home/colin/booth_photos_local/"
 photo_path_db: "/home/colin/booth_photos_local/photo_db.json"
 remote_photo_dir: "/home/colin/booth_photos/"
-print_format: "4x3"
+print_format: "2x6"
 separate_gray_thumbnails: True

@@ -285,7 +285,7 @@ class ImageGallery(RecycleView):
             for dirname in ["color", "gray", "original"]:
                 postfix = "_" + dirname
                 image_filename = filename.replace("_color", postfix)
-                image_dir = color_dir[:-6] + dirname
+                image_dir = color_dir.replace("color", "") + dirname
                 image_path = os.path.join(image_dir, image_filename)
                 paths[postfix] = image_path
             print(image_name, paths)
@@ -372,8 +372,8 @@ class ImageGallery(RecycleView):
             success = create_thumbnail(
                 photo_path=image_path,
                 thumbnail_path=thumbnail_path,
-                size_x=520,
-                size_y=390
+                size_x=300,
+                size_y=225
                 )
             if not success:
                 print("Failed to create thumbnail")
