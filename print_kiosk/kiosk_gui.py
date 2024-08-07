@@ -147,6 +147,7 @@ class ImageGallery(RecycleView):
         # Update the data model
         for item in self.data:
             item['selected'] = False
+        self.print_selections = []
         # Refresh the data to ensure the view is updated
         self.refresh_from_data()
         
@@ -155,6 +156,7 @@ class ImageGallery(RecycleView):
         print("Showing preview popup")
         self.show_print_preview_popup(formatted_path, preview_path)
         self.clear_selection()
+        self.update_status_label()
 
     def update_status_label(self):
         num_selected = len(self.print_selections)

@@ -5,6 +5,7 @@ photo_path_db: "/home/colin/booth_photos_local/photo_db.json"
 remote_photo_dir: "/home/colin/booth_photos/"
 print_format: "2x6"
 h_crop_2x6: 0.9
+h_pad: 0.04
 separate_gray_thumbnails: True
 fill_dir: "/home/colin/Ryans_40th/booth_photos/color"
 

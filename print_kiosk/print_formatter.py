@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 
 class PrintFormatter:
-    def __init__(self, print_format, h_crop_2x6=0.9, **kwargs):
+    def __init__(self, print_format, h_crop_2x6=1, h_pad=0, **kwargs):
         self.print_format = print_format
+        self.h_pad = 0.04
         if print_format == "4x3":
             self._num_photos = 2
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
@@ -33,7 +34,6 @@ class PrintFormatter:
             preview_image = cv2.resize(out_image, (400, 600))
             cv2.imwrite(preview_path, preview_image)
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
-            cv2.imwrite(file_path, out_image)
         elif self.print_format == "2x6":
             image_aspect_ratio = 3801/2778
             image_h_crop = self._h_crop
@@ -56,5 +56,13 @@ class PrintFormatter:
             cv2.imwrite(preview_path, canvas)
             out_image = cv2.hconcat([canvas, canvas])
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
-            cv2.imwrite(file_path, out_image)
+        if self.h_pad:
+            image_height = out_image.shape[0]
+            image_width = out_image.shape[1]
+            pad_height = int((image_height * self.h_pad) / 2)
+            print(image_height, pad_height)
+            pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
+            out_image = cv2.vconcat([pad, out_image, pad])
+            print(out_image.shape)
+        cv2.imwrite(file_path, out_image)
         return file_path, preview_path
