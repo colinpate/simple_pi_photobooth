@@ -108,7 +108,7 @@ class ColoredLabel(Label):
         
 
 class ImageGallery(RecycleView):
-    def __init__(self, status_label, **kwargs):
+    def __init__(self, status_label, parent_app, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
         
         if LOCAL_TEST:
@@ -129,6 +129,7 @@ class ImageGallery(RecycleView):
             self.fill_image_path_db(config["fill_dir"])
         
         self.status_label = status_label
+        self.parent_app = parent_app
         self.old_num_photos = 0
         self.not_available_popup = None
         self.data = []
@@ -244,59 +245,63 @@ class ImageGallery(RecycleView):
         self.not_available_popup = popup
                 
     def update_data(self, dt):
-        if is_nfs_mounted(self.remote_photo_dir) or LOCAL_TEST:
-            if self.not_available_popup is not None:
-                self.not_available_popup.dismiss()
-                self.not_available_popup = None
-                
-            if not LOCAL_TEST:
-                print("Syncing remote to local")
-                print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
-                
-            # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
-            self.photo_path_db.try_update_from_file()
-            new_photo_names = list(self.photo_path_db.image_names())
-            new_num_photos = len(new_photo_names)
-            if new_num_photos != self.old_num_photos:
-                self.old_num_photos = new_num_photos
-                print(new_num_photos - self.old_num_photos, "new photos!")
-                photo_names_sorted = sorted(new_photo_names)[::-1]
-                new_data = []
-                for photo_name in photo_names_sorted:
-                    gray_path = self.photo_path_db.get_image_path(photo_name, "_gray")
-                    color_path = self.photo_path_db.get_image_path(photo_name, "_color")
-                    if self.separate_gray_thumbnails:
-                        thumbnail_images = [
-                                {"print_source": gray_path, "gray_photo_path": "", "color_photo_path": ""},
-                                {"print_source": color_path, "gray_photo_path": "", "color_photo_path": ""}
-                            ]
-                    else:
-                        thumbnail_images = [
-                                {
-                                    "color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"),
-                                    "gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray"),
-                                    "print_source": ""
-                                }
-                            ]
-                        
-                    for photo_dict in thumbnail_images:
-                        if photo_dict["color_photo_path"]:
-                            thumb_photo_path = photo_dict["color_photo_path"]
-                        else:
-                            thumb_photo_path = photo_dict["print_source"]
-                        thumbnail_path = self.get_thumbnail(thumb_photo_path)
-                        if thumbnail_path is not None:
-                            new_entry = {
-                                    'source': thumbnail_path,
-                                    'selected': False
-                                }
-                            new_entry.update(photo_dict)
-                            new_data.append(new_entry)
-                            
-                self.data = new_data
+        if not is_nfs_mounted(self.remote_photo_dir):
+            self.parent_app.add_error_label()
         else:
-            if self.not_available_popup is None:
-                Clock.schedule_once(self.show_not_available_popup, 0)
+            self.parent_app.remove_error_label()
+            
+        #if self.not_available_popup is not None:
+        #    self.not_available_popup.dismiss()
+        #    self.not_available_popup = None
+            
+        if not LOCAL_TEST:
+            print("Syncing remote to local")
+            print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
+            
+        # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
+        self.photo_path_db.try_update_from_file()
+        new_photo_names = list(self.photo_path_db.image_names())
+        new_num_photos = len(new_photo_names)
+        if new_num_photos != self.old_num_photos:
+            self.old_num_photos = new_num_photos
+            print(new_num_photos - self.old_num_photos, "new photos!")
+            photo_names_sorted = sorted(new_photo_names)[::-1]
+            new_data = []
+            for photo_name in photo_names_sorted:
+                gray_path = self.photo_path_db.get_image_path(photo_name, "_gray")
+                color_path = self.photo_path_db.get_image_path(photo_name, "_color")
+                if self.separate_gray_thumbnails:
+                    thumbnail_images = [
+                            {"print_source": gray_path, "gray_photo_path": "", "color_photo_path": ""},
+                            {"print_source": color_path, "gray_photo_path": "", "color_photo_path": ""}
+                        ]
+                else:
+                    thumbnail_images = [
+                            {
+                                "color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"),
+                                "gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray"),
+                                "print_source": ""
+                            }
+                        ]
+                    
+                for photo_dict in thumbnail_images:
+                    if photo_dict["color_photo_path"]:
+                        thumb_photo_path = photo_dict["color_photo_path"]
+                    else:
+                        thumb_photo_path = photo_dict["print_source"]
+                    thumbnail_path = self.get_thumbnail(thumb_photo_path)
+                    if thumbnail_path is not None:
+                        new_entry = {
+                                'source': thumbnail_path,
+                                'selected': False
+                            }
+                        new_entry.update(photo_dict)
+                        new_data.append(new_entry)
+                        
+            self.data = new_data
+        #else:
+        #    #if self.not_available_popup is None:
+        #        Clock.schedule_once(self.show_not_available_popup, 0)
         Clock.schedule_once(self.update_data, 2)
             
     def get_thumbnail(self, image_path):
@@ -321,7 +326,7 @@ class ImageGalleryApp(App):
         root = FloatLayout()
         status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
                                  pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
-        gallery = ImageGallery(status_label)
+        gallery = ImageGallery(status_label, self)
         gallery.scroll_type = ['content', 'bars']
         gallery.bar_width = '50dp'
         print("ImageGallery instance created and configured.")
@@ -331,7 +336,22 @@ class ImageGalleryApp(App):
                                  pos_hint={'left': 1, 'top': 1})
         settings_button.bind(on_release=self.show_settings_popup)
         root.add_widget(settings_button)
+        
+        self.error_label = ColoredLabel(text='Not connected to Photo Booth', size_hint=(1, 0.05), color=[0, 0, 0, 1],
+                                 pos_hint={'x': 0, 'top': 1}, font_size=sp(30))
+        self.has_error_label = False
+        
         return root
+        
+    def add_error_label(self):
+        if not self.has_error_label:
+            self.has_error_label = True
+            self.root.add_widget(self.error_label, 1) # 1 index so it goes behind settings button
+        
+    def remove_error_label(self):
+        if self.has_error_label:
+            self.has_error_label = False
+            self.root.remove_widget(self.error_label)
         
     def show_settings_popup(self, instance):
         ''' Show a popup with the expanded image '''
