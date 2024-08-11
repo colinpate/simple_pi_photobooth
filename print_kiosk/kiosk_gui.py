@@ -266,7 +266,7 @@ class ImageGallery(RecycleView):
         layout.add_widget(print_progress_bar)
         
         def update_progress_bar(instance):
-            print_progress_bar.value += 5
+            print_progress_bar.value += 4
             if print_progress_bar.value >= 100:
                 popup.dismiss()
             else:
@@ -282,7 +282,12 @@ class ImageGallery(RecycleView):
         else:
             self.parent_app.remove_error_label()
             if not LOCAL_TEST:
-                os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}")
+                try:
+                    # Attempt to sync the mounted directory
+                    subprocess.check_output(['rsync', "-a", self.remote_photo_dir, self.photo_dir], timeout=5)
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+                    print(exception)
+                #os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}")
             
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
         self.photo_path_db.try_update_from_file()
