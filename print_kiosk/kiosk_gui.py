@@ -28,6 +28,7 @@ import cv2
 import os
 import sys
 import subprocess
+import time
 from collections import OrderedDict
 
 from selectable_image import SelectableImage
@@ -48,16 +49,6 @@ else:
     Config.set('graphics', 'height', '1024')
 
 from common.image_path_db import ImagePathDB
-
-def is_nfs_mounted(mount_point):
-    try:
-        print("Checking ls")
-        # Check if the mount point is available by listing its contents
-        subprocess.check_output(['ls', mount_point], timeout=0.5)
-        return True
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-        print(exception)
-        return False
 
 def load_config(config_path):
     with open(config_path, "r") as config_file:
@@ -132,6 +123,12 @@ class ImageGallery(RecycleView):
         self.status_popup = None
         self.data = []
         self.print_selections = []
+        
+        self.stop_thread = False
+        self.is_nfs_mounted = False
+        self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
+        self.mount_check_thread.start()
+        
         Clock.schedule_once(self.update_data, 2)
 
         if not LOCAL_TEST:
@@ -281,9 +278,25 @@ class ImageGallery(RecycleView):
         popup.open()
         
         Clock.schedule_once(update_progress_bar, 1)
+
+    def shutdown(self):
+        self.stop_thread = True
+        self.mount_check_thread.join()
+
+    def check_nfs_mount(self):
+        while not self.stop_thread:
+            try:
+                print("Checking ls")
+                # Check if the mount point is available by listing its contents
+                subprocess.check_output(['ls', self.remote_photo_dir], timeout=1)
+                self.is_nfs_mounted = True
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+                print(exception)
+                self.is_nfs_mounted = False
+            time.sleep(2)
                 
     def update_data(self, dt):
-        if not is_nfs_mounted(self.remote_photo_dir):
+        if not self.is_nfs_mounted:
             self.parent_app.add_error_label()
         else:
             self.parent_app.remove_error_label()
@@ -301,8 +314,8 @@ class ImageGallery(RecycleView):
         new_photo_names = list(self.photo_path_db.image_names())
         new_num_photos = len(new_photo_names)
         if new_num_photos != self.old_num_photos:
-            self.old_num_photos = new_num_photos
             print(new_num_photos - self.old_num_photos, "new photos!")
+            self.old_num_photos = new_num_photos
             photo_names_sorted = sorted(new_photo_names)[::-1]
             new_data = []
             for photo_name in photo_names_sorted:
@@ -417,6 +430,7 @@ class ImageGalleryApp(App):
                       
         shutdown_button = Button(text='Shutdown', size_hint=(0.3, 0.1))
         def shutdown(instance):
+            self.gallery.shutdown()
             os.system("sudo shutdown now")
             sys.exit(0)
         shutdown_button.bind(on_release=shutdown)
