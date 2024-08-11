@@ -142,10 +142,15 @@ class ImageGallery(RecycleView):
         printers = self.conn.getPrinters()
         self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
         
-    def get_printer_info():
-        attrs = conn.getPrinterAttributes(printer_name)
+    def get_printer_info(self):
+        attrs = self.conn.getPrinterAttributes(self.printer_name)
         default_options = attrs.get('printer-defaults', {})
-        marker_level = default_options.get("marker-levels", [100])[0]
+        return default_options
+        
+    def get_printer_marker_level(self):
+        deafults = self.get_printer_info()
+        marker_level = deafults.get("marker-levels", [100])[0]
+        return marker_level
         
     def clear_selection(self):
         # Update the data model
@@ -362,6 +367,7 @@ class ImageGalleryApp(App):
         gallery.bar_width = '50dp'
         print("ImageGallery instance created and configured.")
         root.add_widget(gallery)
+        self.gallery = gallery
         root.add_widget(status_label)
         settings_button = Button(text="...", size_hint=(None, None), size=(25, 25),
                                  pos_hint={'left': 1, 'top': 1})
@@ -387,9 +393,22 @@ class ImageGalleryApp(App):
     def show_settings_popup(self, instance):
         ''' Show a popup with the expanded image '''
         layout = GridLayout(cols=1)
-        popup = Popup(title='Print Preview',
+        popup = Popup(title='Settings',
                       content=layout,
                       size_hint=(0.8, 0.9))
+                      
+        double = GridLayout(cols=2, size_hint=(0.3, 0.1))
+        print_level_label = Label(text='', font_size=sp(20))
+        double.add_widget(print_level_label)
+        print_level = ProgressBar(max=100)
+        if LOCAL_TEST:
+            marker_level = 69
+        else:
+            marker_level = self.gallery.get_printer_marker_level()
+        print_level.value = marker_level
+        print_level_label.text = f"Print Level {marker_level}%"
+        double.add_widget(print_level)
+        layout.add_widget(double)
                       
         exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
         def close(instance):
