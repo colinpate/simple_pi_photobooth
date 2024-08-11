@@ -29,6 +29,7 @@ import os
 import sys
 import subprocess
 import time
+import threading
 from collections import OrderedDict
 
 from selectable_image import SelectableImage
@@ -129,7 +130,7 @@ class ImageGallery(RecycleView):
         self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
         self.mount_check_thread.start()
         
-        Clock.schedule_once(self.update_data, 2)
+        Clock.schedule_once(self.update_data, 3)
 
         if not LOCAL_TEST:
             self.setup_printer()
@@ -288,12 +289,12 @@ class ImageGallery(RecycleView):
             try:
                 print("Checking ls")
                 # Check if the mount point is available by listing its contents
-                subprocess.check_output(['ls', self.remote_photo_dir], timeout=1)
+                subprocess.check_output(['ls', self.remote_photo_dir + "/color"], timeout=1)
                 self.is_nfs_mounted = True
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                 print(exception)
                 self.is_nfs_mounted = False
-            time.sleep(2)
+            time.sleep(3)
                 
     def update_data(self, dt):
         if not self.is_nfs_mounted:
@@ -350,7 +351,7 @@ class ImageGallery(RecycleView):
                         new_data.append(new_entry)
                         
             self.data = new_data
-        Clock.schedule_once(self.update_data, 2)
+        Clock.schedule_once(self.update_data, 3)
             
     def get_thumbnail(self, image_path):
         filename = os.path.split(image_path)[1]
@@ -424,6 +425,7 @@ class ImageGalleryApp(App):
                       
         exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
         def close(instance):
+            self.gallery.shutdown()
             sys.exit(0)
         exit_button.bind(on_release=close)
         layout.add_widget(exit_button)
@@ -438,6 +440,7 @@ class ImageGalleryApp(App):
                       
         restart_button = Button(text='Reboot', size_hint=(0.3, 0.1))
         def restart(instance):
+            self.gallery.shutdown()
             os.system("sudo reboot")
             sys.exit(0)
         restart_button.bind(on_release=restart)
