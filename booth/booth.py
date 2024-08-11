@@ -21,7 +21,7 @@ import sys
 from common.image_path_db import ImagePathDB
 from common.timers import Timers
 from common.common import load_config
-from apply_watermark import ApplyWatermark
+from booth.apply_watermark import ApplyWatermark
 
 # Pi 5 stuff
 from gpiozero import Button
