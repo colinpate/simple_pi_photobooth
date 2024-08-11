@@ -50,8 +50,10 @@ else:
 from common.image_path_db import ImagePathDB
 
 def is_nfs_mounted(mount_point):
+    print("Checking mount")
     if os.path.ismount(mount_point):
         try:
+            print("Checking ls")
             # Check if the mount point is available by listing its contents
             subprocess.check_output(['ls', mount_point], timeout=5)
             return True
@@ -135,7 +137,7 @@ class ImageGallery(RecycleView):
         self.status_popup = None
         self.data = []
         self.print_selections = []
-        Clock.schedule_once(self.update_data, 5)
+        Clock.schedule_once(self.update_data, 2)
 
         if not LOCAL_TEST:
             self.setup_printer()
@@ -284,6 +286,7 @@ class ImageGallery(RecycleView):
             if not LOCAL_TEST:
                 try:
                     # Attempt to sync the mounted directory
+                    print("Rsyncing")
                     subprocess.check_output(['rsync', "-a", self.remote_photo_dir, self.photo_dir], timeout=5)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                     print(exception)
