@@ -14,6 +14,7 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.progressbar import ProgressBar
 from kivy.graphics import Color, Rectangle
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.metrics import dp, sp  # Import dp and sp functions
@@ -131,7 +132,7 @@ class ImageGallery(RecycleView):
         self.status_label = status_label
         self.parent_app = parent_app
         self.old_num_photos = 0
-        self.not_available_popup = None
+        self.status_popup = None
         self.data = []
         self.print_selections = []
         Clock.schedule_once(self.update_data, 5)
@@ -153,7 +154,9 @@ class ImageGallery(RecycleView):
         self.refresh_from_data()
         
     def prepare_print(self, instance):
+        print("Preparing print")
         formatted_path, preview_path = self.print_formatter.format_print(self.print_selections)
+        self.status_popup.dismiss()
         print("Showing preview popup")
         self.show_print_preview_popup(formatted_path, preview_path)
         self.clear_selection()
@@ -164,9 +167,9 @@ class ImageGallery(RecycleView):
         need = self.print_formatter.num_photos()
         rem = need - num_selected
         if rem == 0:
-            text = "Processing..."
+            text = ""
         elif rem == 1:
-            text = "Select 1 photo"
+            text = "Select 1 more photo"
         else:
             text = f"Select {rem} photos"
         self.status_label.text = text
@@ -176,6 +179,7 @@ class ImageGallery(RecycleView):
             self.print_selections.append(image_path)
             self.update_status_label()
             if len(self.print_selections) == self.print_formatter.num_photos():
+                self.show_processing_popup(None)
                 Clock.schedule_once(self.prepare_print, 0)
         
     def remove_print_selection(self, image_path):
@@ -215,6 +219,7 @@ class ImageGallery(RecycleView):
         
     def print_images(self, formatted_path):
         print("Printing", formatted_path)
+        Clock.schedule_once(self.show_printing_popup, 0)
         if not LOCAL_TEST:
             options=self.print_formatter.print_options()
             self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
@@ -233,30 +238,51 @@ class ImageGallery(RecycleView):
                 paths[postfix] = image_path
             print(image_name, paths)
             self.photo_path_db.add_image(image_name, paths)
-
-    def show_not_available_popup(self, instance):
-        layout = FloatLayout()
-        popup = Popup(title='Error',
+    
+    def show_processing_popup(self, instance):
+        print("Showing processing popup")
+        layout = GridLayout(cols=1)
+        popup = Popup(title='',
                       content=layout,
                       size_hint=(0.5, 0.3))
+                      
+        printing_label = Label(text='Processing...', font_size=sp(30))
+        layout.add_widget(printing_label)
         
         popup.open()
         
-        self.not_available_popup = popup
+        self.status_popup = popup
+
+    def show_printing_popup(self, instance):
+        layout = GridLayout(cols=1)
+        popup = Popup(title='',
+                      content=layout,
+                      size_hint=(0.5, 0.3))
+                      
+        printing_label = Label(text='Printing!', font_size=sp(30))
+        layout.add_widget(printing_label)
+        
+        print_progress_bar = ProgressBar(max=100)
+        layout.add_widget(print_progress_bar)
+        
+        def update_progress_bar(instance):
+            print_progress_bar.value += 5
+            if print_progress_bar.value >= 100:
+                popup.dismiss()
+            else:
+                Clock.schedule_once(update_progress_bar, 1)
+        
+        popup.open()
+        
+        Clock.schedule_once(update_progress_bar, 1)
                 
     def update_data(self, dt):
         if not is_nfs_mounted(self.remote_photo_dir):
             self.parent_app.add_error_label()
         else:
             self.parent_app.remove_error_label()
-            
-        #if self.not_available_popup is not None:
-        #    self.not_available_popup.dismiss()
-        #    self.not_available_popup = None
-            
-        if not LOCAL_TEST:
-            print("Syncing remote to local")
-            print(os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}"))
+            if not LOCAL_TEST:
+                os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}")
             
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
         self.photo_path_db.try_update_from_file()
@@ -299,9 +325,6 @@ class ImageGallery(RecycleView):
                         new_data.append(new_entry)
                         
             self.data = new_data
-        #else:
-        #    #if self.not_available_popup is None:
-        #        Clock.schedule_once(self.show_not_available_popup, 0)
         Clock.schedule_once(self.update_data, 2)
             
     def get_thumbnail(self, image_path):
