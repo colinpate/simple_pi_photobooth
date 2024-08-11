@@ -26,3 +26,9 @@ album_title_file: "/home/colin/album_title.txt"
 contrast: 1.1
 brightness: 0.05
 request_timeout: 20
+watermark:
+    watermark_path: "/home/colin/watermarks/larger_aquafest_logo.png"
+    weight: 1
+    h_size: 950
+    offset_x: 100
+    offset_y: 90

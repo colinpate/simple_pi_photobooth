@@ -21,6 +21,7 @@ import sys
 from common.image_path_db import ImagePathDB
 from common.timers import Timers
 from common.common import load_config
+from apply_watermark import ApplyWatermark
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -206,6 +207,15 @@ class PhotoBooth:
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
         
+        if "watermark" in config:
+            try:
+                self._watermarker = ApplyWatermark(**config["watermark"])
+            except Exception as e:
+                print("Failed to load watermarker:", e)
+                self._watermarker = None
+        else:
+            self._watermarker = None
+        
         self.picam2 = self.init_camera()
         self.qpicamera2 = self.init_preview()
             
@@ -336,6 +346,7 @@ class PhotoBooth:
             final_image = orig_image
             
         gray_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2GRAY)
+        gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2BGR)
         
         h, w = final_image.shape[:2]
         datetime_stamp = datetime.now()
@@ -354,6 +365,8 @@ class PhotoBooth:
                     dir_i,
                     photo_name + postfix + ".jpg"
                 )
+                if (self._watermarker is not None) and (postfix != "_original"):
+                    self._watermarker.apply_watermark(cv_img)
                 img = Image.fromarray(cv_img)
                 img.save(image_path, quality=95, exif=exif_bytes)
                 
@@ -364,7 +377,7 @@ class PhotoBooth:
         
         #return an image to display
         if self._display_gray:
-            display_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
+            display_image = cv2.cvtColor(gray_image, cv2.COLOR_BGR2RGB)
         else:
             display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
         return display_image
