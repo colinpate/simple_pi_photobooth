@@ -144,12 +144,11 @@ class ImageGallery(RecycleView):
         
     def get_printer_info(self):
         attrs = self.conn.getPrinterAttributes(self.printer_name)
-        default_options = attrs.get('printer-defaults', {})
-        return default_options
+        return attrs
         
     def get_printer_marker_level(self):
-        deafults = self.get_printer_info()
-        marker_level = deafults.get("marker-levels", [100])[0]
+        attrs = self.get_printer_info()
+        marker_level = attrs.get("marker-levels", [100])[0]
         return marker_level
         
     def clear_selection(self):
