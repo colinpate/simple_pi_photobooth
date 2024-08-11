@@ -50,18 +50,13 @@ else:
 from common.image_path_db import ImagePathDB
 
 def is_nfs_mounted(mount_point):
-    print("Checking mount")
-    if os.path.ismount(mount_point):
-        try:
-            print("Checking ls")
-            # Check if the mount point is available by listing its contents
-            subprocess.check_output(['ls', mount_point], timeout=5)
-            return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-            print(exception)
-            return False
-    else:
-        #print("Not mounted!")
+    try:
+        print("Checking ls")
+        # Check if the mount point is available by listing its contents
+        subprocess.check_output(['ls', mount_point], timeout=5)
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+        print(exception)
         return False
 
 def load_config(config_path):
