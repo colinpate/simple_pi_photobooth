@@ -53,7 +53,7 @@ def is_nfs_mounted(mount_point):
     try:
         print("Checking ls")
         # Check if the mount point is available by listing its contents
-        subprocess.check_output(['ls', mount_point], timeout=5)
+        subprocess.check_output(['ls', mount_point], timeout=0.5)
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
         print(exception)
@@ -141,6 +141,11 @@ class ImageGallery(RecycleView):
         self.conn = cups.Connection()
         printers = self.conn.getPrinters()
         self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
+        
+    def get_printer_info():
+        attrs = conn.getPrinterAttributes(printer_name)
+        default_options = attrs.get('printer-defaults', {})
+        marker_level = default_options.get("marker-levels", [100])[0]
         
     def clear_selection(self):
         # Update the data model
