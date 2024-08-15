@@ -105,12 +105,13 @@ class ImageGallery(RecycleView):
             config = load_config("print_config_test.yaml")
         else:
             config = load_config("print_config.yaml")
-        
-        self.photo_path_db = ImagePathDB(config["photo_path_db"], old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
-        
+            
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
+        
+        self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
+        
         self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
         self.print_formatter = PrintFormatter(
                 **config
@@ -127,6 +128,8 @@ class ImageGallery(RecycleView):
         
         self.stop_thread = False
         self.is_nfs_mounted = False
+        self.mount_addresses = config["mount_addresses"]
+        self.mount_source = config["mount_source"]
         self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
         self.mount_check_thread.start()
         
@@ -202,15 +205,15 @@ class ImageGallery(RecycleView):
         layout.add_widget(image)
         
         # Define the close button
-        close_button = Button(text='Cancel', size_hint=(0.3, 0.1),
-                              pos_hint={'x': 0.6, 'y': 0})
+        close_button = Button(text='Cancel', size_hint=(0.4, 0.1),
+                              pos_hint={'x': 0.55, 'y': 0})
                               
         close_button.bind(on_release=popup.dismiss)
         layout.add_widget(close_button)
         
         # Define the print button and its callback
-        print_button = Button(text='Print!', size_hint=(0.3, 0.1),
-                              pos_hint={'x': 0.1, 'y': 0})
+        print_button = Button(text='Print!', size_hint=(0.4, 0.1),
+                              pos_hint={'x': 0.05, 'y': 0})
         layout.add_widget(print_button)
         
         def on_print(instance):
@@ -287,13 +290,21 @@ class ImageGallery(RecycleView):
     def check_nfs_mount(self):
         while not self.stop_thread:
             try:
-                print("Checking ls")
                 # Check if the mount point is available by listing its contents
                 subprocess.check_output(['ls', self.remote_photo_dir + "/color"], timeout=1)
                 self.is_nfs_mounted = True
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                print(exception)
+                print("ls failed", exception)
                 self.is_nfs_mounted = False
+            if not self.is_nfs_mounted:
+                for mount_address in self.mount_addresses:
+                    try:
+                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=5)
+                        print("Successfully mounted from", mount_address)
+                        break
+                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+                        print("Failed to mount from", mount_address, exception)
+                        
             time.sleep(3)
                 
     def update_data(self, dt):
@@ -304,11 +315,9 @@ class ImageGallery(RecycleView):
             if not LOCAL_TEST:
                 try:
                     # Attempt to sync the mounted directory
-                    print("Rsyncing")
                     subprocess.check_output(['rsync', "-a", self.remote_photo_dir, self.photo_dir], timeout=5)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                    print(exception)
-                #os.system(f"rsync -a {self.remote_photo_dir} {self.photo_dir}")
+                    print("rsync failed", exception)
             
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
         self.photo_path_db.try_update_from_file()
@@ -319,36 +328,38 @@ class ImageGallery(RecycleView):
             self.old_num_photos = new_num_photos
             photo_names_sorted = sorted(new_photo_names)[::-1]
             new_data = []
+            thumbnail_images = []
             for photo_name in photo_names_sorted:
                 gray_path = self.photo_path_db.get_image_path(photo_name, "_gray")
                 color_path = self.photo_path_db.get_image_path(photo_name, "_color")
+                # Add the color and gray version of each image as separate images if they're to be displayed separately
                 if self.separate_gray_thumbnails:
-                    thumbnail_images = [
+                    thumbnail_images += [
                             {"print_source": gray_path, "gray_photo_path": "", "color_photo_path": ""},
                             {"print_source": color_path, "gray_photo_path": "", "color_photo_path": ""}
                         ]
                 else:
-                    thumbnail_images = [
+                    thumbnail_images += [
                             {
-                                "color_photo_path": self.photo_path_db.get_image_path(photo_name, "_color"),
-                                "gray_photo_path": self.photo_path_db.get_image_path(photo_name, "_gray"),
-                                "print_source": ""
+                                "print_source": "",
+                                "gray_photo_path": gray_path,
+                                "color_photo_path": color_path
                             }
                         ]
                     
-                for photo_dict in thumbnail_images:
-                    if photo_dict["color_photo_path"]:
-                        thumb_photo_path = photo_dict["color_photo_path"]
-                    else:
-                        thumb_photo_path = photo_dict["print_source"]
-                    thumbnail_path = self.get_thumbnail(thumb_photo_path)
-                    if thumbnail_path is not None:
-                        new_entry = {
-                                'source': thumbnail_path,
-                                'selected': False
-                            }
-                        new_entry.update(photo_dict)
-                        new_data.append(new_entry)
+            for photo_dict in thumbnail_images:
+                if photo_dict["color_photo_path"]:
+                    thumb_photo_path = photo_dict["color_photo_path"]
+                else:
+                    thumb_photo_path = photo_dict["print_source"]
+                thumbnail_path = self.get_thumbnail(thumb_photo_path)
+                if thumbnail_path is not None:
+                    new_entry = {
+                            'source': thumbnail_path,
+                            'selected': False
+                        }
+                    new_entry.update(photo_dict)
+                    new_data.append(new_entry)
                         
             self.data = new_data
         Clock.schedule_once(self.update_data, 3)

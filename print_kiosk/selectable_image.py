@@ -63,11 +63,9 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
         if is_selected:
             self.color = [1, 1, 1, 0.1]
             self.parent_gallery.add_print_selection(rv.data[index]["print_source"])
-            print("selection added for {0}".format(rv.data[index]["print_source"]))
         else:
             self.color = [1, 1, 1, 1]
             self.parent_gallery.remove_print_selection(rv.data[index]["print_source"])
-            print("selection removed for {0}".format(rv.data[index]["print_source"]))
         self.selected = is_selected
         rv.data[index]["selected"] = is_selected
         
