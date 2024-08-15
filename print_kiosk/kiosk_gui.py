@@ -294,7 +294,7 @@ class ImageGallery(RecycleView):
                 subprocess.check_output(['ls', self.remote_photo_dir + "/color"], timeout=1)
                 self.is_nfs_mounted = True
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                print("ls failed", exception)
+                print("NFS ls failed", exception)
                 self.is_nfs_mounted = False
             if not self.is_nfs_mounted:
                 for mount_address in self.mount_addresses:
