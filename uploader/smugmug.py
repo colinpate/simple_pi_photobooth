@@ -4,8 +4,8 @@ import os
 from rauth import OAuth1Session
 from pprint import pprint
 import random
-from photo_service import PhotoService
-from common import load_config
+from uploader.photo_service import PhotoService
+from common.common import load_config
 
 BASE_URL = "https://api.smugmug.com/api/v2"
 UPLOAD_URL = "https://upload.smugmug.com/api/v2"

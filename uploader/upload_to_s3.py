@@ -6,12 +6,12 @@ import os
 import socket
 import time
 from datetime import datetime
-from common import load_config
-from image_path_db import ImagePathDB
-from photo_service import PhotoService
-from google_photos_upload import GooglePhotos
-from smugmug import SmugMug
-from s3_photos import S3Photos
+from common.common import load_config
+from common.image_path_db import ImagePathDB
+from uploader.photo_service import PhotoService
+from uploader.google_photos_upload import GooglePhotos
+from uploader.smugmug import SmugMug
+from uploader.s3_photos import S3Photos
 
 
 def check_network_connection(host="8.8.8.8", port=53, timeout=3):

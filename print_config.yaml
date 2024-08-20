@@ -1,0 +1,13 @@
+thumbnail_dir: "/home/colin/simple_pi_photobooth/print_kiosk/thumbnails"
+photo_dir: "/home/colin/booth_photos_local/"
+remote_photo_dir: "/home/colin/booth_photos/"
+print_format: "2x6"
+h_crop_2x6: 0.9
+h_pad: 0.04
+separate_gray_thumbnails: True
+fill_dir: "/home/colin/Ryans_40th/booth_photos/color"
+mount_addresses:
+    - "192.168.1.114"
+    - "boothpi"
+mount_source: "/home/colin/booth_photos"
+
