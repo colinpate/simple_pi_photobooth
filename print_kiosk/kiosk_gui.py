@@ -303,7 +303,7 @@ class ImageGallery(RecycleView):
                 self.is_nfs_mounted = False
                 ls_timeout = True
                 
-            # Unmount the directory if ls fails, cuz it can get stuck
+            # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
                 try:
                     subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=1)
