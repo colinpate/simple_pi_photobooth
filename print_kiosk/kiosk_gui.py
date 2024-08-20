@@ -206,14 +206,14 @@ class ImageGallery(RecycleView):
         
         # Define the close button
         close_button = Button(text='Cancel', size_hint=(0.4, 0.1),
-                              pos_hint={'x': 0.55, 'y': 0})
+                              pos_hint={'x': 0.55, 'y': 0.02})
                               
         close_button.bind(on_release=popup.dismiss)
         layout.add_widget(close_button)
         
         # Define the print button and its callback
         print_button = Button(text='Print!', size_hint=(0.4, 0.1),
-                              pos_hint={'x': 0.05, 'y': 0})
+                              pos_hint={'x': 0.05, 'y': 0.02})
         layout.add_widget(print_button)
         
         def on_print(instance):
@@ -289,17 +289,31 @@ class ImageGallery(RecycleView):
 
     def check_nfs_mount(self):
         while not self.stop_thread:
+            ls_timeout = False
+            
             try:
                 # Check if the mount point is available by listing its contents
                 subprocess.check_output(['ls', self.remote_photo_dir + "/color"], timeout=1)
                 self.is_nfs_mounted = True
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+            except (subprocess.CalledProcessError) as exception:
                 print("NFS ls failed", exception)
                 self.is_nfs_mounted = False
+            except (subprocess.TimeoutExpired) as exception:
+                print("NFS ls timed out")
+                self.is_nfs_mounted = False
+                ls_timeout = True
+                
+            # Unmount the directory if ls fails, cuz it can get stuck
+            if ls_timeout:
+                try:
+                    subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=1)
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+                    print("Umount failed", exception)
+                    
             if not self.is_nfs_mounted:
                 for mount_address in self.mount_addresses:
                     try:
-                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=5)
+                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=3)
                         print("Successfully mounted from", mount_address)
                         break
                     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
