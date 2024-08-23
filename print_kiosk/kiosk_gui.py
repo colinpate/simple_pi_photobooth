@@ -27,13 +27,11 @@ import yaml
 import cv2
 import os
 import sys
-import subprocess
-import time
-import threading
 from collections import OrderedDict
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
+from booth_sync import BoothSync
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -109,13 +107,9 @@ class ImageGallery(RecycleView):
         self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
+        self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
         
         self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
-        
-        self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
-        self.print_formatter = PrintFormatter(
-                **config
-            )
         if "fill_dir" in config.keys():
             self.fill_image_path_db(config["fill_dir"])
         
@@ -126,17 +120,12 @@ class ImageGallery(RecycleView):
         self.data = []
         self.print_selections = []
         
-        self.stop_thread = False
-        self.is_nfs_mounted = False
-        self.mount_addresses = config["mount_addresses"]
-        self.mount_source = config["mount_source"]
-        self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
-        self.mount_check_thread.start()
-        
-        Clock.schedule_once(self.update_data, 3)
-
+        self.print_formatter = PrintFormatter(**config)
+        self.booth_sync = BoothSync(**config)
         if not LOCAL_TEST:
             self.setup_printer()
+        
+        Clock.schedule_once(self.update_data, 3)
 
     def setup_printer(self):
         self.conn = cups.Connection()
@@ -284,54 +273,15 @@ class ImageGallery(RecycleView):
         Clock.schedule_once(update_progress_bar, 1)
 
     def shutdown(self):
-        self.stop_thread = True
-        self.mount_check_thread.join()
-
-    def check_nfs_mount(self):
-        while not self.stop_thread:
-            ls_timeout = False
-            
-            try:
-                # Check if the mount point is available by listing its contents
-                subprocess.check_output(['ls', self.remote_photo_dir + "/color"], timeout=1)
-                self.is_nfs_mounted = True
-            except (subprocess.CalledProcessError) as exception:
-                print("NFS ls failed", exception)
-                self.is_nfs_mounted = False
-            except (subprocess.TimeoutExpired) as exception:
-                print("NFS ls timed out")
-                self.is_nfs_mounted = False
-                ls_timeout = True
-                
-            # Unmount the directory if ls times out, cuz it can get stuck
-            if ls_timeout:
-                try:
-                    subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=1)
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                    print("Umount failed", exception)
-                    
-            if not self.is_nfs_mounted:
-                for mount_address in self.mount_addresses:
-                    try:
-                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=3)
-                        print("Successfully mounted from", mount_address)
-                        break
-                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                        print("Failed to mount from", mount_address, exception)
-                        
-            time.sleep(3)
+        self.booth_sync.shutdown()
                 
     def update_data(self, dt):
-        if not self.is_nfs_mounted:
+        if not self.booth_sync.is_nfs_mounted():
             self.parent_app.add_error_label()
         else:
             self.parent_app.remove_error_label()
             if not LOCAL_TEST:
-                try:
-                    # Attempt to sync the mounted directory
-                    subprocess.check_output(['rsync', "-a", self.remote_photo_dir, self.photo_dir], timeout=5)
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                    print("rsync failed", exception)
+                self.booth_sync.sync_remote_to_local(self.photo_dir)
             
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
         self.photo_path_db.try_update_from_file()

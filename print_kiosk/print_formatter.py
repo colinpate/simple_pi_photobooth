@@ -2,9 +2,15 @@ import cv2
 import numpy as np
 
 class PrintFormatter:
-    def __init__(self, print_format, h_crop_2x6=1, h_pad=0, **kwargs):
+    def __init__(self, print_format, h_crop_2x6=1, h_pad=0, logo_path=None, logo_width_scale=1, **kwargs):
         self.print_format = print_format
         self.h_pad = 0.04
+        if logo_path:
+            self.logo = cv2.imread(logo_path)
+        else:
+            self.logo = None
+        self.logo_width_scale = logo_width_scale
+        
         if print_format == "4x3":
             self._num_photos = 2
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
@@ -38,21 +44,37 @@ class PrintFormatter:
             image_aspect_ratio = 3801/2778
             image_h_crop = self._h_crop
             cropped_aspect_ratio = image_aspect_ratio * image_h_crop
+            
             image_width = 600
             image_height = int(image_width / (image_aspect_ratio * image_h_crop))
+            
             canvas_width = image_width
             canvas_height = image_width * 3
-            y_padding = int((image_width - image_height) / 2)
+            
+            if self.logo is not None:
+                logo_aspect = self.logo.shape[1] / self.logo.shape[0]
+                logo_width = int(canvas_width * self.logo_width_scale)
+                logo_height = int(logo_width / logo_aspect)
+                logo_x_offset = int((canvas_width - logo_width) / 2)
+                logo = cv2.resize(self.logo, (logo_width, logo_height))
+                y_padding = int((canvas_height - (image_height * 3) - logo_height) / 5)
+            else:
+                y_padding = int((canvas_height - (image_height * 3)) / 4)
+            
             canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
-            y = 0
+            y = y_padding
             for (i, image_path) in enumerate(image_paths):
                 image = cv2.imread(image_path)
                 crop_x1 = int(image.shape[1] * (1 - image_h_crop) / 2)
                 crop_x2 = crop_x1 + int(image.shape[1] * image_h_crop)
                 image = image[:, crop_x1:crop_x2, :]
                 resized = cv2.resize(image, (image_width, image_height))
-                canvas[y + y_padding : y + y_padding + image_height, :, :] = resized
-                y += image_width
+                canvas[y : y + image_height, :, :] = resized
+                y += y_padding + image_height
+                
+            if self.logo is not None:
+                canvas[y : y + logo_height, logo_x_offset:logo_x_offset + logo_width, :] = logo
+                
             cv2.imwrite(preview_path, canvas)
             out_image = cv2.hconcat([canvas, canvas])
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
@@ -66,3 +88,17 @@ class PrintFormatter:
             print(out_image.shape)
         cv2.imwrite(file_path, out_image)
         return file_path, preview_path
+        
+if __name__ == "__main__":
+    formatter = PrintFormatter(
+            print_format = "2x6",
+            h_crop_2x6 = 0.9,
+            h_pad = 0,
+            logo_path = "/home/patecolin/photobooth_site/watermarks/aa-no-circle_logo_edited.png",
+            logo_width_scale = 0.6
+        )
+    import glob
+    images = glob.glob("/home/patecolin/photobooth_site/print_examples/*.jpg")
+   
+    formatter.format_print(images)
+    
