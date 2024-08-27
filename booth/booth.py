@@ -90,9 +90,9 @@ BLACK_OVERLAY[:]  = (0, 0, 0, 255)
     
 NO_WIFI_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 NO_WIFI_OVERLAY[:]  = (0, 0, 0, 0)
-wifi_text_origin = (int(DISPLAY_WIDTH / 2 - 100), 10)
-wifi_text_scale = 2
-wifi_text_thickness = 3
+wifi_text_origin = (int(DISPLAY_WIDTH / 2 - 100), 25)
+wifi_text_scale = 0.75
+wifi_text_thickness = 1
 cv2.putText(NO_WIFI_OVERLAY, "Wifi not connected", wifi_text_origin, font, wifi_text_scale, colour, wifi_text_thickness)
     
 def get_prev_crop_rectangle(crop_to_screen=True):
