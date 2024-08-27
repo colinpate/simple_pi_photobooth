@@ -212,6 +212,7 @@ class PhotoBooth:
         self.timers.setup("display_capture_timeout", config["display_timeout"])
         self.timers.setup("qr_code_check", config["qr_check_time"])
         self.timers.setup("wifi_check", config["wifi_check_time"])
+        self.timers.start("wifi_check")
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
