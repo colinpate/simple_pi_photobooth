@@ -82,8 +82,8 @@ origin = (int(DISPLAY_WIDTH / 2 - 62), int(DISPLAY_HEIGHT / 2 + 62))
 scale = 6
 thickness = 10
 
-capture_overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
-capture_overlay[:] = (255, 255, 255, 255)
+CAPTURE_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
+CAPTURE_OVERLAY[:] = (255, 255, 255, 255)
 
 BLACK_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 BLACK_OVERLAY[:]  = (0, 0, 0, 255)
@@ -273,7 +273,7 @@ class PhotoBooth:
         return qpicamera2
 
     def set_capture_overlay(self):
-        self.set_overlay(capture_overlay, exclusive = True)
+        self.set_overlay(CAPTURE_OVERLAY, exclusive = True)
 
     def init_gpio(self):
         self.init_button()
@@ -338,11 +338,9 @@ class PhotoBooth:
         print("Color gains", metadata["ColourGains"])
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
-        if self.state == "display_capture":
-            self.set_overlay(BLACK_OVERLAY, exclusive=True)
-            display_image = self.save_capture()
-            self.display_image(display_image)
-    
+        self.set_overlay(BLACK_OVERLAY, exclusive=True)
+        display_image = self.save_capture()
+        self.display_image(display_image)
     
     def save_capture(self):
         orig_image = self.image_array
@@ -418,6 +416,7 @@ class PhotoBooth:
         q_pos = self._config["qr_pos"]
         resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]), cv2.INTER_NEAREST)
         self._display_overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
+        self.set_overlay(self._display_overlay)
         
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
@@ -530,7 +529,6 @@ class PhotoBooth:
                         if qr_code is not None:
                             print("FOUND QR CODE", self._display_image_name)
                             self.add_qr_code(qr_code)
-                            self.set_overlay(self._display_overlay)
                 
                 if self.timers.check("display_image_timeout"):
                     self.display_random_file()
@@ -544,10 +542,10 @@ class PhotoBooth:
                         "AeEnable": True,
                     })
                 self.set_overlay(None)
-        
-        self.set_wifi_overlay()
 
         self.state = next_state
+        
+        self.set_wifi_overlay()
 
     def set_overlay(self, overlay = None, exclusive = False):
         self._overlay = overlay
