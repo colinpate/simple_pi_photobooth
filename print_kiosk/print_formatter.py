@@ -18,6 +18,9 @@ class PrintFormatter:
             self._num_photos = 3
             self._media = "custom_119.21x155.45mm_119.21x155.45mm"
             self._h_crop = h_crop_2x6
+        if print_format == "3x2":
+            self._num_photos = 4
+            self._media = "custom_119.21x156.15mm_119.21x156.15mm"
             
     def num_photos(self):
         return self._num_photos
@@ -31,6 +34,7 @@ class PrintFormatter:
     def format_print(self, image_paths):
         preview_path = "preview.png"
         file_path = "formatted.jpg"
+        
         if self.print_format == "4x3":
             images = []
             for image_path in image_paths:
@@ -40,6 +44,7 @@ class PrintFormatter:
             preview_image = cv2.resize(out_image, (400, 600))
             cv2.imwrite(preview_path, preview_image)
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+            
         elif self.print_format == "2x6":
             image_aspect_ratio = 3801/2778
             image_h_crop = self._h_crop
@@ -78,14 +83,34 @@ class PrintFormatter:
             cv2.imwrite(preview_path, canvas)
             out_image = cv2.hconcat([canvas, canvas])
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+        
+        elif self.print_format == "3x2":
+            aspect_ratio = 3/2
+        
+            images = []
+            for image_path in image_paths:
+                image = cv2.imread(image_path)
+                crop_h = int(image.shape[1] / aspect_ratio)
+                crop_y = int((image.shape[0] - crop_h) / 2)
+                cropped = image[crop_y : crop_y + crop_h, :, :]
+                images.append(cropped)
+                
+            stacks = []
+            for i in range(0, 4, 2):
+                stack = cv2.vconcat([images[i], images[i + 1]])
+                stacks.append(stack)
+                
+            out_image = cv2.hconcat(stacks)
+            preview_image = cv2.resize(out_image, (600, 400))
+            cv2.imwrite(preview_path, preview_image)
+            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+            
         if self.h_pad:
             image_height = out_image.shape[0]
             image_width = out_image.shape[1]
             pad_height = int((image_height * self.h_pad) / 2)
-            print(image_height, pad_height)
             pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
             out_image = cv2.vconcat([pad, out_image, pad])
-            print(out_image.shape)
         cv2.imwrite(file_path, out_image)
         return file_path, preview_path
         

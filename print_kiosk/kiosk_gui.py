@@ -125,7 +125,7 @@ class ImageGallery(RecycleView):
         if not LOCAL_TEST:
             self.setup_printer()
         
-        Clock.schedule_once(self.update_data, 3)
+        Clock.schedule_once(self.update_data, 0)
 
     def setup_printer(self):
         self.conn = cups.Connection()
@@ -280,8 +280,6 @@ class ImageGallery(RecycleView):
             self.parent_app.add_error_label()
         else:
             self.parent_app.remove_error_label()
-            if not LOCAL_TEST:
-                self.booth_sync.sync_remote_to_local(self.photo_dir)
             
         # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
         self.photo_path_db.try_update_from_file()
@@ -291,7 +289,6 @@ class ImageGallery(RecycleView):
             print(new_num_photos - self.old_num_photos, "new photos!")
             self.old_num_photos = new_num_photos
             photo_names_sorted = sorted(new_photo_names)[::-1]
-            new_data = []
             thumbnail_images = []
             for photo_name in photo_names_sorted:
                 gray_path = self.photo_path_db.get_image_path(photo_name, "_gray")
@@ -311,6 +308,7 @@ class ImageGallery(RecycleView):
                             }
                         ]
                     
+            new_data = []
             for photo_dict in thumbnail_images:
                 if photo_dict["color_photo_path"]:
                     thumb_photo_path = photo_dict["color_photo_path"]
@@ -324,8 +322,9 @@ class ImageGallery(RecycleView):
                         }
                     new_entry.update(photo_dict)
                     new_data.append(new_entry)
-                        
             self.data = new_data
+            
+        self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 3)
             
     def get_thumbnail(self, image_path):
