@@ -575,6 +575,7 @@ class PhotoBooth:
     def check_wifi_connection(self):
         try:
             # Run the iwgetid command with the -r flag to get the SSID
+            print("Checking wifi connection")
             ssid = subprocess.check_output(['iwgetid', '-r']).decode('utf-8').strip()
             if ssid:
                 return ssid
