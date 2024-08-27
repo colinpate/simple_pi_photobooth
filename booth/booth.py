@@ -543,34 +543,36 @@ class PhotoBooth:
                         "Saturation": self._prev_saturation,
                         "AeEnable": True,
                     })
-                self.set_overlay(blank_overlay = True)
+                self.set_overlay(None)
         
         self.set_wifi_overlay()
 
         self.state = next_state
 
-    def set_overlay(self, overlay = None, blank_overlay = False, exclusive = False):
-        if blank_overlay:
-            self._overlay = None
-        else:
-            self._overlay = overlay
+    def set_overlay(self, overlay = None, exclusive = False):
+        self._overlay = overlay
         self._overlay_exclusive = exclusive
         self.qpicamera2.set_overlay(self._overlay)
 
-    def add_overlay(self, overlay):
+    def add_extra_overlay(self, new_overlay):
         if not self._overlay_exclusive:
             if self._overlay is not None:
-                self._overlay = np.clip(overlay + self._overlay, a_min=0, a_max=255)
+                overlay = np.clip(new_overlay + self._overlay, a_min=0, a_max=255)
             else:
-                self._overlay = overlay
-        self.qpicamera2.set_overlay(self._overlay)
+                overlay = new_overlay
+        self.qpicamera2.set_overlay(overlay)
+
+    def remove_extra_overlay(self):
+        self.set_overlay(self._overlay, self._overlay_exclusive)
 
     def set_wifi_overlay(self):
         if not self._overlay_exclusive:
             if self.timers.check("wifi_check", auto_restart=True):
                 wifi_network = self.check_wifi_connection()
                 if not wifi_network:
-                    self.add_overlay(NO_WIFI_OVERLAY)
+                    self.add_extra_overlay(NO_WIFI_OVERLAY)
+                else:
+                    self.remove_extra_overlay()
 
     def check_wifi_connection(self):
         try:
