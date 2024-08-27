@@ -567,7 +567,7 @@ class PhotoBooth:
 
     def set_wifi_overlay(self):
         if not self._overlay_exclusive:
-            if self.timers.check("wifi_check_time", auto_restart=True):
+            if self.timers.check("wifi_check", auto_restart=True):
                 wifi_network = self.check_wifi_connection()
                 if not wifi_network:
                     self.add_overlay(NO_WIFI_OVERLAY)
