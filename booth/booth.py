@@ -90,7 +90,7 @@ BLACK_OVERLAY[:]  = (0, 0, 0, 255)
     
 NO_WIFI_OVERLAY = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
 NO_WIFI_OVERLAY[:]  = (0, 0, 0, 0)
-wifi_text_origin = (int(DISPLAY_WIDTH) / 2 - 100, 10)
+wifi_text_origin = (int(DISPLAY_WIDTH / 2 - 100), 10)
 wifi_text_scale = 2
 wifi_text_thickness = 3
 cv2.putText(NO_WIFI_OVERLAY, "Wifi not connected", wifi_text_origin, font, wifi_text_scale, colour, wifi_text_thickness)
@@ -174,6 +174,8 @@ class PhotoBooth:
         self._brightness = float(config["brightness"])
         
         self._overlay = None
+        self._overlay_exclusive = False
+        self._display_overlay = None
         self._displaying_qr_code = False
         self._display_image_name = None
         self._displaying_first_image = False
@@ -270,7 +272,7 @@ class PhotoBooth:
         return qpicamera2
 
     def set_capture_overlay(self):
-        self.set_overlay(capture_overlay, no_overlays = True)
+        self.set_overlay(capture_overlay, exclusive = True)
 
     def init_gpio(self):
         self.init_button()
@@ -316,7 +318,7 @@ class PhotoBooth:
             self.timestamps["countdown"] = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            self.set_overlay(overlay, no_overlays = True)
+            self.set_overlay(overlay, exclusive=True)
     
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
@@ -336,7 +338,7 @@ class PhotoBooth:
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
         if self.state == "display_capture":
-            self.set_overlay(BLACK_OVERLAY, no_overlays=True)
+            self.set_overlay(BLACK_OVERLAY, exclusive=True)
             display_image = self.save_capture()
             self.display_image(display_image)
     
@@ -414,21 +416,21 @@ class PhotoBooth:
         self._displaying_qr_code = True
         q_pos = self._config["qr_pos"]
         resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]), cv2.INTER_NEAREST)
-        self._overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
+        self._display_overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
         
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         resized_image = cv2.resize(rgb_image, new_dims)
-        self._overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
-        self._overlay[:] = (0, 0, 0, 255)
-        self._overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
+        self._display_overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
+        self._display_overlay[:] = (0, 0, 0, 255)
+        self._display_overlay[BORDER_HEIGHT:BORDER_HEIGHT+DISPLAY_IMG_HEIGHT,BORDER_WIDTH:BORDER_WIDTH+DISPLAY_IMG_WIDTH,:3] = resized_image
         
         self._displaying_qr_code = False
         if qr_code is not None:
             self.add_qr_code(qr_code)
         
-        self.set_overlay(self._overlay)
+        self.set_overlay(self._display_overlay)
         
     def check_shutdown_button(self):
         if self.is_button_pressed():
@@ -527,7 +529,7 @@ class PhotoBooth:
                         if qr_code is not None:
                             print("FOUND QR CODE", self._display_image_name)
                             self.add_qr_code(qr_code)
-                            self.set_overlay(self._overlay)
+                            self.set_overlay(self._display_overlay)
                 
                 if self.timers.check("display_image_timeout"):
                     self.display_random_file()
@@ -540,20 +542,34 @@ class PhotoBooth:
                         "Saturation": self._prev_saturation,
                         "AeEnable": True,
                     })
-                self.set_overlay(None)
+                self.set_overlay(blank_overlay = True)
         
+        self.set_wifi_overlay()
+
         self.state = next_state
 
-    def set_overlay(self, overlay, no_overlays = False):
-        if no_overlays == False:
+    def set_overlay(self, overlay = None, blank_overlay = False, exclusive = False):
+        if blank_overlay:
+            self._overlay = None
+        else:
+            self._overlay = overlay
+        self._overlay_exclusive = exclusive
+        self.qpicamera2.set_overlay(self._overlay)
+
+    def add_overlay(self, overlay):
+        if not self._overlay_exclusive:
+            if self._overlay is not None:
+                self._overlay = np.clip(overlay + self._overlay, a_min=0, a_max=255)
+            else:
+                self._overlay = overlay
+        self.qpicamera2.set_overlay(self._overlay)
+
+    def set_wifi_overlay(self):
+        if not self._overlay_exclusive:
             if self.timers.check("wifi_check_time", auto_restart=True):
                 wifi_network = self.check_wifi_connection()
                 if not wifi_network:
-                    if overlay is not None:
-                        overlay = np.clip(overlay + NO_WIFI_OVERLAY, a_min=0, a_max=255)
-                    else:
-                        overlay = NO_WIFI_OVERLAY
-        self.qpicamera2.set_overlay(overlay)
+                    self.add_overlay(NO_WIFI_OVERLAY)
 
     def check_wifi_connection(self):
         try:
