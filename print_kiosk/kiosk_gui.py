@@ -95,8 +95,8 @@ class ImageGallery(RecycleView):
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
         
-        if "fill_dir" in config.keys():
-            self.fill_image_path_db(config["fill_dir"])
+#        if "fill_dir" in config.keys():
+#            self.fill_image_path_db(config["fill_dir"])
         
         self.status_label = status_label
         self.parent_app = parent_app

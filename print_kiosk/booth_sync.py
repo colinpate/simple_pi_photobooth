@@ -60,6 +60,12 @@ class BoothSync:
                 print("NFS ls timed out")
                 self._is_nfs_mounted = False
                 ls_timeout = True
+                    
+            self._is_syncing = True
+            if (not self.local_test) and self.is_nfs_mounted():
+                self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
+            self.get_thumbnails()
+            self._is_syncing = False
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
@@ -67,14 +73,8 @@ class BoothSync:
                     subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=3)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                     print("Umount failed", exception)
-                    
-            if self._is_nfs_mounted:
-                self._is_syncing = True
-                if not self.local_test:
-                    self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
-                self.get_thumbnails()
-                self._is_syncing = False
-            else:
+
+            if not self._is_nfs_mounted:
                 for mount_address in self.mount_addresses:
                     try:
                         subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=3)
