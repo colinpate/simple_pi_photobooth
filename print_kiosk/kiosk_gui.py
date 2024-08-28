@@ -293,7 +293,7 @@ class ImageGallery(RecycleView):
             print("Not updating data, syncing is occur")
             
         self.booth_sync.update_watchdog()
-        Clock.schedule_once(self.update_data, 3)
+        Clock.schedule_once(self.update_data, 1)
 
 class ImageGalleryApp(App):
     def build(self):
