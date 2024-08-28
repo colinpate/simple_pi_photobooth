@@ -64,7 +64,7 @@ class BoothSync:
             self._is_syncing = True
             if (not self.local_test) and self.is_nfs_mounted():
                 self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
-            self.get_thumbnails()
+            self.update_thumbnails()
             self._is_syncing = False
                 
             # Unmount the directory if ls times out, cuz it can get stuck
