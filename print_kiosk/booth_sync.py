@@ -1,19 +1,22 @@
 import subprocess
 import threading
 import time
+import os
+import glob
 
 WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 3
 RSYNC_TIMEOUT = 300
 
 class BoothSync:
-    def __init__(self, mount_addresses, mount_source, remote_photo_dir, photo_dir, **kwargs):
+    def __init__(self, mount_addresses, mount_source, remote_photo_dir, photo_dir, print_subdirs, **kwargs):
         self.stop_thread = False
         self._is_nfs_mounted = False
         self.mount_addresses = mount_addresses
         self.mount_source = mount_source
         self.remote_photo_dir = remote_photo_dir
         self.photo_dir = photo_dir
+        self.print_subdirs = print_subdirs
         self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
         self.mount_check_thread.start()
         self.update_watchdog()
@@ -33,7 +36,7 @@ class BoothSync:
             
             try:
                 # Check if the mount point is available by listing its contents
-                subprocess.check_output(['ls', self.remote_photo_dir + "/color"], timeout=1)
+                subprocess.check_output(['ls', os.path.join(self.remote_photo_dir, self.print_subdirs[0])], timeout=1)
                 self._is_nfs_mounted = True
             except (subprocess.CalledProcessError) as exception:
                 print("NFS ls failed")
@@ -47,6 +50,7 @@ class BoothSync:
                 self._is_syncing = True
                 self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
                 self._is_syncing = False
+                self.get_thumbnails()
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
@@ -82,3 +86,18 @@ class BoothSync:
     def shutdown(self):
         self.stop_thread = True
         self.mount_check_thread.join()
+
+    def get_thumbnails(self):
+        new_thumbnails = False
+
+        photo_paths = []
+        for subdir in self.print_subdirs:
+            glob_str = f"{self.photo_dir}/{subdir}/*.jpg"
+            photo_paths += glob.glob(glob_str)
+
+        photo_paths_sorted = sorted(photo_paths)[::-1]
+
+        print(photo_paths_sorted)
+
+
+
