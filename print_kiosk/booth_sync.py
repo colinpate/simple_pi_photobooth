@@ -116,7 +116,7 @@ class BoothSync:
         image_path_set = set(image_paths)
         new_image_paths = image_path_set - self.thumbnails.keys()
         if len(new_image_paths):
-            print("New images found without thumbnails:", new_image_paths)
+            print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
                 thumbnail_path = self.get_thumbnail(image_path)
@@ -135,8 +135,8 @@ class BoothSync:
                 size_y=225
                 )
             if not success:
-                print("Failed to create thumbnail for", filename)
+                #print("Failed to create thumbnail for", filename)
                 return None
             else:
-                print("Successfully created thumbnail for", filename)
+                print("Successfully created thumbnail for", filename, time.time() % 1000)
         return thumbnail_path

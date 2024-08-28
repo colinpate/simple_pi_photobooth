@@ -27,6 +27,7 @@ import yaml
 import os
 import sys
 from collections import OrderedDict
+import time
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -271,7 +272,7 @@ class ImageGallery(RecycleView):
             thumbnails = self.booth_sync.thumbnails
             new_num_thumbnails = len(thumbnails)
             if new_num_thumbnails != self.old_num_thumbnails:
-                print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails)
+                print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails, time.time() % 1000)
                 self.old_num_thumbnails = new_num_thumbnails
 
                 image_paths = list(thumbnails.keys())
@@ -290,7 +291,7 @@ class ImageGallery(RecycleView):
                     new_data.append(new_entry)
                 self.data = new_data
         else:
-            print("Not updating data, syncing is occur")
+            print("Not updating data, syncing is occur", time.time() % 1000)
             
         self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 1)
