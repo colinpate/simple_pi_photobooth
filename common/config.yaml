@@ -5,6 +5,7 @@ qr_dir: "/home/colin/booth_qrs"
 photo_path_db: "/home/colin/booth_photos/photo_db.json"
 qr_path_db: "/home/colin/booth_qrs/qr_db.json"
 qr_pos: [0, 405, 195, 195]
+qr_check_time: 0.25 # Interval to check for QR codes
 display_gray: true
 display_first_image_time: 45 # Show the captured image for 45 seconds
 display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
@@ -12,7 +13,7 @@ display_timeout: 1200 # Go back to preview after 20 minutes
 led_idle_brightness: 15 # normally 15
 led_capture_brightness: 100 # normally 100
 button_pulse_time: 4
-qr_check_time: 0.25 # Interval to check for QR codes
+wifi_check: true
 wifi_check_time: 5 # Interval to check if the wifi is connected
 crop_preview: true # normally True
 lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"

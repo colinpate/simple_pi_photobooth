@@ -183,6 +183,8 @@ class PhotoBooth:
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
         
+        self.wifi_check = config["wifi_check"]
+
         for dir_i in [
                         self._gray_image_dir,
                         self._color_image_dir,
@@ -545,7 +547,8 @@ class PhotoBooth:
 
         self.state = next_state
         
-        self.set_wifi_overlay()
+        if self.wifi_check:
+            self.set_wifi_overlay()
 
     def set_overlay(self, overlay = None, exclusive = False):
         self._overlay = overlay
