@@ -128,7 +128,6 @@ class BoothSync:
         filename = filename.split(".")[0]
         thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
         if not os.path.isfile(thumbnail_path):
-            print("Creating thumbnail for", filename)
             success = create_thumbnail(
                 photo_path=image_path,
                 thumbnail_path=thumbnail_path,
@@ -138,4 +137,6 @@ class BoothSync:
             if not success:
                 print("Failed to create thumbnail for", filename)
                 return None
+            else:
+                print("Successfully created thumbnail for", filename)
         return thumbnail_path
