@@ -55,7 +55,7 @@ if __name__ == "__main__":
     #watermark = cv2.imread("../photobooth_site/watermarks/doug_anne_watermark.png", cv2.IMREAD_UNCHANGED)
     #watermark = cv2.imread("../photobooth_site/watermarks/small_watermark.png", cv2.IMREAD_UNCHANGED)
     #watermark = cv2.imread("../photobooth_site/watermarks/larger_aquafest_logo.png", cv2.IMREAD_UNCHANGED)
-    watermark_path = "../photobooth_site/watermarks/aa-no-circle logo.png"
+    watermark_path = "../photobooth_site/watermarks/larger_aquafest_logo.png"
 
     watermarker = ApplyWatermark(
         watermark_path=watermark_path,
@@ -67,8 +67,7 @@ if __name__ == "__main__":
         
     import glob
     import os
-    #images = glob.glob("../party_photos/Aquafest_2024/booth_photos/gray/*.jpg")
-    images = glob.glob("../photobooth_site/print_examples/*.jpg")
+    images = glob.glob("../party_photos/Aquafest_2024/booth_photos/gray/*.jpg")
     for image in images:
         in_image = cv2.imread(image)
         in_image = cv2.cvtColor(in_image, cv2.COLOR_RGB2BGR)
@@ -78,5 +77,5 @@ if __name__ == "__main__":
         image_name = os.path.split(image)[-1]
         print("Writing", image_name)
         in_image = cv2.cvtColor(in_image, cv2.COLOR_BGR2RGB)
-        cv2.imwrite("../photobooth_site/print_examples/watermarked/" + image_name, in_image)
+        cv2.imwrite("../party_photos/Aquafest_2024/watermarked/" + image_name, in_image)
     
