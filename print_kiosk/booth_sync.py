@@ -103,9 +103,8 @@ class BoothSync:
         self.mount_check_thread.join()
 
     def get_image_db_paths(self):
-        image_names_sorted = sorted(list(self.photo_path_db.image_names()))[::-1]
         image_paths = []
-        for image_name in image_names_sorted:
+        for image_name in self.photo_path_db.image_names():
             for postfix in self.print_postfixes:
                 image_paths.append(self.photo_path_db.get_image_path(image_name, postfix))
         return image_paths

@@ -95,8 +95,8 @@ class ImageGallery(RecycleView):
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
         
-#        if "fill_dir" in config.keys():
-#            self.fill_image_path_db(config["fill_dir"])
+        if "fill_dir" in config.keys():
+            self.fill_image_path_db(config["fill_dir"])
         
         self.status_label = status_label
         self.parent_app = parent_app
@@ -273,8 +273,12 @@ class ImageGallery(RecycleView):
                 print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails)
                 self.old_num_thumbnails = new_num_thumbnails
 
+                image_paths = list(thumbnails.keys())
+                image_paths_sorted = sorted(image_paths, key=lambda x: os.path.split(x)[-1], reverse=True)
+                
                 new_data = []
-                for (image_path, thumbnail_path) in thumbnails.items():
+                for image_path in image_paths_sorted.items():
+                    thumbnail_path = thumbnails[image_path]
                     new_entry = {
                             'source': thumbnail_path,
                             'selected': False,
@@ -285,7 +289,7 @@ class ImageGallery(RecycleView):
                     new_data.append(new_entry)
                 self.data = new_data
         else:
-            print("Not updating data, syncing is occurring")
+            print("Not updating data, syncing is occur")
             
         self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 3)
