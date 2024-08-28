@@ -95,8 +95,8 @@ class ImageGallery(RecycleView):
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
         
-        if "fill_dir" in config.keys():
-            self.fill_image_path_db(config["fill_dir"])
+        #if "fill_dir" in config.keys():
+        #    self.fill_image_path_db(config["fill_dir"])
         
         self.status_label = status_label
         self.parent_app = parent_app
@@ -277,7 +277,7 @@ class ImageGallery(RecycleView):
                 image_paths_sorted = sorted(image_paths, key=lambda x: os.path.split(x)[-1], reverse=True)
                 
                 new_data = []
-                for image_path in image_paths_sorted.items():
+                for image_path in image_paths_sorted:
                     thumbnail_path = thumbnails[image_path]
                     new_entry = {
                             'source': thumbnail_path,
