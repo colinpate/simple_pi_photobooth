@@ -24,7 +24,6 @@ from kivy.config import Config
 
 from glob import glob
 import yaml
-import cv2
 import os
 import sys
 from collections import OrderedDict
@@ -47,21 +46,10 @@ else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
 
-from common.image_path_db import ImagePathDB
-
 def load_config(config_path):
     with open(config_path, "r") as config_file:
         config = yaml.load(config_file, yaml.Loader)
     return config
-    
-def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
-    image = cv2.imread(photo_path)
-    if image is not None:
-        out = cv2.resize(image, dsize=(size_x, size_y))
-        cv2.imwrite(thumbnail_path, out)
-        return True
-    else:
-        return False
     
     
 Builder.load_string(
@@ -104,24 +92,21 @@ class ImageGallery(RecycleView):
         else:
             config = load_config("print_config.yaml")
             
-        self.thumbnail_dir = config["thumbnail_dir"]
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
-        self.separate_gray_thumbnails = config["separate_gray_thumbnails"]
         
-        self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if LOCAL_TEST else None)
         if "fill_dir" in config.keys():
             self.fill_image_path_db(config["fill_dir"])
         
         self.status_label = status_label
         self.parent_app = parent_app
-        self.old_num_photos = 0
+        self.old_num_thumbnails = 0
         self.status_popup = None
         self.data = []
         self.print_selections = []
         
         self.print_formatter = PrintFormatter(**config)
-        self.booth_sync = BoothSync(**config)
+        self.booth_sync = BoothSync(**config, local_test=LOCAL_TEST)
         if not LOCAL_TEST:
             self.setup_printer()
         
@@ -280,69 +265,30 @@ class ImageGallery(RecycleView):
             self.parent_app.add_error_label()
         else:
             self.parent_app.remove_error_label()
-            
-        # Check to see if there are any new thumbnails in the Thumbnail DB and add them to self.data if so
-        self.photo_path_db.try_update_from_file()
-        new_photo_names = list(self.photo_path_db.image_names())
-        new_num_photos = len(new_photo_names)
-        if new_num_photos != self.old_num_photos:
-            print(new_num_photos - self.old_num_photos, "new photos!")
-            self.old_num_photos = new_num_photos
-            photo_names_sorted = sorted(new_photo_names)[::-1]
-            thumbnail_images = []
-            for photo_name in photo_names_sorted:
-                gray_path = self.photo_path_db.get_image_path(photo_name, "_gray")
-                color_path = self.photo_path_db.get_image_path(photo_name, "_color")
-                # Add the color and gray version of each image as separate images if they're to be displayed separately
-                if self.separate_gray_thumbnails:
-                    thumbnail_images += [
-                            {"print_source": gray_path, "gray_photo_path": "", "color_photo_path": ""},
-                            {"print_source": color_path, "gray_photo_path": "", "color_photo_path": ""}
-                        ]
-                else:
-                    thumbnail_images += [
-                            {
-                                "print_source": "",
-                                "gray_photo_path": gray_path,
-                                "color_photo_path": color_path
-                            }
-                        ]
-                    
-            new_data = []
-            for photo_dict in thumbnail_images:
-                if photo_dict["color_photo_path"]:
-                    thumb_photo_path = photo_dict["color_photo_path"]
-                else:
-                    thumb_photo_path = photo_dict["print_source"]
-                thumbnail_path = self.get_thumbnail(thumb_photo_path)
-                if thumbnail_path is not None:
+        
+        if not self.booth_sync.is_syncing():
+            thumbnails = self.booth_sync.thumbnails
+            new_num_thumbnails = len(thumbnails)
+            if new_num_thumbnails != self.old_num_thumbnails:
+                print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails)
+                self.old_num_thumbnails = new_num_thumbnails
+
+                new_data = []
+                for (image_path, thumbnail_path) in thumbnails.items():
                     new_entry = {
                             'source': thumbnail_path,
-                            'selected': False
-                        }
-                    new_entry.update(photo_dict)
+                            'selected': False,
+                            "print_source": image_path,
+                            "gray_photo_path": "",
+                            "color_photo_path": ""
+                            }
                     new_data.append(new_entry)
-            self.data = new_data
+                self.data = new_data
+        else:
+            print("Not updating data, syncing is occurring")
             
         self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 3)
-            
-    def get_thumbnail(self, image_path):
-        filename = os.path.split(image_path)[1]
-        filename = filename.split(".")[0]
-        thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
-        if not os.path.isfile(thumbnail_path):
-            print("Creating thumbnail for", filename)
-            success = create_thumbnail(
-                photo_path=image_path,
-                thumbnail_path=thumbnail_path,
-                size_x=300,
-                size_y=225
-                )
-            if not success:
-                print("Failed to create thumbnail")
-                return None
-        return thumbnail_path
 
 class ImageGalleryApp(App):
     def build(self):
