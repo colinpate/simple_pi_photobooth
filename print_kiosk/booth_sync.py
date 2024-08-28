@@ -108,6 +108,7 @@ class BoothSync:
         for image_name in image_names_sorted:
             for postfix in self.print_postfixes:
                 image_paths.append(self.photo_path_db.get_image_path(image_name, postfix))
+        return image_paths
 
     def update_thumbnails(self):
         # Check to see if there are any new photos and if so create the thumbnails
