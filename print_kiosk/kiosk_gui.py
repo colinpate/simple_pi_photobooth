@@ -104,7 +104,7 @@ class ImageGallery(RecycleView):
         self.status_popup = None
         self.data = []
         self.print_selections = []
-        self.separate_gray_thumbnails = False
+        self.separate_gray_thumbnails = True
         
         self.print_formatter = PrintFormatter(**config)
         self.booth_sync = BoothSync(**config, local_test=LOCAL_TEST)
