@@ -302,7 +302,7 @@ class SplashImage(Image):
         
     def on_touch_down(self, touch):
         Clock.schedule_once(self.close_self, 0)
-        return super(SplashImage, self).on_touch_down(touch)
+        return True
 
 
 class ImageGalleryApp(App):
