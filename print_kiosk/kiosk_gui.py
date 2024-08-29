@@ -46,6 +46,8 @@ if not LOCAL_TEST:
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
+    
+from kivy.core.window import Window
 
 def load_config(config_path):
     with open(config_path, "r") as config_file:
@@ -176,6 +178,7 @@ class ImageGallery(RecycleView):
         popup = Popup(title='Print Preview',
                       content=layout,
                       size_hint=(0.8, 0.9))
+        self.parent_app.popups["print preview"] = popup
         image = AsyncImage(source=os.path.abspath(preview_path), allow_stretch=True, size_hint=(1, 0.8), pos_hint={'x': 0, 'y': 0.15})
         image.reload()
         layout.add_widget(image)
@@ -295,6 +298,19 @@ class ImageGallery(RecycleView):
             
         self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 1)
+        
+        
+class SplashImage(Image):
+    def __init__(self, close_self, **kwargs):
+        super(SplashImage, self).__init__(**kwargs)
+        self.allow_stretch = True
+        self.keep_ratio = False
+        self.close_self = close_self
+        
+    def on_touch_down(self, touch):
+        Clock.schedule_once(self.close_self, 0)
+        return super(SplashImage, self).on_touch_down(touch)
+
 
 class ImageGalleryApp(App):
     def build(self):
@@ -317,7 +333,43 @@ class ImageGalleryApp(App):
                                  pos_hint={'x': 0, 'top': 1}, font_size=sp(30))
         self.has_error_label = False
         
+        self.splash_image = SplashImage(source="/home/patecolin/photobooth_site/logos/kiosk_splash.png",
+                                        size_hint=(1, 1),
+                                        pos_hint={"left": 1, "top": 1},
+                                        close_self=self.remove_splash
+                                    )
+        self.has_splash = False
+        self.last_touched = 0
+        
+        Window.bind(on_touch_down=self.on_touch_down)
+        
+        Clock.schedule_once(self.check_last_touch, 1)
+        self.popups = {}
+        
         return root
+        
+    def check_last_touch(self, dt):
+        now = time.time()
+        if (now - self.last_touched) > 15:
+            Clock.schedule_once(self.add_splash, 0)
+        Clock.schedule_once(self.check_last_touch, 1)
+        
+    def on_touch_down(self, window, touch):
+        # This method will be called for any touch, even in popups
+        self.last_touched = time.time()
+        return False
+        
+    def remove_splash(self, dt):
+        if self.has_splash:
+            self.root.remove_widget(self.splash_image)
+            self.has_splash = False
+        
+    def add_splash(self, dt):
+        if not self.has_splash:
+            for popup in self.popups.values():
+                popup.dismiss()
+            self.has_splash = True
+            self.root.add_widget(self.splash_image, canvas="after")
         
     def add_error_label(self):
         if not self.has_error_label:
@@ -335,6 +387,7 @@ class ImageGalleryApp(App):
         popup = Popup(title='Settings',
                       content=layout,
                       size_hint=(0.8, 0.9))
+        self.popups["settings"] = popup
                       
         double = GridLayout(cols=2, size_hint=(0.3, 0.1))
         print_level_label = Label(text='', font_size=sp(20))
