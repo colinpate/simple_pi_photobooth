@@ -32,6 +32,7 @@ import time
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
 from booth_sync import BoothSync
+from common.common import load_config
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -48,11 +49,6 @@ else:
     Config.set('graphics', 'height', '1024')
     
 from kivy.core.window import Window
-
-def load_config(config_path):
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.Loader)
-    return config
     
     
 Builder.load_string(
@@ -90,10 +86,7 @@ class ImageGallery(RecycleView):
     def __init__(self, status_label, parent_app, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
         
-        if LOCAL_TEST:
-            config = load_config("print_config_test.yaml")
-        else:
-            config = load_config("print_config.yaml")
+        config = parent_app.config_yaml
             
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
@@ -314,6 +307,12 @@ class SplashImage(Image):
 
 class ImageGalleryApp(App):
     def build(self):
+        if LOCAL_TEST:
+            config = load_config("print_config_test.yaml")
+        else:
+            config = load_config("print_config.yaml")
+        self.config_yaml = config
+    
         root = FloatLayout()
         status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
                                  pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
@@ -333,13 +332,14 @@ class ImageGalleryApp(App):
                                  pos_hint={'x': 0, 'top': 1}, font_size=sp(30))
         self.has_error_label = False
         
-        self.splash_image = SplashImage(source="/home/patecolin/photobooth_site/logos/kiosk_splash.png",
+        self.splash_image = SplashImage(source=self.config_yaml["splash_image"],
                                         size_hint=(1, 1),
                                         pos_hint={"left": 1, "top": 1},
                                         close_self=self.remove_splash
                                     )
         self.has_splash = False
         self.last_touched = 0
+        self.splash_timeout = self.config_yaml["splash_timeout"]
         
         Window.bind(on_touch_down=self.on_touch_down)
         
@@ -350,7 +350,7 @@ class ImageGalleryApp(App):
         
     def check_last_touch(self, dt):
         now = time.time()
-        if (now - self.last_touched) > 15:
+        if (now - self.last_touched) > self.splash_timeout:
             Clock.schedule_once(self.add_splash, 0)
         Clock.schedule_once(self.check_last_touch, 1)
         
