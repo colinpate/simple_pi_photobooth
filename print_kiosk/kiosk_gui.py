@@ -236,16 +236,31 @@ class ImageGallery(RecycleView):
         layout = GridLayout(cols=1)
         popup = Popup(title='',
                       content=layout,
-                      size_hint=(0.5, 0.3))
+                      size_hint=(0.7, 0.3))
                       
         printing_label = Label(text='Printing!', font_size=sp(30))
         layout.add_widget(printing_label)
         
         print_progress_bar = ProgressBar(max=100)
         layout.add_widget(print_progress_bar)
+        glowbot_label = Label(text="", font_size=sp(20))
+        layout.add_widget(glowbot_label)
+        
+        print_time = time.time()
+        
+        def switch_label_text():
+            now = time.time()
+            time_elapsed = now - print_time
+            text_index = int(time_elapsed / 5) % 2
+            label_texts = [
+                'Check us out at www.glowbot.co',
+                "Please don't grab the photo early"
+            ]
+            glowbot_label.text = label_texts[text_index]
         
         def update_progress_bar(instance):
             print_progress_bar.value += 4
+            switch_label_text()
             if print_progress_bar.value >= 100:
                 popup.dismiss()
             else:
