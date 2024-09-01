@@ -111,7 +111,7 @@ class BoothSync:
 
     def update_thumbnails(self):
         # Check to see if there are any new photos and if so create the thumbnails
-        self.photo_path_db.try_update_from_file()
+        self.photo_path_db.try_update_from_file(erase_old=True)
         image_paths = self.get_image_db_paths()
         image_path_set = set(image_paths)
         new_image_paths = image_path_set - self.thumbnails.keys()

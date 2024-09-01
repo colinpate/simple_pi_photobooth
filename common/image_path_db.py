@@ -36,14 +36,17 @@ class ImagePathDB:
     def image_names(self):
         return self.db.keys()
         
-    def try_update_from_file(self):
+    def try_update_from_file(self, erase_old=False):
         try:
             with open(self._db_file_path, "r") as db_file:
                 new_db = json.load(db_file)
-            self.db.update(new_db)
-            return True
         except:
             return False
+        if erase_old:
+            self.db = new_db
+        else:
+            self.db.update(new_db)
+        return True
             
     def update_file(self):
         with open(self._db_file_path, "w") as db_file:
