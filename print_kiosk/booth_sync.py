@@ -54,7 +54,7 @@ class BoothSync:
             try:
                 # Check if the mount point is available by listing its contents
                 output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
-                new_db = json.load(output.decode())
+                new_db = json.loads(output.decode())
                 if old_db != new_db:
                     print("New db found", time.time() % 1000)
                 self._is_nfs_mounted = True
