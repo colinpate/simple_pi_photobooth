@@ -280,7 +280,7 @@ class ImageGallery(RecycleView):
             self.parent_app.remove_error_label()
         
         if not self.booth_sync.is_syncing():
-            thumbnails = self.booth_sync.thumbnails
+            thumbnails = self.booth_sync.thumbnails.copy()
             new_num_thumbnails = len(thumbnails)
             if new_num_thumbnails != self.old_num_thumbnails:
                 print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails, time.time() % 1000)

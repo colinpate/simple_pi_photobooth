@@ -66,14 +66,14 @@ class BoothSync:
                 self._is_nfs_mounted = False
                 ls_timeout = True
 
-            self._is_syncing = True
+            #self._is_syncing = True
             #if (not self.local_test) and self.is_nfs_mounted():
             #    print("syncing...")
             #    self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
             #    print("sync done")
             self.photo_path_db.replace_db(new_db)
             self.update_thumbnails()
-            self._is_syncing = False
+            #self._is_syncing = False
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
@@ -123,6 +123,11 @@ class BoothSync:
         #self.photo_path_db.try_update_from_file(erase_old=True)
         local_image_paths = self.get_image_db_paths()
         image_path_set = set(local_image_paths)
+        
+        deleted_image_paths = self.thumbnails.keys() - image_path_set
+        for image_path in deleted_image_paths:
+            self.thumbnails.pop(image_path)
+        
         new_image_paths = image_path_set - self.thumbnails.keys()
         if len(new_image_paths):
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
@@ -132,10 +137,6 @@ class BoothSync:
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
-        
-        deleted_image_paths = self.thumbnails.keys() - image_path_set
-        for image_path in deleted_image_paths:
-            self.thumbnails.pop(image_path)
 
     def sync_photo_to_local(self, local_image_path):
         raw_image_path = local_image_path.replace(self.photo_dir, "")
