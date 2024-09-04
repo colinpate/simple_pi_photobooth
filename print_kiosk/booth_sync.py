@@ -10,7 +10,6 @@ from common.image_path_db import ImagePathDB
 
 WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 1
-RSYNC_TIMEOUT = 300
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
@@ -142,10 +141,13 @@ class BoothSync:
         remote_image_path = local_image_path.replace(self.photo_dir, self.remote_photo_dir)
         try:
             print("Copying", remote_image_path, "to", local_image_path, time.time() % 1000)
-            subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=5)
+            subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=3)
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
             print("CP failed", exception)
+            if os.path.isfile(local_image_path):
+                print("Removing partial file")
+                os.remove(local_image_path)
             return False
 
     def get_thumbnail(self, image_path):
