@@ -18,14 +18,14 @@ class ImagePathDB:
         elif isinstance(val, str):
             self.db[image_name] = os.path.relpath(val, start=self._root_folder)
         
-    def get_image_path(self, image_name, postfix=None):
+    def get_image_path(self, image_name, postfix=None, raw=False):
         if not postfix:
             path = self.db[image_name]
         else:
             path = self.db[image_name][postfix]
         if self._old_root:
             path = path.replace(self._old_root, self._root_folder)
-        if os.path.isabs(path):
+        if os.path.isabs(path) or raw:
             return path
         else:
             return os.path.join(self._root_folder, path)
@@ -35,6 +35,9 @@ class ImagePathDB:
         
     def image_names(self):
         return self.db.keys()
+    
+    def replace_db(self, db):
+        self.db = db
         
     def try_update_from_file(self, erase_old=False):
         try:
