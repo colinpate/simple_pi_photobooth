@@ -32,6 +32,7 @@ import time
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
 from booth_sync import BoothSync
+from common.common import load_config
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -46,11 +47,8 @@ if not LOCAL_TEST:
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
-
-def load_config(config_path):
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, yaml.Loader)
-    return config
+    
+from kivy.core.window import Window
     
     
 Builder.load_string(
@@ -88,10 +86,7 @@ class ImageGallery(RecycleView):
     def __init__(self, status_label, parent_app, **kwargs):
         super(ImageGallery, self).__init__(**kwargs)
         
-        if LOCAL_TEST:
-            config = load_config("print_config_test.yaml")
-        else:
-            config = load_config("print_config.yaml")
+        config = parent_app.config_yaml
             
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
@@ -176,6 +171,7 @@ class ImageGallery(RecycleView):
         popup = Popup(title='Print Preview',
                       content=layout,
                       size_hint=(0.8, 0.9))
+        self.parent_app.popups["print preview"] = popup
         image = AsyncImage(source=os.path.abspath(preview_path), allow_stretch=True, size_hint=(1, 0.8), pos_hint={'x': 0, 'y': 0.15})
         image.reload()
         layout.add_widget(image)
@@ -240,16 +236,31 @@ class ImageGallery(RecycleView):
         layout = GridLayout(cols=1)
         popup = Popup(title='',
                       content=layout,
-                      size_hint=(0.5, 0.3))
+                      size_hint=(0.7, 0.3))
                       
         printing_label = Label(text='Printing!', font_size=sp(30))
         layout.add_widget(printing_label)
         
         print_progress_bar = ProgressBar(max=100)
         layout.add_widget(print_progress_bar)
+        glowbot_label = Label(text="", font_size=sp(20))
+        layout.add_widget(glowbot_label)
+        
+        print_time = time.time()
+        
+        def switch_label_text():
+            now = time.time()
+            time_elapsed = now - print_time
+            text_index = int(time_elapsed / 5) % 2
+            label_texts = [
+                'Check us out at www.glowbot.co',
+                "Please don't grab the photo early"
+            ]
+            glowbot_label.text = label_texts[text_index]
         
         def update_progress_bar(instance):
             print_progress_bar.value += 4
+            switch_label_text()
             if print_progress_bar.value >= 100:
                 popup.dismiss()
             else:
@@ -295,9 +306,28 @@ class ImageGallery(RecycleView):
             
         self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 1)
+        
+        
+class SplashImage(Image):
+    def __init__(self, close_self, **kwargs):
+        super(SplashImage, self).__init__(**kwargs)
+        self.allow_stretch = True
+        self.keep_ratio = False
+        self.close_self = close_self
+        
+    def on_touch_down(self, touch):
+        Clock.schedule_once(self.close_self, 0)
+        return True
+
 
 class ImageGalleryApp(App):
     def build(self):
+        if LOCAL_TEST:
+            config = load_config("print_config_test.yaml")
+        else:
+            config = load_config("print_config.yaml")
+        self.config_yaml = config
+    
         root = FloatLayout()
         status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
                                  pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
@@ -317,7 +347,44 @@ class ImageGalleryApp(App):
                                  pos_hint={'x': 0, 'top': 1}, font_size=sp(30))
         self.has_error_label = False
         
+        self.splash_image = SplashImage(source=self.config_yaml["splash_image"],
+                                        size_hint=(1, 1),
+                                        pos_hint={"left": 1, "top": 1},
+                                        close_self=self.remove_splash
+                                    )
+        self.has_splash = False
+        self.last_touched = 0
+        self.splash_timeout = self.config_yaml["splash_timeout"]
+        
+        Window.bind(on_touch_down=self.on_touch_down)
+        
+        Clock.schedule_once(self.check_last_touch, 1)
+        self.popups = {}
+        
         return root
+        
+    def check_last_touch(self, dt):
+        now = time.time()
+        if (now - self.last_touched) > self.splash_timeout:
+            Clock.schedule_once(self.add_splash, 0)
+        Clock.schedule_once(self.check_last_touch, 1)
+        
+    def on_touch_down(self, window, touch):
+        # This method will be called for any touch, even in popups
+        self.last_touched = time.time()
+        return False
+        
+    def remove_splash(self, dt):
+        if self.has_splash:
+            self.root.remove_widget(self.splash_image)
+            self.has_splash = False
+        
+    def add_splash(self, dt):
+        if not self.has_splash:
+            for popup in self.popups.values():
+                popup.dismiss()
+            self.has_splash = True
+            self.root.add_widget(self.splash_image, canvas="after")
         
     def add_error_label(self):
         if not self.has_error_label:
@@ -335,6 +402,7 @@ class ImageGalleryApp(App):
         popup = Popup(title='Settings',
                       content=layout,
                       size_hint=(0.8, 0.9))
+        self.popups["settings"] = popup
                       
         double = GridLayout(cols=2, size_hint=(0.3, 0.1))
         print_level_label = Label(text='', font_size=sp(20))
