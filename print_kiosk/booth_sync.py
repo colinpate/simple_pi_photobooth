@@ -59,10 +59,10 @@ class BoothSync:
                     old_db = new_db
                 self._is_nfs_mounted = True
             except (subprocess.CalledProcessError) as exception:
-                print("NFS ls failed")
+                print("NFS access failed", exception)
                 self._is_nfs_mounted = False
             except (subprocess.TimeoutExpired) as exception:
-                print("NFS ls timed out")
+                print("NFS access timed out")
                 self._is_nfs_mounted = False
                 ls_timeout = True
 
@@ -132,7 +132,6 @@ class BoothSync:
         new_image_paths = image_path_set - self.thumbnails.keys()
         if len(new_image_paths):
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
-            print(new_image_paths)
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
                 thumbnail_path = self.get_thumbnail(image_path)
@@ -147,7 +146,7 @@ class BoothSync:
             subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=15)
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-            print("CP failed", exception)
+            print("Copy failed", exception)
             if os.path.isfile(local_image_path):
                 print("Removing partial file")
                 os.remove(local_image_path)
