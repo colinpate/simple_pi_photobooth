@@ -71,8 +71,9 @@ class BoothSync:
             #    print("syncing...")
             #    self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
             #    print("sync done")
-            self.photo_path_db.replace_db(new_db)
-            self.update_thumbnails()
+            if self.is_nfs_mounted():
+                self.photo_path_db.replace_db(new_db)
+                self.update_thumbnails()
             #self._is_syncing = False
                 
             # Unmount the directory if ls times out, cuz it can get stuck
