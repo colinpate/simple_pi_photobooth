@@ -138,10 +138,11 @@ class BoothSync:
             self.thumbnails.pop(image_path)
 
     def sync_photo_to_local(self, local_image_path):
-        remote_image_path = local_image_path.replace(self.photo_dir, self.remote_photo_dir)
+        raw_image_path = local_image_path.replace(self.photo_dir, "")
+        remote_image_path = os.path.join(self.remote_photo_dir, raw_image_path)
         try:
             print("Copying", remote_image_path, "to", local_image_path, time.time() % 1000)
-            subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=3)
+            subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=15)
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
             print("CP failed", exception)
