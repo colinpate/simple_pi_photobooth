@@ -57,6 +57,7 @@ class BoothSync:
                 new_db = json.loads(output.decode())
                 if old_db != new_db:
                     print("New db found", time.time() % 1000)
+                    old_db = new_db
                 self._is_nfs_mounted = True
             except (subprocess.CalledProcessError) as exception:
                 print("NFS ls failed")
