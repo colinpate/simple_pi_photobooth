@@ -122,6 +122,10 @@ class BoothSync:
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
+        
+        deleted_image_paths = self.thumbnails.keys() - image_path_set
+        for image_path in deleted_image_paths:
+            self.thumbnails.pop(image_path)
             
     def get_thumbnail(self, image_path):
         filename = os.path.split(image_path)[1]
