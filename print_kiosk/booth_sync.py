@@ -63,7 +63,9 @@ class BoothSync:
                     
             self._is_syncing = True
             if (not self.local_test) and self.is_nfs_mounted():
+                print("Rsyncing...")
                 self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
+                print("Rsync done")
             self.update_thumbnails()
             self._is_syncing = False
                 
@@ -117,6 +119,7 @@ class BoothSync:
         new_image_paths = image_path_set - self.thumbnails.keys()
         if len(new_image_paths):
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
+            print(new_image_paths)
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
                 thumbnail_path = self.get_thumbnail(image_path)
