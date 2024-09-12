@@ -329,7 +329,7 @@ class ImageGalleryApp(App):
         self.config_yaml = config
     
         root = FloatLayout()
-        status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
+        status_label = ColoredLabel(text='Choose photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
                                  pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
         gallery = ImageGallery(status_label, self)
         gallery.scroll_type = ['content', 'bars']

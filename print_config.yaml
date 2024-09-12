@@ -14,4 +14,4 @@ mount_addresses:
     - "boothpi"
 mount_source: "/home/colin/booth_photos"
 splash_image: "/home/colin/kiosk_splash.png"
-splash_timeout: 15
+splash_timeout: 60
