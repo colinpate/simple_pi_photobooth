@@ -595,7 +595,7 @@ class PhotoBooth:
         if self.wifi_check and self.timers.check("wifi_check", auto_restart=True):
             self.set_wifi_overlay()
 
-        if self.timers.check("arrow", auto_restart=True):
+        if self.timers.check("arrow_blink", auto_restart=True):
             if self.overlay_manager.layers["arrow"].is_active():
                 self.overlay_manager.deactivate_layer("arrow")
             else:
