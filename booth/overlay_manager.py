@@ -20,7 +20,7 @@ class Layer:
     def is_active(self):
         return self._active
         
-    def activate(self)
+    def activate(self):
         self._active = True
         
     def deactivate(self):

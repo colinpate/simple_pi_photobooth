@@ -195,7 +195,6 @@ class PhotoBooth:
         self._display_overlay = None
         self._displaying_qr_code = False
         self._display_image_name = None
-        self._displaying_first_image = False
         
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
@@ -290,7 +289,7 @@ class PhotoBooth:
         return qpicamera2
 
     def set_capture_overlay(self):
-        self.overlay_manager.set_layer(CAPTURE_OVERLAY, exclusive = True)
+        self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)
 
     def init_gpio(self):
         self.init_button()
@@ -336,7 +335,7 @@ class PhotoBooth:
             self.countdown_timestamp = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            self.overlay_manager.set_layer(overlay, exclusive=True)
+            self.overlay_manager.set_main_image(overlay, exclusive=True)
     
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
@@ -354,7 +353,7 @@ class PhotoBooth:
         print("Color gains", metadata["ColourGains"])
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
-        self.overlay_manager.set_layer(BLACK_OVERLAY, exclusive=True)
+        self.overlay_manager.set_main_image(BLACK_OVERLAY, exclusive=True)
         display_image = self.save_capture()
         self.display_image(display_image)
     
@@ -432,7 +431,7 @@ class PhotoBooth:
         q_pos = self._config["qr_pos"]
         resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]), cv2.INTER_NEAREST)
         self._display_overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
-        self.overlay_manager.set_layer(self._display_overlay)
+        self.overlay_manager.set_main_image(self._display_overlay)
         
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
@@ -446,7 +445,7 @@ class PhotoBooth:
         if qr_code is not None:
             self.add_qr_code(qr_code)
         
-        self.overlay_manager.set_layer(self._display_overlay)
+        self.overlay_manager.set_main_image(self._display_overlay)
         
     def check_shutdown_button(self):
         if self.is_button_pressed():
@@ -580,7 +579,7 @@ class PhotoBooth:
                         "Saturation": self._prev_saturation,
                         "AeEnable": True,
                     })
-                self.overlay_manager.set_layer(None)
+                self.overlay_manager.set_main_image(None)
 
         self.state = next_state
         
