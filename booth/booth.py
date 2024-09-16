@@ -192,6 +192,7 @@ class PhotoBooth:
         self._brightness = float(config["brightness"])
         
         self.overlay_manager = OverlayManager(DISPLAY_WIDTH, DISPLAY_HEIGHT)
+        self.setup_overlays()
         self._display_overlay = None
         self._displaying_qr_code = False
         self._display_image_name = None
@@ -288,6 +289,9 @@ class PhotoBooth:
         qpicamera2.showFullScreen()
         return qpicamera2
 
+    def setup_overlays(self):
+        self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
+        
     def set_capture_overlay(self):
         self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)
 
@@ -594,9 +598,9 @@ class PhotoBooth:
         if self.timers.check("wifi_check", auto_restart=True):
             wifi_network = self.check_wifi_connection()
             if not wifi_network:
-                self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
+                self.overlay_manager.activate_layer(name="wifi")
             else:
-                self.overlay_manager.set_layer(None, name="wifi")
+                self.overlay_manager.deactivate_layer(name="wifi")
 
     def check_wifi_connection(self):
         try:
