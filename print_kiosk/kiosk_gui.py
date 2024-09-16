@@ -280,7 +280,7 @@ class ImageGallery(RecycleView):
             self.parent_app.remove_error_label()
         
         if not self.booth_sync.is_syncing():
-            thumbnails = self.booth_sync.thumbnails
+            thumbnails = self.booth_sync.thumbnails.copy()
             new_num_thumbnails = len(thumbnails)
             if new_num_thumbnails != self.old_num_thumbnails:
                 print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails, time.time() % 1000)
@@ -329,7 +329,7 @@ class ImageGalleryApp(App):
         self.config_yaml = config
     
         root = FloatLayout()
-        status_label = ColoredLabel(text='Choose sum photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
+        status_label = ColoredLabel(text='Choose photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
                                  pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
         gallery = ImageGallery(status_label, self)
         gallery.scroll_type = ['content', 'bars']
@@ -338,7 +338,7 @@ class ImageGalleryApp(App):
         root.add_widget(gallery)
         self.gallery = gallery
         root.add_widget(status_label)
-        settings_button = Button(text="...", size_hint=(None, None), size=(25, 25),
+        settings_button = Button(text="...", size_hint=(None, None), size=(35, 35),
                                  pos_hint={'left': 1, 'top': 1})
         settings_button.bind(on_release=self.show_settings_popup)
         root.add_widget(settings_button)
@@ -416,6 +416,10 @@ class ImageGalleryApp(App):
         print_level_label.text = f"Print Level {marker_level}%"
         double.add_widget(print_level)
         layout.add_widget(double)
+         
+        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
+        close_button.bind(on_release=popup.dismiss)
+        layout.add_widget(close_button)
                       
         exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
         def close(instance):
@@ -439,10 +443,6 @@ class ImageGalleryApp(App):
             sys.exit(0)
         restart_button.bind(on_release=restart)
         layout.add_widget(restart_button)
-         
-        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
-        close_button.bind(on_release=popup.dismiss)
-        layout.add_widget(close_button)
         
         popup.open()
 
