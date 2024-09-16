@@ -42,6 +42,11 @@ EXPOSURE_SET_S = 1.31 # How long before capture to set exposure
 PRE_CONTROL_S = 0.31 # How long before capture to set the camera controls
 COUNT_S = 5
 
+# Capture sequence timing on 2nd and 3rd shots
+LED_FADE_S_EXTRA_SHOT = 0.51 # How long before capture to start brightening LEDs
+LED_END_S_EXTRA_SHOT = 0.31 # How long before capture to hit 100% brightness
+COUNT_S_EXTRA_SHOT = 3
+
 AWB_MODE = controls.AwbModeEnum.Indoor
 AE_MODE = controls.AeExposureModeEnum.Short
 
@@ -142,12 +147,24 @@ def get_exif(w, h, datetime_stamp, postfix=""):
     
 class PhotoBooth:
     def __init__(self, config):
+        self._config = config
+        
         self.state = "idle"
+        
+        # capture state variables
         self.cap_timestamp_str = ""
+        
+        # countdown state variables
         self.mode_switched = False
         self.exposure_set = False
-        self._config = config
-        self.timestamps = {}
+        self.button_released = False
+        self.extra_shots = 0
+        self.countdown_timestamp = -1
+        self.set_ae = True
+        self.exposure_set_s = EXPOSURE_SET_S
+        self.led_fade_s = LED_FADE_S
+        self.led_end_s = LED_END_S
+        
         if config.get("lens_cal_file", None):
             print("using calibration from ", config["lens_cal_file"])
             self._lens_cal = load_lens_cal(config["lens_cal_file"])
@@ -206,8 +223,6 @@ class PhotoBooth:
         
         self.init_gpio()
         self.set_leds(idle=True)
-        
-        self.capture_start_time = time.perf_counter()
         
         self.timers = Timers()
         self.timers.start("button_release", SHUTDOWN_HOLD_TIME)
@@ -317,8 +332,8 @@ class PhotoBooth:
         
     def apply_timestamp_overlay(self):
         countdown = str(int(np.ceil(self.timers.time_left("capture_countdown"))))
-        if countdown != self.timestamps.get("countdown", -1):
-            self.timestamps["countdown"] = countdown
+        if countdown != self.countdown_timestamp:
+            self.countdown_timestamp = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
             self.overlay_manager.set_layer(overlay, exclusive=True)
@@ -326,7 +341,6 @@ class PhotoBooth:
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
         self.set_leds(idle=True)
-        #print("Capture time", time.perf_counter() - self.capture_start_time)
         self.exposure_settings["AnalogueGain"] = metadata["AnalogueGain"]
         self.exposure_settings["ExposureTime"] = metadata["ExposureTime"]
         print(self.exposure_settings)
@@ -443,11 +457,11 @@ class PhotoBooth:
         else:
             self.timers.restart("button_release")
             
-    def set_button_led(self, perf_counter):
+    def set_button_led(self):
         if self.state == "countdown":
             self.change_button_led_dc(0)
         elif (self.state == "idle") or (self.state == "display_capture"):
-            pulse_time = perf_counter % self._button_pulse_time
+            pulse_time = time.perf_counter() % self._button_pulse_time
             half_pulse_time = self._button_pulse_time / 2
             if pulse_time > half_pulse_time:
                 pulse_time = self._button_pulse_time - pulse_time
@@ -456,45 +470,67 @@ class PhotoBooth:
             pwm_ratio = np.exp(ratio * 3) / np.exp(3)
             pwm_val = pwm_ratio * 100
             self.change_button_led_dc(pwm_val)
+            
+    def setup_state(self, next_state):
+        if next_state == "countdown":
+            if self.extra_shots > 0:
+                self.set_ae = False
+                self.led_fade_s = LED_FADE_S_EXTRA_SHOT
+                self.led_end_s = LED_END_S_EXTRA_SHOT
+                self.timers.start("capture_countdown", COUNT_S)
+            else:
+                self.extra_shots -= 1
+                self.set_ae = True
+                self.led_fade_s = LED_FADE_S
+                self.led_end_s = LED_END_S
+                self.timers.start("capture_countdown", COUNT_S_EXTRA_SHOT)
+            
         
     def main_loop(self):
         self.timers.update_time()
-    
-        perf_counter = time.perf_counter()
-        
         self.check_shutdown_button()
-        
-        self.set_button_led(perf_counter)
+        self.set_button_led()
         
         next_state = self.state
 
         if self.state == "idle":
             if self.is_button_pressed() or self._continuous_cap:
                 next_state = "countdown"
-                self.timers.start("capture_countdown", COUNT_S)
+                self.extra_shots = 0
+                self.setup_state(countdown)
         elif self.state == "countdown":
+            if not self.is_button_pressed():
+                self.button_released = True
+            else:
+                if self.button_released:
+                    self.button_released = False
+                    if self.extra_shots == 0:
+                        self.extra_shots = 2
+                    elif self.extra_shots == 2:
+                        self.extra_shots = 0
+                    # update overlay here
+                    
             if self.timers.check("capture_countdown"):
                 print("Capturing at", self.timers.time_left("capture_countdown"))
                 next_state = "capture"
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
-                self.capture_start_time = perf_counter
             else:
                 self.apply_timestamp_overlay()
                 time_left = self.timers.time_left("capture_countdown")
-                if time_left <= LED_FADE_S:
-                    led_fade = (LED_FADE_S - time_left) / (LED_FADE_S - LED_END_S)
+                if time_left <= self.led_fade_s:
+                    led_fade = (self.led_fade_s - time_left) / (self.led_fade_s - self.led_end_s)
                     self.set_leds(fade=led_fade)
                     
-                if time_left <= EXPOSURE_SET_S:
+                if time_left <= self.exposure_set_s:
                     if not self.exposure_set:
                         print("Setting exposure at", self.timers.time_left("capture_countdown"))
                         self.picam2.set_controls(
                             self.exposure_settings
                         )
                         self.exposure_set = True
-                    else: # After setting the exposure, turn on Autoexposure so it can adjust if needed
-                        if time_left > (EXPOSURE_SET_S - 0.2):
+                    elif self.set_ae: # After setting the exposure, turn on Autoexposure so it can adjust if needed
+                        if time_left > (self.exposure_set_s - 0.2):
                             # Spam this for 0.2s
                             print("Setting AE true")
                             self.picam2.set_controls({"AeEnable": True})
@@ -521,9 +557,9 @@ class PhotoBooth:
         elif self.state == "display_capture":
             if self.timers.check("display_capture_timeout"):
                 next_state = "idle"
-            elif self.is_button_pressed():
-                self.timers.start("capture_countdown", COUNT_S)
+            elif self.is_button_pressed() or (self.extra_shots > 0):
                 next_state = "countdown"
+                self.setup_state("countdown")
             else:
                 if self.timers.check("qr_code_check", auto_restart=True):
                     if self._display_image_name and not self._displaying_qr_code:
