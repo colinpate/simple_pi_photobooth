@@ -80,7 +80,7 @@ class OverlayManager:
                         )
                 else:
                     is_empty = False
-                    overlay = self.main_image
+                    overlay = self.main_image.copy()
                 
                 for name, layer in self.layers.items():
                     if layer.is_active():
