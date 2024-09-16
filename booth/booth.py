@@ -435,7 +435,7 @@ class PhotoBooth:
         q_pos = self._config["qr_pos"]
         resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]), cv2.INTER_NEAREST)
         self._display_overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
-        self.overlay_manager.set_main_image(self._display_overlay)
+        self.overlay_manager.set_main_image(self._display_overlay, exclusive=False)
         
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
@@ -449,7 +449,7 @@ class PhotoBooth:
         if qr_code is not None:
             self.add_qr_code(qr_code)
         
-        self.overlay_manager.set_main_image(self._display_overlay)
+        self.overlay_manager.set_main_image(self._display_overlay, exclusive=False)
         
     def check_shutdown_button(self):
         if self.is_button_pressed():
@@ -583,7 +583,7 @@ class PhotoBooth:
                         "Saturation": self._prev_saturation,
                         "AeEnable": True,
                     })
-                self.overlay_manager.set_main_image(None)
+                self.overlay_manager.set_main_image(None, exclusive=False)
 
         self.state = next_state
         
