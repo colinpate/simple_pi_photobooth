@@ -473,6 +473,7 @@ class PhotoBooth:
             
     def setup_state(self, next_state):
         if next_state == "countdown":
+            self.button_released = False
             if self.extra_shots > 0:
                 self.extra_shots -= 1
                 self.set_ae = False
