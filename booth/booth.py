@@ -474,16 +474,16 @@ class PhotoBooth:
     def setup_state(self, next_state):
         if next_state == "countdown":
             if self.extra_shots > 0:
+                self.extra_shots -= 1
                 self.set_ae = False
                 self.led_fade_s = LED_FADE_S_EXTRA_SHOT
                 self.led_end_s = LED_END_S_EXTRA_SHOT
-                self.timers.start("capture_countdown", COUNT_S)
+                self.timers.start("capture_countdown", COUNT_S_EXTRA_SHOT)
             else:
-                self.extra_shots -= 1
                 self.set_ae = True
                 self.led_fade_s = LED_FADE_S
                 self.led_end_s = LED_END_S
-                self.timers.start("capture_countdown", COUNT_S_EXTRA_SHOT)
+                self.timers.start("capture_countdown", COUNT_S)
             
         
     def main_loop(self):

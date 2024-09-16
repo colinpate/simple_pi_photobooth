@@ -28,7 +28,7 @@ class OverlayManager:
             if self.main_layer_exclusive:
                 overlay = self.layers["main"]
             else:
-                if self.layers["main"] == None:
+                if not (self.layers["main"] is not None):
                     is_empty = True
                     overlay = np.zeros(
                             (
