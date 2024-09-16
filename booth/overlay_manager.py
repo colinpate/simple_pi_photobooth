@@ -44,8 +44,8 @@ class OverlayManager:
                     is_empty = False
                     overlay = self.layers["main"]
                 
-                for layer in self.layers.values():
-                    if layer is not None:
+                for name, layer in self.layers.items():
+                    if (layer is not None) and (name != "main"):
                         is_empty = False
                         layer_alpha_1chan = np.array(layer[:,:,3], dtype=np.float32) / 255
                         layer_alpha = np.stack([layer_alpha_1chan]*3, axis=-1)
