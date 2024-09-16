@@ -230,6 +230,8 @@ class PhotoBooth:
         self.timers.setup("qr_code_check", config["qr_check_time"])
         self.timers.setup("wifi_check", config["wifi_check_time"])
         self.timers.start("wifi_check")
+        self.timers.setup("arrow_blink", 1)
+        self.timers.start("arrow_blink")
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
@@ -291,6 +293,8 @@ class PhotoBooth:
 
     def setup_overlays(self):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
+        arrow = cv2.imread("/home/colin/overlays/arrow.png", cv2.IMREAD_UNCHANGED)
+        self.overlay_manager.set_layer(arrow, name="arrow")
         
     def set_capture_overlay(self):
         self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)
@@ -358,6 +362,7 @@ class PhotoBooth:
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
         self.overlay_manager.set_main_image(BLACK_OVERLAY, exclusive=True)
+        self.overlay_manager.update_overlay()
         display_image = self.save_capture()
         self.display_image(display_image)
     
@@ -587,20 +592,25 @@ class PhotoBooth:
 
         self.state = next_state
         
-        if self.wifi_check:
+        if self.wifi_check and self.timers.check("wifi_check", auto_restart=True):
             self.set_wifi_overlay()
+
+        if self.timers.check("arrow", auto_restart=True):
+            if self.overlay_manager.layers["arrow"].is_active():
+                self.overlay_manager.deactivate_layer("arrow")
+            else:
+                self.overlay_manager.activate_layer("arrow")
             
         new_overlay, overlay = self.overlay_manager.update_overlay()
         if new_overlay:
             self.qpicamera2.set_overlay(overlay)
 
     def set_wifi_overlay(self):
-        if self.timers.check("wifi_check", auto_restart=True):
-            wifi_network = self.check_wifi_connection()
-            if not wifi_network:
-                self.overlay_manager.activate_layer(name="wifi")
-            else:
-                self.overlay_manager.deactivate_layer(name="wifi")
+        wifi_network = self.check_wifi_connection()
+        if not wifi_network:
+            self.overlay_manager.activate_layer(name="wifi")
+        else:
+            self.overlay_manager.deactivate_layer(name="wifi")
 
     def check_wifi_connection(self):
         try:
