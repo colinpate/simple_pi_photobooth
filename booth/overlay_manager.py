@@ -4,14 +4,14 @@ import time
 import cv2
 
 class Layer:
-    def __init__(self, raw_image, size=None, offset=(0,0)):
+    def __init__(self, raw_image, size=None, offset=(0,0), weight=1):
         if size is not None:
             image = cv2.resize(raw_image, size)
         else:
             image = raw_image
         self.raw_image = image
         self._active = False
-        alpha_1chan = np.array(image[:,:,3], dtype=np.float32) / 255
+        alpha_1chan = np.array(image[:,:,3], dtype=np.float32) / 255 * weight
         alpha = np.stack([alpha_1chan]*3, axis=-1)
         self.alpha_inv = np.ones(alpha.shape, dtype=np.float32) - alpha
         self.rgb = image[:,:,:3] * alpha
@@ -82,7 +82,7 @@ class OverlayManager:
                     is_empty = False
                     overlay = self.main_image.copy()
                 
-                for name, layer in self.layers.items():
+                for layer in self.layers.values():
                     if layer.is_active():
                         is_empty = False
                         layer.composite(overlay)
