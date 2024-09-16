@@ -16,7 +16,7 @@ class OverlayManager:
             if not (name == "main"):
                 raise ValueError("Only the main layer can be exclusive")
             self.main_layer_exclusive = True
-            self.layers["main"] = overlay
+            self.layers["main"] = layer
         else:
             if name == "main":
                 self.main_layer_exclusive = False
