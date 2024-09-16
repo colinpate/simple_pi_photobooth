@@ -497,7 +497,7 @@ class PhotoBooth:
             if self.is_button_pressed() or self._continuous_cap:
                 next_state = "countdown"
                 self.extra_shots = 0
-                self.setup_state(countdown)
+                self.setup_state("countdown")
         elif self.state == "countdown":
             if not self.is_button_pressed():
                 self.button_released = True
