@@ -51,7 +51,7 @@ class BoothSync:
         while not self.stop_thread:
             ls_timeout = False
             try:
-                # Check if the mount point is available by listing its contents
+                # Check if the mount point is available by looking up our Photo DB
                 output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
                 new_db = json.loads(output.decode())
                 if old_db != new_db:
@@ -66,15 +66,9 @@ class BoothSync:
                 self._is_nfs_mounted = False
                 ls_timeout = True
 
-            #self._is_syncing = True
-            #if (not self.local_test) and self.is_nfs_mounted():
-            #    print("syncing...")
-            #    self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
-            #    print("sync done")
             if self.is_nfs_mounted():
                 self.photo_path_db.replace_db(new_db)
                 self.update_thumbnails()
-            #self._is_syncing = False
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
@@ -121,7 +115,6 @@ class BoothSync:
 
     def update_thumbnails(self):
         # Check to see if there are any new photos and if so create the thumbnails
-        #self.photo_path_db.try_update_from_file(erase_old=True)
         local_image_paths = self.get_image_db_paths()
         image_path_set = set(local_image_paths)
         
