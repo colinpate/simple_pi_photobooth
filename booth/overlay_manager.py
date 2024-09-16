@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import numpy as np
+import time
 
 class OverlayManager:
     def __init__(self, display_width, display_height):
@@ -24,6 +25,7 @@ class OverlayManager:
         
     def update_overlay(self):
         if self.layers_changed:
+            start_time = time.time()
             self.layers_changed = False
             if self.main_layer_exclusive:
                 overlay = self.layers["main"]
@@ -51,10 +53,12 @@ class OverlayManager:
                         layer_rgb = layer[:,:,:3] * layer_alpha
                         overlay[:, :, :3] = (overlay[:,:,:3] * layer_alpha_inv) + layer_rgb
                         # Just add the alphas
-                        overlay[:,:,3] = np.clip(overlay[:,:,3] + layer[:,:,3], amin=0, amax=255) 
+                        overlay[:,:,3] = np.clip(overlay[:,:,3] + layer[:,:,3], a_min=0, a_max=255) 
                         
                 if is_empty:
                     overlay = None
+            time_ms = int((time.time() - start_time)*1000)
+            print("Overlay update time", time_ms, "ms")
             return True, overlay
         else:
             return False, None
