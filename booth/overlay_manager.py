@@ -1,9 +1,14 @@
 from collections import OrderedDict
 import numpy as np
 import time
+import cv2
 
 class Layer:
-    def __init__(self, image):
+    def __init__(self, raw_image, size=None, offset=(0,0)):
+        if size is not None:
+            image = cv2.resize(raw_image, size)
+        else:
+            image = raw_image
         self.raw_image = image
         self._active = False
         alpha_1chan = np.array(image[:,:,3], dtype=np.float32) / 255
@@ -11,11 +16,15 @@ class Layer:
         self.alpha_inv = np.ones(alpha.shape, dtype=np.float32) - alpha
         self.rgb = image[:,:,:3] * alpha
         self.alpha = image[:,:,3]
+        self.offset = offset
         
     def composite(self, image):
-        image[:, :, :3] = (image[:,:,:3] * self.alpha_inv) + self.rgb
+        start_x, start_y = self.offset
+        end_x = self.rgb.shape[0] + start_x
+        end_y = self.rgb.shape[1] + start_y
+        image[start_x:end_x, start_y:end_y, :3] = (image[start_x:end_x, start_y:end_y, :3] * self.alpha_inv) + self.rgb
         # Just add the alphas
-        image[:,:,3] = np.clip(image[:,:,3] + self.alpha, a_min=0, a_max=255) 
+        image[start_x:end_x, start_y:end_y, 3] = np.clip(image[start_x:end_x, start_y:end_y, 3] + self.alpha, a_min=0, a_max=255) 
         
     def is_active(self):
         return self._active
@@ -36,8 +45,8 @@ class OverlayManager:
         self.display_width = display_width
         self.display_height = display_height
         
-    def set_layer(self, image, name):
-        self.layers[name] = Layer(image)
+    def set_layer(self, image, name, size=None, offset=(0,0)):
+        self.layers[name] = Layer(image, size, offset)
         
     def activate_layer(self, name):
         self.layers_changed = True
