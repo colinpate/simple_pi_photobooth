@@ -5,7 +5,6 @@ from rauth import OAuth1Session
 from pprint import pprint
 import random
 from uploader.photo_service import PhotoService
-from common.common import load_config
 
 BASE_URL = "https://api.smugmug.com/api/v2"
 UPLOAD_URL = "https://upload.smugmug.com/api/v2"
@@ -43,8 +42,7 @@ def load_creds(creds_file):
         
         
 class SmugMug(PhotoService):
-    def __init__(self):
-        config = load_config()
+    def __init__(self, config):
         creds = load_creds(config["smugmug_creds_path"])
         token = creds["token"]
         key = creds["key"]

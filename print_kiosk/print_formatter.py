@@ -1,18 +1,13 @@
 import cv2
 import numpy as np
-from common.common import load_config
 
 class PrintFormatter:
-    def __init__(self, print_format, h_crop_2x6=1, h_pad=0, **kwargs):
+    def __init__(self, print_format, h_crop_2x6=1, h_pad=0, logo_config=None, **kwargs):
         self.print_format = print_format
         self.h_pad = 0.04
         
         self.logo = None
         self.logo_width_scale = -1
-        try:
-            logo_config = load_config("print_logo_config.yaml")
-        except FileNotFoundError:
-            logo_config = None
         if logo_config:
             if logo_config["enable"]:
                 self.logo = cv2.imread(logo_config["logo_path"])

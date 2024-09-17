@@ -59,16 +59,10 @@ def create_qr_code(url, qr_code_file_path):
     img.save(qr_code_file_path)
     
 
-def get_album_title(album_title_file):
+def get_album_title():
     # Default to timestamped album
     formatted_datetime = datetime.now().strftime("%Y/%m/%d %H:%M")
     album_title = 'Glowbot Photo Booth ' + formatted_datetime
-    
-    if os.path.exists(album_title_file):
-        with open(album_title_file, "r") as file_obj:
-            text = file_obj.read().strip()
-            if len(text):
-                album_title = text
     return album_title
 
 
@@ -109,13 +103,13 @@ def main():
     wait_for_network_connection()
     
     try:
-        service = SmugMug()
+        service = SmugMug(config)
     except Exception as e:
-        with open("/home/colin/google_photos_error.txt", "w") as error_file:
+        with open("/home/colin/photo_service_error.txt", "w") as error_file:
             error_file.write(str(e))
         service = S3Photos()
         
-    album_title = get_album_title(config.get("album_title_file", ""))
+    album_title = config.get("album_title", get_album_title())
     service.create_album(album_title)
                 
     error_photos = []

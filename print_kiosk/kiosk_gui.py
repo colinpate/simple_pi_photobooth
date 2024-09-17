@@ -323,9 +323,9 @@ class SplashImage(Image):
 class ImageGalleryApp(App):
     def build(self):
         if LOCAL_TEST:
-            config = load_config("print_config_test.yaml")
+            config = load_config("print_config_test")
         else:
-            config = load_config("print_config.yaml")
+            config = load_config("print_config")
         self.config_yaml = config
     
         root = FloatLayout()
