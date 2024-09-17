@@ -16,3 +16,4 @@ def load_config(config_name="config"):
         print("Loaded user config", user_config)
     except:
         print("Failed to load user config")
+    return config
