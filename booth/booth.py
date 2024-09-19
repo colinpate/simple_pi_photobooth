@@ -291,8 +291,8 @@ class PhotoBooth:
 
     def setup_overlays(self):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
-        arrow = cv2.imread("/home/colin/overlays/arrow_v2.png", cv2.IMREAD_UNCHANGED)
-        self.overlay_manager.set_layer(arrow, name="arrow", size=(200,150), offset=(450,412), weight=0.7)
+        arrow = cv2.imread("/home/colin/overlays/arrow_v3.png", cv2.IMREAD_UNCHANGED)
+        self.overlay_manager.set_layer(arrow, name="arrow", size=(200,150), offset=(450,412), weight=1)
         
     def set_capture_overlay(self):
         self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)

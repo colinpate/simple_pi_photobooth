@@ -6,7 +6,7 @@ import cv2
 class Layer:
     def __init__(self, raw_image, size=None, offset=(0,0), weight=1):
         if size is not None:
-            image = cv2.resize(raw_image, size)
+            image = cv2.resize(raw_image, size, cv2.INTER_AREA)
         else:
             image = raw_image
         self.raw_image = image
