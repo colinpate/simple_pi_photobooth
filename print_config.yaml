@@ -7,7 +7,6 @@ print_postfixes:
     - "_gray"
 h_crop_2x6: 0.9
 h_pad: 0.04
-fill_dir: "/home/colin/Ryans_40th/booth_photos/color"
 mount_addresses:
     - "192.168.1.114"
     - "boothpi"

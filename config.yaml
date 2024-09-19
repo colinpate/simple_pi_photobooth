@@ -33,3 +33,4 @@ request_timeout: 20
 #    h_size: 950
 #    offset_x: 100
 #    offset_y: 90
+# album_title: "<your album title>"
