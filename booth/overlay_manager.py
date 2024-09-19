@@ -11,7 +11,7 @@ class Layer:
             image = raw_image
         self.raw_image = image
         self._active = False
-        alpha_1chan = np.array(image[:,:,3], dtype=np.float32) / 255 * weight
+        alpha_1chan = np.array(image[:,:,3], dtype=np.float32) / 255
         alpha = np.stack([alpha_1chan]*3, axis=-1)
         self.alpha_inv = np.ones(alpha.shape, dtype=np.float32) - alpha
         self.rgb = image[:,:,:3] * alpha
