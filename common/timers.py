@@ -29,21 +29,15 @@ class Timers:
         
     def time_left(self, timer):
         try:
-            end_time = self.end_times[timer]
+            time_left = self.end_times[timer] - self._now
         except KeyError:
             raise ValueError(f"Timer never started {timer}")
-        if end_time is not None:
-            time_left = self.end_times[timer] - self._now
-        else:
-            time_left = None
         return time_left
         
-    def check(self, timer, auto_restart=False, auto_stop=False):
+    def check(self, timer, auto_restart=False):
         if self.time_left(timer) <= 0:
             if auto_restart:
                 self.restart(timer)
-            elif auto_stop:
-                self.end_times[timer] = None
             return True
         else:
             return False
