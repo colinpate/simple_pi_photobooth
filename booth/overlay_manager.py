@@ -15,7 +15,7 @@ class Layer:
         alpha = np.stack([alpha_1chan]*3, axis=-1)
         self.alpha_inv = np.ones(alpha.shape, dtype=np.float32) - alpha
         self.rgb = image[:,:,:3] * alpha * weight
-        self.alpha = image[:,:,3] * weight
+        self.alpha = np.ndarray.astype(image[:,:,3] * weight, np.float32)
         self.offset = offset
         
     def composite(self, image):
@@ -25,7 +25,7 @@ class Layer:
         image_alpha = image[start_x:end_x, start_y:end_y, 3]
         image[start_x:end_x, start_y:end_y, :3] = (image[start_x:end_x, start_y:end_y, :3] * self.alpha_inv) + self.rgb
         # Just add the alphas
-        image[start_x:end_x, start_y:end_y, 3] = np.clip(np.astype(image_alpha, np.float32) + np.astype(self.alpha, np.float32), a_min=0, a_max=255) 
+        image[start_x:end_x, start_y:end_y, 3] = np.clip(np.ndarray.astype(image_alpha, np.float32) + self.alpha, a_min=0, a_max=255) 
         
     def is_active(self):
         return self._active
