@@ -153,6 +153,7 @@ class PhotoBooth:
         
         # capture state variables
         self.cap_timestamp_str = ""
+        self.capture_completed = False
         
         # countdown state variables
         self.mode_switched = False
@@ -346,8 +347,12 @@ class PhotoBooth:
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
         self.set_leds(idle=True)
+        self.overlay_manager.set_main_image(BLACK_OVERLAY, exclusive=True)
+        self.capture_completed = True
+        
         self.exposure_settings["AnalogueGain"] = metadata["AnalogueGain"]
         self.exposure_settings["ExposureTime"] = metadata["ExposureTime"]
+        
         print(self.exposure_settings)
         print(
                 "CAP",
@@ -355,14 +360,9 @@ class PhotoBooth:
                 "AeLocked", metadata.get("AeLocked", ""),
                 "Saturation", metadata.get("Saturation", ""),
             )
-        #pprint(metadata)
         print("Color gains", metadata["ColourGains"])
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
-        self.overlay_manager.set_main_image(BLACK_OVERLAY, exclusive=True)
-        self.overlay_manager.update_overlay()
-        display_image = self.save_capture()
-        self.display_image(display_image)
     
     def save_capture(self):
         orig_image = self.image_array
@@ -554,13 +554,19 @@ class PhotoBooth:
                         self.set_capture_overlay()
                         self.mode_switched = True
         elif self.state == "capture":
-            next_state = "display_capture"
-            self.timers.start("display_capture_timeout")
-            self.timers.start("display_image_timeout", self._display_first_image_time)
-            self.timers.start("qr_code_check")
+            next_state = "process_capture"
             self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
+            self.capture_completed = False
             self.picam2.capture_arrays(["main"], signal_function=self.qpicamera2.signal_done)
+        elif self.state == "process_capture":
+            if self.capture_completed:
+                next_state = "display_capture"
+                display_image = self.save_capture()
+                self.display_image(display_image)
+                self.timers.start("display_capture_timeout")
+                self.timers.start("display_image_timeout", self._display_first_image_time)
+                self.timers.start("qr_code_check")
         elif self.state == "display_capture":
             if self.timers.check("display_capture_timeout"):
                 next_state = "idle"
