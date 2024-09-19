@@ -5,7 +5,6 @@ remote_photo_dir: "/home/colin/booth_photos/"
 print_postfixes:
     - "_color"
     - "_gray"
-print_format: "2x6"
 h_crop_2x6: 0.9
 h_pad: 0.04
 fill_dir: "/home/colin/Ryans_40th/booth_photos/color"
@@ -15,3 +14,8 @@ mount_addresses:
 mount_source: "/home/colin/booth_photos"
 splash_image: "/home/colin/kiosk_splash.png"
 splash_timeout: 60
+#logo_config: # EXAMPLE
+#    logo_path: "<path to logo file>"
+#    logo_width_scale: 0.6
+#    enable: true
+print_format: "2x6"
