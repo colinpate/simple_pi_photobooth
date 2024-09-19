@@ -230,8 +230,6 @@ class PhotoBooth:
         self.timers.setup("qr_code_check", config["qr_check_time"])
         self.timers.setup("wifi_check", config["wifi_check_time"])
         self.timers.start("wifi_check")
-        self.timers.setup("arrow_blink", 1)
-        self.timers.start("arrow_blink")
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
@@ -293,8 +291,8 @@ class PhotoBooth:
 
     def setup_overlays(self):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
-        arrow = cv2.imread("/home/colin/overlays/arrow_crop.png", cv2.IMREAD_UNCHANGED)
-        self.overlay_manager.set_layer(arrow, name="arrow", size=(200,100), offset=(500,412))
+        arrow = cv2.imread("/home/colin/overlays/arrow_v2.png", cv2.IMREAD_UNCHANGED)
+        self.overlay_manager.set_layer(arrow, name="arrow", size=(200,150), offset=(450,412))
         
     def set_capture_overlay(self):
         self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)
@@ -478,6 +476,7 @@ class PhotoBooth:
             pwm_ratio = np.exp(ratio * 3) / np.exp(3)
             pwm_val = pwm_ratio * 100
             self.change_button_led_dc(pwm_val)
+        return ratio
             
     def setup_state(self, next_state):
         if next_state == "countdown":
@@ -498,7 +497,6 @@ class PhotoBooth:
     def main_loop(self):
         self.timers.update_time()
         self.check_shutdown_button()
-        self.set_button_led()
         
         next_state = self.state
 
@@ -589,21 +587,26 @@ class PhotoBooth:
                         "AeEnable": True,
                     })
                 self.overlay_manager.set_main_image(None, exclusive=False)
-
-        self.state = next_state
+        
+        # Update visuals
+        button_brightness = self.set_button_led()
+        self.set_arrow_overlay(button_brightness)
         
         if self.wifi_check and self.timers.check("wifi_check", auto_restart=True):
             self.set_wifi_overlay()
-
-        if self.timers.check("arrow_blink", auto_restart=True):
-            if self.overlay_manager.layers["arrow"].is_active():
-                self.overlay_manager.deactivate_layer("arrow")
-            else:
-                self.overlay_manager.activate_layer("arrow")
             
         new_overlay, overlay = self.overlay_manager.update_overlay()
         if new_overlay:
             self.qpicamera2.set_overlay(overlay)
+
+        # Update state
+        self.state = next_state
+
+    def set_arrow_overlay(self, button_brightness):
+        if button_brightness < 0.5:
+            self.overlay_manager.deactivate_layer("arrow")
+        else:
+            self.overlay_manager.activate_layer("arrow")
 
     def set_wifi_overlay(self):
         wifi_network = self.check_wifi_connection()

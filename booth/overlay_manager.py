@@ -49,12 +49,14 @@ class OverlayManager:
         self.layers[name] = Layer(image, size, offset)
         
     def activate_layer(self, name):
-        self.layers_changed = True
-        self.layers[name].activate()
+        if not self.layers[name].is_active():
+            self.layers_changed = True
+            self.layers[name].activate()
         
     def deactivate_layer(self, name):
-        self.layers_changed = True
-        self.layers[name].deactivate()
+        if self.layers[name].is_active():
+            self.layers_changed = True
+            self.layers[name].deactivate()
         
     def set_main_image(self, image, exclusive):
         self.layers_changed = True
