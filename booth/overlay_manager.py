@@ -14,7 +14,7 @@ class Layer:
         alpha_1chan = np.array(image[:,:,3], dtype=np.float32) / 255 * weight
         alpha = np.stack([alpha_1chan]*3, axis=-1)
         self.alpha_inv = np.ones(alpha.shape, dtype=np.float32) - alpha
-        self.rgb = image[:,:,:3] * alpha * weight
+        self.rgb = image[:,:,:3] * alpha
         self.alpha = np.ndarray.astype(image[:,:,3] * weight, np.float32)
         self.offset = offset
         
