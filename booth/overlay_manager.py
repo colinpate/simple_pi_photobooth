@@ -45,8 +45,8 @@ class OverlayManager:
         self.display_width = display_width
         self.display_height = display_height
         
-    def set_layer(self, image, name, size=None, offset=(0,0)):
-        self.layers[name] = Layer(image, size, offset)
+    def set_layer(self, image, name, size=None, offset=(0,0), weight=1):
+        self.layers[name] = Layer(image, size, offset, weight)
         
     def activate_layer(self, name):
         if not self.layers[name].is_active():
