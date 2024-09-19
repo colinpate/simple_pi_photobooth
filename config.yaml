@@ -24,13 +24,13 @@ gray_postfix: "_gray"
 smugmug_creds_path: "/home/colin/smugmug.json"
 photo_title: ""
 photo_caption: "Tap and hold to save!"
-album_title_file: "/home/colin/album_title.txt"
 contrast: 1.1
 brightness: 0.05
 request_timeout: 20
-watermark:
-    watermark_path: "/home/colin/watermarks/larger_aquafest_logo.png"
-    weight: 1
-    h_size: 950
-    offset_x: 100
-    offset_y: 90
+# watermark: # EXAMPLE
+#    watermark_path: "<path_to_watermark>"
+#    weight: 1
+#    h_size: 950
+#    offset_x: 100
+#    offset_y: 90
+# album_title: "<your album title>"
