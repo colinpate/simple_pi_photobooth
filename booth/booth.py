@@ -463,7 +463,8 @@ class PhotoBooth:
         else:
             self.timers.restart("button_release")
             
-    def set_button_led(self):pulse_time = time.perf_counter() % self._button_pulse_time
+    def set_button_led(self):
+        pulse_time = time.perf_counter() % self._button_pulse_time
         half_pulse_time = self._button_pulse_time / 2
         if pulse_time > half_pulse_time:
             pulse_time = self._button_pulse_time - pulse_time
