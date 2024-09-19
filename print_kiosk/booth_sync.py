@@ -4,12 +4,12 @@ import time
 import os
 import glob
 import cv2
+import json
 
 from common.image_path_db import ImagePathDB
 
 WATCHDOG_TIMEOUT = 10
-CHECK_INTERVAL_S = 3
-RSYNC_TIMEOUT = 300
+CHECK_INTERVAL_S = 1
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
@@ -47,25 +47,28 @@ class BoothSync:
         return self._is_syncing
         
     def check_nfs_mount(self):
+        old_db = {}
         while not self.stop_thread:
             ls_timeout = False
             try:
-                # Check if the mount point is available by listing its contents
-                subprocess.check_output(['ls', os.path.join(self.remote_photo_dir, "color")], timeout=1)
+                # Check if the mount point is available by looking up our Photo DB
+                output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
+                new_db = json.loads(output.decode())
+                if old_db != new_db:
+                    print("New db found", time.time() % 1000)
+                    old_db = new_db
                 self._is_nfs_mounted = True
             except (subprocess.CalledProcessError) as exception:
-                print("NFS ls failed")
+                print("NFS access failed", exception)
                 self._is_nfs_mounted = False
             except (subprocess.TimeoutExpired) as exception:
-                print("NFS ls timed out")
+                print("NFS access timed out")
                 self._is_nfs_mounted = False
                 ls_timeout = True
-                    
-            self._is_syncing = True
-            if (not self.local_test) and self.is_nfs_mounted():
-                self.sync_remote_to_local(self.photo_dir, timeout=RSYNC_TIMEOUT)
-            self.update_thumbnails()
-            self._is_syncing = False
+
+            if self.is_nfs_mounted():
+                self.photo_path_db.replace_db(new_db)
+                self.update_thumbnails()
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
@@ -106,14 +109,19 @@ class BoothSync:
         image_paths = []
         for image_name in self.photo_path_db.image_names():
             for postfix in self.print_postfixes:
-                image_paths.append(self.photo_path_db.get_image_path(image_name, postfix))
+                image_path = self.photo_path_db.get_image_path(image_name, postfix)
+                image_paths.append(image_path)
         return image_paths
 
     def update_thumbnails(self):
         # Check to see if there are any new photos and if so create the thumbnails
-        self.photo_path_db.try_update_from_file(erase_old=True)
-        image_paths = self.get_image_db_paths()
-        image_path_set = set(image_paths)
+        local_image_paths = self.get_image_db_paths()
+        image_path_set = set(local_image_paths)
+        
+        deleted_image_paths = self.thumbnails.keys() - image_path_set
+        for image_path in deleted_image_paths:
+            self.thumbnails.pop(image_path)
+        
         new_image_paths = image_path_set - self.thumbnails.keys()
         if len(new_image_paths):
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
@@ -122,12 +130,30 @@ class BoothSync:
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
-            
+
+    def sync_photo_to_local(self, local_image_path):
+        raw_image_path = local_image_path.replace(self.photo_dir, "")
+        remote_image_path = os.path.join(self.remote_photo_dir, raw_image_path)
+        try:
+            print("Copying", remote_image_path, "to", local_image_path, time.time() % 1000)
+            subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=15)
+            return True
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+            print("Copy failed", exception)
+            if os.path.isfile(local_image_path):
+                print("Removing partial file")
+                os.remove(local_image_path)
+            return False
+
     def get_thumbnail(self, image_path):
         filename = os.path.split(image_path)[1]
         filename = filename.split(".")[0]
         thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
         if not os.path.isfile(thumbnail_path):
+            if not os.path.isfile(image_path):
+                success = self.sync_photo_to_local(image_path)
+                if not success:
+                    return None
             success = create_thumbnail(
                 photo_path=image_path,
                 thumbnail_path=thumbnail_path,
