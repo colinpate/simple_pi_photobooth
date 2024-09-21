@@ -56,17 +56,18 @@ def scp_files(kiosk_path, config, dryrun):
     if config["logo_config"]:
         logo_path = config["logo_config"]["logo_path"]
         logo_filename = os.path.split(logo_path)[-1]
-        logo_destination = f"{kiosk_path}/watermarks/{logo_filename}"
-        logo_path = logo_destination.split(":")[-1]
+        logo_destination = os.path.join(kiosk_path, f"watermarks/")
         command = f"scp {logo_path} {logo_destination}"
         print()
         print(command)
         if not dryrun:
             os.system(command)
-        print("Changing logo_path in YAML to ", logo_path)
-        config["logo_config"]["logo_path"] = logo_path
-        print("New config:")
-        pprint(config)
+        logo_dest_path = os.path.join(logo_destination.split(":")[-1], logo_filename)
+        print("Changing logo_path in YAML to ", logo_dest_path)
+        config["logo_config"]["logo_path"] = logo_dest_path
+        
+    print("New config:")
+    pprint(config)
         
     yaml_destination = os.path.join(kiosk_path, "simple_pi_photobooth/print_config.user.yaml")
     temp_yaml_path = "example_print_config_yaml.temp"
