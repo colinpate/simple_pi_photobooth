@@ -7,6 +7,8 @@ from print_kiosk.print_formatter import PrintFormatter
 from argparse import ArgumentParser
 from pprint import pprint
     
+DEFAULT_KIOSK_PATH ="colin@192.168.1.211:/home/colin/"
+    
 def get_args():
     parser = ArgumentParser(prog='Print Format Example',
                     description='Generates sample print images and can copy print configuration to the Photo Booth')
@@ -32,17 +34,11 @@ def get_args():
     parser.add_argument("-w", "--logo_width_scale", type=float, default=1,
                         help="Ratio of the 2x6 width that the logo should be")
                         
-    parser.add_argument("-y", "--yaml_path", default="print_config.user.yaml",
+    parser.add_argument("-y", "--yaml_path",
                         help="Path to save the yaml config to")
                         
-    parser.add_argument("-s", "--scp_files", action="store_true",
-                        help="Set to SCP the yaml and logo to the Print Kiosk")
-                        
-    parser.add_argument("--kiosk_path", default="colin@192.168.1.211:/home/colin/",
-                        help="Path to the home directory of the print kiosk. yaml will be copied to <kiosk_home>/simple_pi_photobooth/print_config.user.yaml and logo will be copied to <kiosk_home>/watermarks, and logo path in yaml will be updated accordingly")
-                        
-    parser.add_argument("-d", "--dryrun", action="store_true",
-                        help="Don't actually SCP, just print output")
+    parser.add_argument("-n", "--no_preview", action="store_true",
+                        help="Don't show image preview")
                         
     return parser.parse_args()
     
@@ -60,6 +56,7 @@ def scp_files(kiosk_path, config, dryrun):
         command = f"scp {logo_path} {logo_destination}"
         print()
         print(command)
+        print()
         if not dryrun:
             os.system(command)
         logo_dest_path = os.path.join(logo_destination.split(":")[-1], logo_filename)
@@ -75,6 +72,7 @@ def scp_files(kiosk_path, config, dryrun):
     command = f"scp {temp_yaml_path} {yaml_destination}"
     print()
     print(command)
+    print()
     if not dryrun:
         os.system(command)
         
@@ -100,7 +98,10 @@ def main():
             "logo_config": logo_config
         }
         
-    write_yaml(args.yaml_path, config)
+    print("Config:")
+    pprint(config)
+    if args.yaml_path:
+        write_yaml(args.yaml_path, config)
     
     formatter = PrintFormatter(**config)
         
@@ -110,11 +111,22 @@ def main():
     
     full_image, preview_image = formatter.format_print(photos[:formatter.num_photos()])
     cv2.imwrite("preview.jpg", preview_image)
-    cv2.imshow("Preview", preview_image)
-    cv2.waitKey(3000)
+    if not args.no_preview:
+        cv2.imshow("Preview", preview_image)
+        cv2.waitKey(3000)
     
-    if args.scp_files:
-        scp_files(args.kiosk_path, config, args.dryrun)
+    scp = input("Transfer new config and logo to Print Kiosk? y/(n)/d (d=dryrun) : ")
+    if scp:
+        kiosk_path = input(f"Path to kiosk? Enter for default ({DEFAULT_KIOSK_PATH}) : ")
+        if not kiosk_path:
+            kiosk_path = DEFAULT_KIOSK_PATH
+        print("Kiosk path:", kiosk_path)
+        if scp == "d":
+            print("Doing dryrun")
+            dryrun = True
+        else:
+            dryrun = False
+        scp_files(kiosk_path, config, dryrun)
     
     
 if __name__ == "__main__":
