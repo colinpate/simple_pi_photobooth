@@ -1,8 +1,0 @@
-h_crop_2x6: 0.9
-h_pad: 0.04
-logo_config:
-  enable: true
-  logo_path: ../../photobooth_site/watermarks/paulo_david_logo_text.png
-  logo_width_scale: 0.6
-print_format: 2x6
-v_crop_2x6: 1
