@@ -11,7 +11,7 @@ DEFAULT_KIOSK_PATH ="colin@192.168.1.211:/home/colin/"
     
 def get_args():
     parser = ArgumentParser(prog='Print Format Example',
-                    description='Generates sample print images and can copy print configuration to the Photo Booth')
+                    description='Generates sample print images and can copy print logo and configuration to the Print Kiosk')
                     
     parser.add_argument("-f", "--photo_dir", required=True,
                         help="Where to pick .jpg files from to put in the print")
@@ -48,35 +48,38 @@ def write_yaml(yaml_path, config):
         yaml_file.write(yaml.dump(config))#, dumper=yaml.CDumper))
     
     
+def scp_image_to_watermarks(logo_path, kiosk_path, dryrun):
+    logo_filename = os.path.split(logo_path)[-1]
+    logo_destination = os.path.join(kiosk_path, f"watermarks/")
+    command = f"scp {logo_path} {logo_destination}"
+    print("\n", command, "\n")
+    if not dryrun:
+        os.system(command)
+    return os.path.join(logo_destination.split(":")[-1], logo_filename)
+    
+    
+def scp_temp_yaml(kiosk_path, config, yaml_name, dryrun):
+    yaml_destination = os.path.join(kiosk_path, f"simple_pi_photobooth/{yaml_name}")
+    temp_yaml_path = "example_print_config_yaml.temp"
+    write_yaml(temp_yaml_path, config)
+    command = f"scp {temp_yaml_path} {yaml_destination}"
+    print("\n", command, "\n")
+    if not dryrun:
+        os.system(command)
+    os.remove(temp_yaml_path)
+    
+    
 def scp_files(kiosk_path, config, dryrun):
     if config["logo_config"]:
         logo_path = config["logo_config"]["logo_path"]
-        logo_filename = os.path.split(logo_path)[-1]
-        logo_destination = os.path.join(kiosk_path, f"watermarks/")
-        command = f"scp {logo_path} {logo_destination}"
-        print()
-        print(command)
-        print()
-        if not dryrun:
-            os.system(command)
-        logo_dest_path = os.path.join(logo_destination.split(":")[-1], logo_filename)
-        print("Changing logo_path in YAML to ", logo_dest_path)
+        logo_dest_path = scp_image_to_watermarks(logo_path, kiosk_path, dryrun)
+        print("Changing logo_path in YAML to", logo_dest_path)
         config["logo_config"]["logo_path"] = logo_dest_path
         
     print("New config:")
     pprint(config)
         
-    yaml_destination = os.path.join(kiosk_path, "simple_pi_photobooth/print_config.user.yaml")
-    temp_yaml_path = "example_print_config_yaml.temp"
-    write_yaml(temp_yaml_path, config)
-    command = f"scp {temp_yaml_path} {yaml_destination}"
-    print()
-    print(command)
-    print()
-    if not dryrun:
-        os.system(command)
-        
-    os.remove(temp_yaml_path)
+    scp_temp_yaml(kiosk_path, config, yaml_name="print_config.user.yaml", dryrun=dryrun)
         
     
 def main():
@@ -101,6 +104,7 @@ def main():
     print("Config:")
     pprint(config)
     if args.yaml_path:
+        print("Saving config to", args.yaml_path)
         write_yaml(args.yaml_path, config)
     
     formatter = PrintFormatter(**config)
@@ -113,11 +117,11 @@ def main():
     cv2.imwrite("preview.jpg", preview_image)
     if not args.no_preview:
         cv2.imshow("Preview", preview_image)
-        cv2.waitKey(3000)
+        cv2.waitKey(0)
     
     scp = input("Transfer new config and logo to Print Kiosk? y/(n)/d (d=dryrun) : ")
     if scp:
-        kiosk_path = input(f"Path to kiosk? Enter for default ({DEFAULT_KIOSK_PATH}) : ")
+        kiosk_path = input(f"Path to kiosk home? Enter for default ({DEFAULT_KIOSK_PATH}) : ")
         if not kiosk_path:
             kiosk_path = DEFAULT_KIOSK_PATH
         print("Kiosk path:", kiosk_path)
