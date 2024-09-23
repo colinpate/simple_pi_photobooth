@@ -27,6 +27,18 @@ photo_caption: "Tap and hold to save!"
 contrast: 1.1
 brightness: 0.05
 request_timeout: 20
+enable_multi_shot: true
+overlays:
+    arrow:
+        path: "/home/colin/overlays/arrow_v5.png"
+        size: [434,150]
+        offset: [450,295]
+        weight: 0.6
+    three_shots:
+        path: "/home/colin/overlays/three_shots.png"
+        size: [434,150]
+        offset: [450,295]
+        weight: 0.6
 # watermark: # EXAMPLE
 #    watermark_path: "<path_to_watermark>"
 #    weight: 1

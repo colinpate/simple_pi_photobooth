@@ -101,6 +101,13 @@ wifi_text_scale = 0.75
 wifi_text_thickness = 1
 cv2.putText(NO_WIFI_OVERLAY, "Wifi not connected", wifi_text_origin, font, wifi_text_scale, colour, wifi_text_thickness)
     
+# States
+ST_IDLE = 1
+ST_COUNTDOWN = 2
+ST_CAPTURE = 3
+ST_PROCESS_CAPTURE = 4
+ST_DISPLAY_CAPTURE = 5
+    
 def get_prev_crop_rectangle(crop_to_screen=True):
     # Crop the preview vertically so it doesn't look weird
     if crop_to_screen:
@@ -149,7 +156,7 @@ class PhotoBooth:
     def __init__(self, config):
         self._config = config
         
-        self.state = "idle"
+        self.state = ST_IDLE
         
         # capture state variables
         self.cap_timestamp_str = ""
@@ -191,9 +198,10 @@ class PhotoBooth:
         self._button_pulse_time = config["button_pulse_time"]
         self._contrast = float(config["contrast"])
         self._brightness = float(config["brightness"])
+        self._enable_multi_shot = config["enable_multi_shot"]
         
         self.overlay_manager = OverlayManager(DISPLAY_WIDTH, DISPLAY_HEIGHT)
-        self.setup_overlays()
+        self.setup_overlays(config["overlays"])
         self._display_overlay = None
         self._displaying_qr_code = False
         self._display_image_name = None
@@ -290,10 +298,12 @@ class PhotoBooth:
         qpicamera2.showFullScreen()
         return qpicamera2
 
-    def setup_overlays(self):
+    def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
-        arrow = cv2.imread("/home/colin/overlays/arrow_v3.png", cv2.IMREAD_UNCHANGED)
-        self.overlay_manager.set_layer(arrow, name="arrow", size=(200,150), offset=(450,412), weight=0.6)
+        
+        for name, config in overlay_config.items():
+            image = cv2.imread(config["path"], cv2.IMREAD_UNCHANGED)
+            self.overlay_manager.set_layer(image, name=name, size=config["size"], offset=config["offset"], weight=config["weight"])
         
     def set_capture_overlay(self):
         self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)
@@ -342,12 +352,12 @@ class PhotoBooth:
             self.countdown_timestamp = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            self.overlay_manager.set_main_image(overlay, exclusive=True)
+            self.overlay_manager.set_main_image(overlay, exclusive=False)
     
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
         self.set_leds(idle=True)
-        self.overlay_manager.set_main_image(BLACK_OVERLAY, exclusive=True)
+        self.qpicamera2.set_overlay(BLACK_OVERLAY)
         self.capture_completed = True
         
         self.exposure_settings["AnalogueGain"] = metadata["AnalogueGain"]
@@ -470,16 +480,18 @@ class PhotoBooth:
             pulse_time = self._button_pulse_time - pulse_time
         ratio = pulse_time / half_pulse_time
         
-        if self.state == "countdown":
+        if self.state == ST_COUNTDOWN:
             self.change_button_led_dc(0)
-        elif (self.state == "idle") or (self.state == "display_capture"):
+        elif (self.state == ST_IDLE) or (self.state == ST_DISPLAY_CAPTURE):
             pwm_ratio = np.exp(ratio * 3) / np.exp(3)
             pwm_val = pwm_ratio * 100
             self.change_button_led_dc(pwm_val)
         return ratio
             
     def setup_state(self, next_state):
-        if next_state == "countdown":
+        if next_state == ST_COUNTDOWN:
+            if self._enable_multi_shot:
+                self.overlay_manager.activate_layer("three_shots")
             self.button_released = False
             if self.extra_shots > 0:
                 self.extra_shots -= 1
@@ -500,26 +512,29 @@ class PhotoBooth:
         
         next_state = self.state
 
-        if self.state == "idle":
+        if self.state == ST_IDLE:
             if self.is_button_pressed() or self._continuous_cap:
-                next_state = "countdown"
+                next_state = ST_COUNTDOWN
                 self.extra_shots = 0
-                self.setup_state("countdown")
-        elif self.state == "countdown":
-            if not self.is_button_pressed():
-                self.button_released = True
-            else:
-                if self.button_released:
-                    self.button_released = False
-                    if self.extra_shots == 0:
-                        self.extra_shots = 2
-                    elif self.extra_shots == 2:
-                        self.extra_shots = 0
-                    # update overlay here
+                self.setup_state(ST_COUNTDOWN)
+        elif self.state == ST_COUNTDOWN:
+            if self._enable_multi_shot:
+                if not self.is_button_pressed():
+                    self.button_released = True
+                else:
+                    if self.button_released:
+                        self.button_released = False
+                        if self.extra_shots == 0:
+                            self.extra_shots = 2
+                            self.overlay_manager.deactivate_layer("three_shots")
+                        elif self.extra_shots == 2:
+                            self.extra_shots = 0
                     
             if self.timers.check("capture_countdown"):
                 print("Capturing at", self.timers.time_left("capture_countdown"))
-                next_state = "capture"
+                next_state = ST_CAPTURE
+                if self._enable_multi_shot:
+                    self.overlay_manager.deactivate_layer("three_shots")
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
             else:
@@ -553,26 +568,26 @@ class PhotoBooth:
                             })
                         self.set_capture_overlay()
                         self.mode_switched = True
-        elif self.state == "capture":
-            next_state = "process_capture"
+        elif self.state == ST_CAPTURE:
+            next_state = ST_PROCESS_CAPTURE
             self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
             self.capture_completed = False
             self.picam2.capture_arrays(["main"], signal_function=self.qpicamera2.signal_done)
-        elif self.state == "process_capture":
+        elif self.state == ST_PROCESS_CAPTURE:
             if self.capture_completed:
-                next_state = "display_capture"
+                next_state = ST_DISPLAY_CAPTURE
                 display_image = self.save_capture()
                 self.display_image(display_image)
                 self.timers.start("display_capture_timeout")
                 self.timers.start("display_image_timeout", self._display_first_image_time)
                 self.timers.start("qr_code_check")
-        elif self.state == "display_capture":
+        elif self.state == ST_DISPLAY_CAPTURE:
             if self.timers.check("display_capture_timeout"):
-                next_state = "idle"
+                next_state = ST_IDLE
             elif self.is_button_pressed() or (self.extra_shots > 0):
-                next_state = "countdown"
-                self.setup_state("countdown")
+                next_state = ST_COUNTDOWN
+                self.setup_state(ST_COUNTDOWN)
             else:
                 if self.timers.check("qr_code_check", auto_restart=True):
                     if self._display_image_name and not self._displaying_qr_code:
@@ -585,7 +600,7 @@ class PhotoBooth:
                     self.display_random_file()
                     self.timers.start("display_image_timeout", self._display_shuffle_time)
 
-            if next_state != "display_capture":
+            if next_state != ST_DISPLAY_CAPTURE:
                 # Reset the camera to the preview config when we leave this state
                 self.picam2.set_controls({
                         "ScalerCrop": self._prev_crop_rectangle,
@@ -609,12 +624,15 @@ class PhotoBooth:
         self.state = next_state
 
     def set_arrow_overlay(self, button_brightness):
-        if button_brightness < 0.5:
-            self.overlay_manager.deactivate_layer("arrow")
+        if self.state in [ST_IDLE, ST_DISPLAY_CAPTURE]:
+            if button_brightness < 0.5:
+                self.overlay_manager.deactivate_layer("arrow")
+            else:
+                self.overlay_manager.activate_layer("arrow")
         else:
-            self.overlay_manager.activate_layer("arrow")
+            self.overlay_manager.deactivate_layer("arrow")
 
-    def set_wifi_overlay(self):
+    def set_wifi_overlay(self):activate
         wifi_network = self.check_wifi_connection()
         if not wifi_network:
             self.overlay_manager.activate_layer(name="wifi")
