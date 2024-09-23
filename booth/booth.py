@@ -632,7 +632,7 @@ class PhotoBooth:
         else:
             self.overlay_manager.deactivate_layer("arrow")
 
-    def set_wifi_overlay(self):activate
+    def set_wifi_overlay(self):
         wifi_network = self.check_wifi_connection()
         if not wifi_network:
             self.overlay_manager.activate_layer(name="wifi")
