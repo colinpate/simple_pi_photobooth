@@ -133,10 +133,12 @@ class ImageGallery(RecycleView):
         
     def prepare_print(self, instance):
         print("Preparing print")
-        formatted_path, preview_path = self.print_formatter.format_print(self.print_selections)
+        print_path = "print_image.jpg"
+        preview_path = "formatted.png"
+        self.print_formatter.format_and_save_print(self.print_selections, print_path, preview_path)
         self.status_popup.dismiss()
         print("Showing preview popup")
-        self.show_print_preview_popup(formatted_path, preview_path)
+        self.show_print_preview_popup(print_path, preview_path)
         self.clear_selection()
         self.update_status_label()
 
