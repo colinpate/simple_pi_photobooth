@@ -237,8 +237,7 @@ class PhotoBooth:
         self.timers.start("button_release", SHUTDOWN_HOLD_TIME)
         self.timers.setup("display_capture_timeout", config["display_timeout"])
         self.timers.setup("qr_code_check", config["qr_check_time"])
-        self.timers.setup("wifi_check", config["wifi_check_time"])
-        self.timers.start("wifi_check")
+        self.timers.start("wifi_check", config["wifi_check_time"])
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
@@ -490,8 +489,6 @@ class PhotoBooth:
             
     def setup_state(self, next_state):
         if next_state == ST_COUNTDOWN:
-            if self._enable_multi_shot:
-                self.overlay_manager.activate_layer("three_shots")
             self.button_released = False
             if self.extra_shots > 0:
                 self.extra_shots -= 1
@@ -503,6 +500,8 @@ class PhotoBooth:
                 self.set_ae = True
                 self.led_fade_s = LED_FADE_S
                 self.led_end_s = LED_END_S
+                if self._enable_multi_shot:
+                    self.overlay_manager.activate_layer("three_shots")
                 self.timers.start("capture_countdown", COUNT_S)
             
         
