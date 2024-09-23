@@ -1,11 +1,10 @@
-# Backend
+# Backend settings
 gray_image_dir: "/home/colin/booth_photos/gray"
 color_image_dir: "/home/colin/booth_photos/color"
 original_image_dir: "/home/colin/booth_photos/original"
 qr_dir: "/home/colin/booth_qrs"
 photo_path_db: "/home/colin/booth_photos/photo_db.json"
 qr_path_db: "/home/colin/booth_qrs/qr_db.json"
-qr_check_time: 0.25 # Interval to check for QR codes
 color_postfix: "_color"
 gray_postfix: "_gray"
 enable_upload: true
@@ -14,7 +13,7 @@ photo_title: ""
 photo_caption: "Tap and hold to save!"
 request_timeout: 20
 
-# UI
+# UI settings
 qr_pos: [0, 405, 195, 195]
 display_gray: true
 display_first_image_time: 45 # Show the captured image for 45 seconds
@@ -28,6 +27,7 @@ wifi_check_time: 5 # Interval to check if the wifi is connected
 crop_preview: true # normally True
 continuous_cap: false # Capture photos constantly when in idle state, for debugging
 enable_multi_shot: true
+qr_check_time: 0.25 # Interval to check for QR codes
 
 overlays:
     arrow:
@@ -41,7 +41,7 @@ overlays:
         offset: [450,295]
         weight: 0.6
 
-# Photos
+# Photo settings
 lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"
 contrast: 1.1
 brightness: 0.05
