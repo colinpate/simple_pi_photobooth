@@ -121,9 +121,6 @@ class PhotoBooth:
     def __init__(self, config):
         self._config = config
         
-        self.state = None
-        self.next_state = self.state_idle
-        
         if config.get("lens_cal_file", None):
             print("using calibration from ", config["lens_cal_file"])
             self._lens_cal = load_lens_cal(config["lens_cal_file"])
@@ -199,6 +196,9 @@ class PhotoBooth:
         self.qpicamera2 = self.init_preview()
 
         self.setup_states()
+        
+        self.state = None
+        self.next_state = self.state_idle
 
     def setup_states(self):
         self.state_idle = booth_states.StateIdle(self)
@@ -426,6 +426,7 @@ class PhotoBooth:
         self.check_shutdown_button()
         
         if self.next_state != self.state:
+            print("Moving from", self.state, "to", self.next_state, "at", time.time() % 100)
             if self.state:
                 self.state.exit()
             self.state = self.next_state
