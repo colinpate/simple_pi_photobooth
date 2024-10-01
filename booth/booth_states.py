@@ -59,6 +59,7 @@ class StateCountdown(State):
         super().__init__(machine)
 
     def enter(self):
+        self.overlay_manager.set_main_image(None, exclusive=False)
         self.machine.set_cam_controls_preview(crop_preview=self.machine._config["crop_preview"])
         self.button_released = False
         self.exposure_set = False
