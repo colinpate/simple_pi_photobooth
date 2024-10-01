@@ -431,7 +431,7 @@ class PhotoBooth:
                 self.state.exit()
             self.state = self.next_state
             self.state.enter()
-        self.next_state = self.current_state.run()
+        self.next_state = self.state.run()
         
         # Update visuals
         button_brightness = self.set_button_led()
