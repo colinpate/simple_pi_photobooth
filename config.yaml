@@ -36,9 +36,9 @@ overlays:
         offset: [450,295]
         weight: 0.6
     three_shots:
-        path: "/home/colin/overlays/three_shots.png"
-        size: [434,150]
-        offset: [450,295]
+        path: "/home/colin/overlays/three_shots_v2.png"
+        size: [700,100]
+        offset: [500,162]
         weight: 0.6
 
 # Photo settings
