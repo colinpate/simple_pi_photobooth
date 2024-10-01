@@ -32,8 +32,8 @@ class State:
     
 
 class StateIdle(State):
-    def __init__(self, kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, machine):
+        super().__init__(machine)
         self.first_run = True
 
     def enter(self):
@@ -55,11 +55,11 @@ class StateIdle(State):
 
 
 class StateCountdown(State):
-    def __init__(self, kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, machine):
+        super().__init__(machine)
 
     def enter(self):
-        self.machine.set_cam_controls_preview(crop_preview=True)
+        self.machine.set_cam_controls_preview(crop_preview=self.machine._config["crop_preview"])
         self.button_released = False
         self.exposure_set = False
         self.mode_switched = False
@@ -80,7 +80,9 @@ class StateCountdown(State):
             self.timers.start("capture_countdown", COUNT_S)
 
     def exit(self):
-        return
+        print("Capturing at", self.timers.time_left("capture_countdown"))
+        if self.machine._enable_multi_shot:
+            self.overlay_manager.deactivate_layer("three_shots")
     
     def run(self):
         if self.machine._enable_multi_shot:
@@ -94,9 +96,6 @@ class StateCountdown(State):
                         self.overlay_manager.deactivate_layer("three_shots")
                 
         if self.timers.check("capture_countdown"):
-            print("Capturing at", self.timers.time_left("capture_countdown"))
-            if self.machine._enable_multi_shot:
-                self.overlay_manager.deactivate_layer("three_shots")
             return self.machine.state_capture
         else:
             self.apply_timestamp_overlay()
@@ -130,13 +129,20 @@ class StateCountdown(State):
         countdown = str(int(np.ceil(self.timers.time_left("capture_countdown"))))
         if countdown != self.countdown_timestamp:
             self.countdown_timestamp = countdown
+            DISPLAY_WIDTH=1024
+            DISPLAY_HEIGHT=600
+            colour = (255, 255, 255, 255)
+            font = cv2.FONT_HERSHEY_DUPLEX
+            origin = (int(DISPLAY_WIDTH / 2 - 62), int(DISPLAY_HEIGHT / 2 + 62))
+            scale = 6
+            thickness = 10
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
             self.overlay_manager.set_main_image(overlay, exclusive=False)
     
 class StateCapture(State):
-    def __init__(self, kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, machine):
+        super().__init__(machine)
 
     def enter(self):
         cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
@@ -157,8 +163,8 @@ class StateCapture(State):
         return self
     
 class StateDisplayCapture(State):
-    def __init__(self, kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, machine):
+        super().__init__(machine)
         self.timers.setup("display_capture_timeout", self.machine._config["display_timeout"])
         self.timers.setup("qr_code_check", self.machine._config["qr_check_time"])
         self._displaying_qr_code = False

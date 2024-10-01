@@ -23,6 +23,7 @@ from common.timers import Timers
 from common.common import load_config
 from apply_watermark import ApplyWatermark
 from overlay_manager import OverlayManager
+import booth_states
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -89,14 +90,6 @@ wifi_text_scale = 0.75
 wifi_text_thickness = 1
 cv2.putText(NO_WIFI_OVERLAY, "Wifi not connected", wifi_text_origin, font, wifi_text_scale, colour, wifi_text_thickness)
     
-# States
-ST_IDLE = 1
-ST_COUNTDOWN = 2
-ST_CAPTURE = 3
-ST_PROCESS_CAPTURE = 4
-ST_DISPLAY_CAPTURE = 5
-    
-    
 def close_window(event):
     photo_booth.stop_pwm()
     sys.exit(0)
@@ -128,7 +121,8 @@ class PhotoBooth:
     def __init__(self, config):
         self._config = config
         
-        self.state = ST_IDLE
+        self.state = None
+        self.next_state = self.state_idle
         
         if config.get("lens_cal_file", None):
             print("using calibration from ", config["lens_cal_file"])
@@ -204,8 +198,13 @@ class PhotoBooth:
         self.picam2 = self.init_camera()
         self.qpicamera2 = self.init_preview()
 
-    def setup_states(self):
+        self.setup_states()
 
+    def setup_states(self):
+        self.state_idle = booth_states.StateIdle(self)
+        self.state_countdown = booth_states.StateCountdown(self)
+        self.state_capture = booth_states.StateCapture(self)
+        self.state_display_capture = booth_states.StateDisplayCapture(self)
 
     def get_prev_crop_rectangle(self, crop_to_screen=True):
         # Crop the preview vertically so it doesn't look weird
@@ -414,9 +413,9 @@ class PhotoBooth:
             pulse_time = self._button_pulse_time - pulse_time
         ratio = pulse_time / half_pulse_time
         
-        if self.state == ST_COUNTDOWN:
+        if self.state == self.state_countdown:
             self.change_button_led_dc(0)
-        elif (self.state == ST_IDLE) or (self.state == ST_DISPLAY_CAPTURE):
+        elif (self.state == self.state_idle) or (self.state == self.state_display_capture):
             pwm_ratio = np.exp(ratio * 3) / np.exp(3)
             pwm_val = pwm_ratio * 100
             self.change_button_led_dc(pwm_val)
@@ -445,7 +444,7 @@ class PhotoBooth:
             self.qpicamera2.set_overlay(overlay)
 
     def set_arrow_overlay(self, button_brightness):
-        if self.state in [ST_IDLE, ST_DISPLAY_CAPTURE]:
+        if self.state in [self.state_idle, self.state_display_capture]:
             if button_brightness < 0.5:
                 self.overlay_manager.deactivate_layer("arrow")
             else:
