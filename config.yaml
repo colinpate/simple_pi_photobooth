@@ -40,6 +40,32 @@ overlays:
         size: [700,100]
         offset: [500,162]
         weight: 0.6
+    countdown_5:
+        path: "/home/colin/overlays/Countdown_5.png"
+        size: [258,280]
+        offset: [160,383]
+        weight:1
+    countdown_4:
+        path: "/home/colin/overlays/Countdown_4.png"
+        size: [258,280]
+        offset: [160,383]
+        weight:1
+    countdown_3:
+        path: "/home/colin/overlays/Countdown_3.png"
+        size: [258,280]
+        offset: [160,383]
+        weight:1
+    countdown_2:
+        path: "/home/colin/overlays/Countdown_2.png"
+        size: [258,280]
+        offset: [160,383]
+        weight:1
+    countdown_1:
+        path: "/home/colin/overlays/Countdown_1.png"
+        size: [258,280]
+        offset: [160,383]
+        weight:1
+
 
 # Photo settings
 lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"

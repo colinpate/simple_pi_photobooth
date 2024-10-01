@@ -65,6 +65,7 @@ class StateCountdown(State):
         self.mode_switched = False
         self.exposure_set_s = EXPOSURE_SET_S
         self.countdown_timestamp = -1
+        self.countdown_layer_name = ""
         if self.machine.extra_shots > 0:
             self.machine.extra_shots -= 1
             self.set_ae = False
@@ -81,6 +82,8 @@ class StateCountdown(State):
 
     def exit(self):
         print("Capturing at", self.timers.time_left("capture_countdown"))
+        if self.countdown_layer_name:
+            self.overlay_manager.deactivate_layer(self.countdown_layer_name)
         if self.machine._enable_multi_shot:
             self.overlay_manager.deactivate_layer("three_shots")
     
@@ -128,17 +131,17 @@ class StateCountdown(State):
     def apply_timestamp_overlay(self):
         countdown = str(int(np.ceil(self.timers.time_left("capture_countdown"))))
         if countdown != self.countdown_timestamp:
+            if self.countdown_layer_name:
+                self.overlay_manager.deactivate_layer(self.countdown_layer_name)
+                
             self.countdown_timestamp = countdown
-            DISPLAY_WIDTH=1024
-            DISPLAY_HEIGHT=600
-            colour = (255, 255, 255, 255)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            origin = (int(DISPLAY_WIDTH / 2 - 62), int(DISPLAY_HEIGHT / 2 + 62))
-            scale = 6
-            thickness = 10
-            overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
-            cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            self.overlay_manager.set_main_image(overlay, exclusive=False)
+
+            countdown_layer_name = f"countdown_{self.countdown_timestamp}"
+            if countdown_layer_name in self.overlay_manager.layers:
+                self.countdown_layer_name = countdown_layer_name
+                self.overlay_manager.activate_layer(self.countdown_layer_name)
+            else:
+                self.countdown_layer_name = ""
     
 class StateCapture(State):
     def __init__(self, machine):
