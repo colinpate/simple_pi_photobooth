@@ -22,6 +22,7 @@ from common.image_path_db import ImagePathDB
 from common.timers import Timers
 from common.common import load_config
 from apply_watermark import ApplyWatermark
+from overlay_manager import OverlayManager
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -40,6 +41,11 @@ LED_END_S = 0.71 # How long before capture to hit 100% brightness
 EXPOSURE_SET_S = 1.31 # How long before capture to set exposure
 PRE_CONTROL_S = 0.31 # How long before capture to set the camera controls
 COUNT_S = 5
+
+# Capture sequence timing on 2nd and 3rd shots
+LED_FADE_S_EXTRA_SHOT = 0.51 # How long before capture to start brightening LEDs
+LED_END_S_EXTRA_SHOT = 0.31 # How long before capture to hit 100% brightness
+COUNT_S_EXTRA_SHOT = 3
 
 AWB_MODE = controls.AwbModeEnum.Indoor
 AE_MODE = controls.AeExposureModeEnum.Short
@@ -95,6 +101,13 @@ wifi_text_scale = 0.75
 wifi_text_thickness = 1
 cv2.putText(NO_WIFI_OVERLAY, "Wifi not connected", wifi_text_origin, font, wifi_text_scale, colour, wifi_text_thickness)
     
+# States
+ST_IDLE = 1
+ST_COUNTDOWN = 2
+ST_CAPTURE = 3
+ST_PROCESS_CAPTURE = 4
+ST_DISPLAY_CAPTURE = 5
+    
 def get_prev_crop_rectangle(crop_to_screen=True):
     # Crop the preview vertically so it doesn't look weird
     if crop_to_screen:
@@ -141,12 +154,25 @@ def get_exif(w, h, datetime_stamp, postfix=""):
     
 class PhotoBooth:
     def __init__(self, config):
-        self.state = "idle"
+        self._config = config
+        
+        self.state = ST_IDLE
+        
+        # capture state variables
         self.cap_timestamp_str = ""
+        self.capture_completed = False
+        
+        # countdown state variables
         self.mode_switched = False
         self.exposure_set = False
-        self._config = config
-        self.timestamps = {}
+        self.button_released = False
+        self.extra_shots = 0
+        self.countdown_timestamp = -1
+        self.set_ae = True
+        self.exposure_set_s = EXPOSURE_SET_S
+        self.led_fade_s = LED_FADE_S
+        self.led_end_s = LED_END_S
+        
         if config.get("lens_cal_file", None):
             print("using calibration from ", config["lens_cal_file"])
             self._lens_cal = load_lens_cal(config["lens_cal_file"])
@@ -172,13 +198,13 @@ class PhotoBooth:
         self._button_pulse_time = config["button_pulse_time"]
         self._contrast = float(config["contrast"])
         self._brightness = float(config["brightness"])
+        self._enable_multi_shot = config["enable_multi_shot"]
         
-        self._overlay = None
-        self._overlay_exclusive = False
+        self.overlay_manager = OverlayManager(DISPLAY_WIDTH, DISPLAY_HEIGHT)
+        self.setup_overlays(config["overlays"])
         self._display_overlay = None
         self._displaying_qr_code = False
         self._display_image_name = None
-        self._displaying_first_image = False
         
         self.photo_path_db = ImagePathDB(config["photo_path_db"])
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
@@ -207,14 +233,11 @@ class PhotoBooth:
         self.init_gpio()
         self.set_leds(idle=True)
         
-        self.capture_start_time = time.perf_counter()
-        
         self.timers = Timers()
         self.timers.start("button_release", SHUTDOWN_HOLD_TIME)
         self.timers.setup("display_capture_timeout", config["display_timeout"])
         self.timers.setup("qr_code_check", config["qr_check_time"])
-        self.timers.setup("wifi_check", config["wifi_check_time"])
-        self.timers.start("wifi_check")
+        self.timers.start("wifi_check", config["wifi_check_time"])
         
         self._prev_crop_rectangle = get_prev_crop_rectangle(crop_to_screen=config["crop_preview"])
         self._prev_saturation = 0 if config["display_gray"] else 1
@@ -274,8 +297,15 @@ class PhotoBooth:
         qpicamera2.showFullScreen()
         return qpicamera2
 
+    def setup_overlays(self, overlay_config):
+        self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
+        
+        for name, config in overlay_config.items():
+            image = cv2.imread(config["path"], cv2.IMREAD_UNCHANGED)
+            self.overlay_manager.set_layer(image, name=name, size=config["size"], offset=config["offset"], weight=config["weight"])
+        
     def set_capture_overlay(self):
-        self.set_overlay(CAPTURE_OVERLAY, exclusive = True)
+        self.overlay_manager.set_main_image(CAPTURE_OVERLAY, exclusive = True)
 
     def init_gpio(self):
         self.init_button()
@@ -317,18 +347,21 @@ class PhotoBooth:
         
     def apply_timestamp_overlay(self):
         countdown = str(int(np.ceil(self.timers.time_left("capture_countdown"))))
-        if countdown != self.timestamps.get("countdown", -1):
-            self.timestamps["countdown"] = countdown
+        if countdown != self.countdown_timestamp:
+            self.countdown_timestamp = countdown
             overlay = np.zeros((DISPLAY_HEIGHT, DISPLAY_WIDTH, 4), dtype=np.uint8)
             cv2.putText(overlay, countdown, origin, font, scale, colour, thickness)
-            self.set_overlay(overlay, exclusive=True)
+            self.overlay_manager.set_main_image(overlay, exclusive=False)
     
     def capture_done(self, job):
         (self.image_array,), metadata = self.picam2.wait(job)
         self.set_leds(idle=True)
-        #print("Capture time", time.perf_counter() - self.capture_start_time)
+        self.qpicamera2.set_overlay(BLACK_OVERLAY)
+        self.capture_completed = True
+        
         self.exposure_settings["AnalogueGain"] = metadata["AnalogueGain"]
         self.exposure_settings["ExposureTime"] = metadata["ExposureTime"]
+        
         print(self.exposure_settings)
         print(
                 "CAP",
@@ -336,13 +369,9 @@ class PhotoBooth:
                 "AeLocked", metadata.get("AeLocked", ""),
                 "Saturation", metadata.get("Saturation", ""),
             )
-        #pprint(metadata)
         print("Color gains", metadata["ColourGains"])
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
-        self.set_overlay(BLACK_OVERLAY, exclusive=True)
-        display_image = self.save_capture()
-        self.display_image(display_image)
     
     def save_capture(self):
         orig_image = self.image_array
@@ -418,7 +447,7 @@ class PhotoBooth:
         q_pos = self._config["qr_pos"]
         resized_qrcode = cv2.resize(qr_code, (q_pos[2], q_pos[3]), cv2.INTER_NEAREST)
         self._display_overlay[q_pos[1]:q_pos[1]+q_pos[3],q_pos[0]:q_pos[0]+q_pos[2],:3] = resized_qrcode
-        self.set_overlay(self._display_overlay)
+        self.overlay_manager.set_main_image(self._display_overlay, exclusive=False)
         
     def display_image(self, bgr_image, qr_code=None):
         new_dims = (DISPLAY_IMG_WIDTH, DISPLAY_IMG_HEIGHT)
@@ -432,7 +461,7 @@ class PhotoBooth:
         if qr_code is not None:
             self.add_qr_code(qr_code)
         
-        self.set_overlay(self._display_overlay)
+        self.overlay_manager.set_main_image(self._display_overlay, exclusive=False)
         
     def check_shutdown_button(self):
         if self.is_button_pressed():
@@ -443,58 +472,86 @@ class PhotoBooth:
         else:
             self.timers.restart("button_release")
             
-    def set_button_led(self, perf_counter):
-        if self.state == "countdown":
+    def set_button_led(self):
+        pulse_time = time.perf_counter() % self._button_pulse_time
+        half_pulse_time = self._button_pulse_time / 2
+        if pulse_time > half_pulse_time:
+            pulse_time = self._button_pulse_time - pulse_time
+        ratio = pulse_time / half_pulse_time
+        
+        if self.state == ST_COUNTDOWN:
             self.change_button_led_dc(0)
-        elif (self.state == "idle") or (self.state == "display_capture"):
-            pulse_time = perf_counter % self._button_pulse_time
-            half_pulse_time = self._button_pulse_time / 2
-            if pulse_time > half_pulse_time:
-                pulse_time = self._button_pulse_time - pulse_time
-             
-            ratio = pulse_time / half_pulse_time
+        elif (self.state == ST_IDLE) or (self.state == ST_DISPLAY_CAPTURE):
             pwm_ratio = np.exp(ratio * 3) / np.exp(3)
             pwm_val = pwm_ratio * 100
             self.change_button_led_dc(pwm_val)
+        return ratio
+            
+    def setup_state(self, next_state):
+        if next_state == ST_COUNTDOWN:
+            self.button_released = False
+            if self.extra_shots > 0:
+                self.extra_shots -= 1
+                self.set_ae = False
+                self.led_fade_s = LED_FADE_S_EXTRA_SHOT
+                self.led_end_s = LED_END_S_EXTRA_SHOT
+                self.timers.start("capture_countdown", COUNT_S_EXTRA_SHOT)
+            else:
+                self.set_ae = True
+                self.led_fade_s = LED_FADE_S
+                self.led_end_s = LED_END_S
+                if self._enable_multi_shot:
+                    self.overlay_manager.activate_layer("three_shots")
+                self.timers.start("capture_countdown", COUNT_S)
+            
         
     def main_loop(self):
         self.timers.update_time()
-    
-        perf_counter = time.perf_counter()
-        
         self.check_shutdown_button()
-        
-        self.set_button_led(perf_counter)
         
         next_state = self.state
 
-        if self.state == "idle":
+        if self.state == ST_IDLE:
             if self.is_button_pressed() or self._continuous_cap:
-                next_state = "countdown"
-                self.timers.start("capture_countdown", COUNT_S)
-        elif self.state == "countdown":
+                next_state = ST_COUNTDOWN
+                self.extra_shots = 0
+                self.setup_state(ST_COUNTDOWN)
+        elif self.state == ST_COUNTDOWN:
+            if self._enable_multi_shot:
+                if not self.is_button_pressed():
+                    self.button_released = True
+                else:
+                    if self.button_released:
+                        self.button_released = False
+                        if self.extra_shots == 0:
+                            self.extra_shots = 2
+                            self.overlay_manager.deactivate_layer("three_shots")
+                        elif self.extra_shots == 2:
+                            self.extra_shots = 0
+                    
             if self.timers.check("capture_countdown"):
                 print("Capturing at", self.timers.time_left("capture_countdown"))
-                next_state = "capture"
+                next_state = ST_CAPTURE
+                if self._enable_multi_shot:
+                    self.overlay_manager.deactivate_layer("three_shots")
                 self.exposure_set = False # Reset for next time
                 self.mode_switched = False # Reset for next time
-                self.capture_start_time = perf_counter
             else:
                 self.apply_timestamp_overlay()
                 time_left = self.timers.time_left("capture_countdown")
-                if time_left <= LED_FADE_S:
-                    led_fade = (LED_FADE_S - time_left) / (LED_FADE_S - LED_END_S)
+                if time_left <= self.led_fade_s:
+                    led_fade = (self.led_fade_s - time_left) / (self.led_fade_s - self.led_end_s)
                     self.set_leds(fade=led_fade)
                     
-                if time_left <= EXPOSURE_SET_S:
+                if time_left <= self.exposure_set_s:
                     if not self.exposure_set:
                         print("Setting exposure at", self.timers.time_left("capture_countdown"))
                         self.picam2.set_controls(
                             self.exposure_settings
                         )
                         self.exposure_set = True
-                    else: # After setting the exposure, turn on Autoexposure so it can adjust if needed
-                        if time_left > (EXPOSURE_SET_S - 0.2):
+                    elif self.set_ae: # After setting the exposure, turn on Autoexposure so it can adjust if needed
+                        if time_left > (self.exposure_set_s - 0.2):
                             # Spam this for 0.2s
                             print("Setting AE true")
                             self.picam2.set_controls({"AeEnable": True})
@@ -510,20 +567,26 @@ class PhotoBooth:
                             })
                         self.set_capture_overlay()
                         self.mode_switched = True
-        elif self.state == "capture":
-            next_state = "display_capture"
-            self.timers.start("display_capture_timeout")
-            self.timers.start("display_image_timeout", self._display_first_image_time)
-            self.timers.start("qr_code_check")
+        elif self.state == ST_CAPTURE:
+            next_state = ST_PROCESS_CAPTURE
             self.cap_timestamp_str = time.strftime("%y%m%d_%H%M%S")
             print("Captured", self.cap_timestamp_str)
+            self.capture_completed = False
             self.picam2.capture_arrays(["main"], signal_function=self.qpicamera2.signal_done)
-        elif self.state == "display_capture":
+        elif self.state == ST_PROCESS_CAPTURE:
+            if self.capture_completed:
+                next_state = ST_DISPLAY_CAPTURE
+                display_image = self.save_capture()
+                self.display_image(display_image)
+                self.timers.start("display_capture_timeout")
+                self.timers.start("display_image_timeout", self._display_first_image_time)
+                self.timers.start("qr_code_check")
+        elif self.state == ST_DISPLAY_CAPTURE:
             if self.timers.check("display_capture_timeout"):
-                next_state = "idle"
-            elif self.is_button_pressed():
-                self.timers.start("capture_countdown", COUNT_S)
-                next_state = "countdown"
+                next_state = ST_IDLE
+            elif self.is_button_pressed() or (self.extra_shots > 0):
+                next_state = ST_COUNTDOWN
+                self.setup_state(ST_COUNTDOWN)
             else:
                 if self.timers.check("qr_code_check", auto_restart=True):
                     if self._display_image_name and not self._displaying_qr_code:
@@ -536,44 +599,44 @@ class PhotoBooth:
                     self.display_random_file()
                     self.timers.start("display_image_timeout", self._display_shuffle_time)
 
-            if next_state != "display_capture":
+            if next_state != ST_DISPLAY_CAPTURE:
                 # Reset the camera to the preview config when we leave this state
                 self.picam2.set_controls({
                         "ScalerCrop": self._prev_crop_rectangle,
                         "Saturation": self._prev_saturation,
                         "AeEnable": True,
                     })
-                self.set_overlay(None)
-
-        self.state = next_state
+                self.overlay_manager.set_main_image(None, exclusive=False)
         
-        if self.wifi_check:
+        # Update visuals
+        button_brightness = self.set_button_led()
+        self.set_arrow_overlay(button_brightness)
+        
+        if self.wifi_check and self.timers.check("wifi_check", auto_restart=True):
             self.set_wifi_overlay()
+            
+        new_overlay, overlay = self.overlay_manager.update_overlay()
+        if new_overlay:
+            self.qpicamera2.set_overlay(overlay)
 
-    def set_overlay(self, overlay = None, exclusive = False):
-        self._overlay = overlay
-        self._overlay_exclusive = exclusive
-        self.qpicamera2.set_overlay(self._overlay)
+        # Update state
+        self.state = next_state
 
-    def add_extra_overlay(self, new_overlay):
-        if not self._overlay_exclusive:
-            if self._overlay is not None:
-                overlay = np.clip(new_overlay + self._overlay, a_min=0, a_max=255)
+    def set_arrow_overlay(self, button_brightness):
+        if self.state in [ST_IDLE, ST_DISPLAY_CAPTURE]:
+            if button_brightness < 0.5:
+                self.overlay_manager.deactivate_layer("arrow")
             else:
-                overlay = new_overlay
-        self.qpicamera2.set_overlay(overlay)
-
-    def remove_extra_overlay(self):
-        self.set_overlay(self._overlay, self._overlay_exclusive)
+                self.overlay_manager.activate_layer("arrow")
+        else:
+            self.overlay_manager.deactivate_layer("arrow")
 
     def set_wifi_overlay(self):
-        if not self._overlay_exclusive:
-            if self.timers.check("wifi_check", auto_restart=True):
-                wifi_network = self.check_wifi_connection()
-                if not wifi_network:
-                    self.add_extra_overlay(NO_WIFI_OVERLAY)
-                else:
-                    self.remove_extra_overlay()
+        wifi_network = self.check_wifi_connection()
+        if not wifi_network:
+            self.overlay_manager.activate_layer(name="wifi")
+        else:
+            self.overlay_manager.deactivate_layer(name="wifi")
 
     def check_wifi_connection(self):
         try:
