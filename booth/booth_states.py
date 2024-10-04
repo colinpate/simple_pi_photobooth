@@ -216,7 +216,7 @@ class StateDisplayCapture(State):
         photo_names = list(self.machine.photo_path_db.image_names())
         num_files = len(photo_names)
         name = photo_names[random.randrange(num_files)]
-        photo_path = self.machine.photo_path_db.get_image_path(name, self._display_postfix)
+        photo_path = self.machine.photo_path_db.get_image_path(name, self.machine._display_postfix)
         image = None
         if os.path.exists(photo_path):
             self._display_image_name = name
