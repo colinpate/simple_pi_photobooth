@@ -45,8 +45,14 @@ class S3Status:
 
 uploader = S3Status()
 config = load_config("print_config")
+file_path = config["status_file_path"]
+file_content = ""
 
 while True:
-    url = uploader.upload_file(config["status_file_path"])
-    print(url)
-    time.sleep(int(config["status_update_interval"]))
+    with open(file_path, "r") as file_obj:
+        data = file_obj.read()
+    if data != file_content:
+        file_content = data
+        url = uploader.upload_file()
+        print(url)
+    time.sleep(10)
