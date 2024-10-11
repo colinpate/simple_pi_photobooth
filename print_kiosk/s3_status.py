@@ -4,6 +4,7 @@ from botocore.exceptions import NoCredentialsError
 import yaml
 import time
 from common.common import load_config
+from uploader.upload_to_s3 import wait_for_network_connection
 
 def get_keys(key_path):
     with open(key_path, "r") as key_file:
@@ -43,6 +44,7 @@ class S3Status:
         url = f"https://{self.bucket_name}.s3.{location}.amazonaws.com/{file_name}"
         return url
 
+wait_for_network_connection()
 uploader = S3Status()
 config = load_config("print_config")
 file_path = config["status_file_path"]
