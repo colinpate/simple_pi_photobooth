@@ -29,7 +29,14 @@ class S3Status:
     def upload_file(self, file_path):
         # Upload file
         file_name = os.path.split(file_path)[-1]
-        self.s3.Bucket(self.bucket_name).upload_file(Filename=file_path, Key=file_name)#, ExtraArgs={'ACL': 'public-read'})
+        self.s3.Bucket(self.bucket_name).upload_file(
+            Filename=file_path,
+            Key=file_name,
+            ExtraArgs={
+                'ContentType': 'application/json',
+                'ContentDisposition': 'inline'
+            }
+        )
             
         # Construct URL
         location = boto3.client('s3').get_bucket_location(Bucket=self.bucket_name)['LocationConstraint']

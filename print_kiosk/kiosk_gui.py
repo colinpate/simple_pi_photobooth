@@ -118,7 +118,7 @@ class ImageGallery(RecycleView):
         if self.status_file_path:
             try:
                 with open(self.status_file_path, "w") as status_file:
-                    timestamp = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                    timestamp = time.strftime("%y/%m/%d %H:%M:%S")
                     print_level = str(self.get_printer_marker_level())
                     connected = str(self.booth_sync.is_nfs_mounted())
                     status = {
