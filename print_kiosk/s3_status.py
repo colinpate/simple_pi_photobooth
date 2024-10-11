@@ -53,6 +53,6 @@ while True:
         data = file_obj.read()
     if data != file_content:
         file_content = data
-        url = uploader.upload_file()
+        url = uploader.upload_file(file_path)
         print(url)
     time.sleep(10)
