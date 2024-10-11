@@ -29,7 +29,7 @@ import sys
 from collections import OrderedDict
 import time
 import json
-import datetime
+from datetime import datetime
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -118,7 +118,7 @@ class ImageGallery(RecycleView):
         if self.status_file_path:
             try:
                 with open(self.status_file_path, "w") as status_file:
-                    timestamp = datetime.now.strftime("%Y:%m:%d %H:%M:%S")
+                    timestamp = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                     print_level = str(self.get_printer_marker_level())
                     connected = str(self.booth_sync.is_nfs_mounted())
                     status = {
@@ -142,8 +142,11 @@ class ImageGallery(RecycleView):
         return attrs
         
     def get_printer_marker_level(self):
-        attrs = self.get_printer_info()
-        marker_level = attrs.get("marker-levels", [100])[0]
+        if not LOCAL_TEST:
+            attrs = self.get_printer_info()
+            marker_level = attrs.get("marker-levels", [100])[0]
+        else:
+            marker_level = 39
         return marker_level
         
     def clear_selection(self):
