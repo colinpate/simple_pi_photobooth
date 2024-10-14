@@ -46,8 +46,8 @@ def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
         success = True
     except Exception as foo:
         photo_error_id = photo_name + postfix
-        print("upload_to_s3.py: Failed to upload", photo_error_id)
-        print("upload_to_s3.py: Exception", foo)
+        print("upload_photos.py: Failed to upload", photo_error_id)
+        print("upload_photos.py: Exception", foo)
         photo_error_id = photo_name + postfix
         if photo_error_id not in error_photos:
             with open("/home/colin/upload_error.txt", "a") as err_file:
@@ -69,7 +69,7 @@ def main():
     display_postfix = gray_postfix if display_gray else color_postfix
     other_postfix = color_postfix if display_gray else gray_postfix
     
-    print("upload_to_s3.py: Saving QR codes to", qr_dir)
+    print("upload_photos.py: Saving QR codes to", qr_dir)
     
     wait_for_network_connection()
     
@@ -94,11 +94,11 @@ def main():
         
         if len(missing_qr_names):
             print()
-            print("upload_to_s3.py: Missing qr codes")
+            print("upload_photos.py: Missing qr codes")
             print(missing_qr_names)
             
             if not config.get("enable_upload", True):
-                print("upload_to_s3.py: Upload disabled, skipping")
+                print("upload_photos.py: Upload disabled, skipping")
                 time.sleep(1)
                 continue
     
@@ -113,8 +113,8 @@ def main():
             create_qr_code(qr_target, qr_path)
             qr_db.add_image(photo_name, qr_path)
             qr_db.update_file()
-            print("upload_to_s3.py: Qr target", qr_target)
-            print("upload_to_s3.py: Qr path", qr_path)
+            print("upload_photos.py: Qr target", qr_target)
+            print("upload_photos.py: Qr path", qr_path)
                 
             # Then if that succeeds, try to upload the other photo
             attempt_upload(photo_name, other_postfix, error_photos, photo_db, service)
