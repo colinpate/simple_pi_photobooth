@@ -1,9 +1,6 @@
-import yaml
 import qrcode
-import glob
 import time
 import os
-import socket
 import time
 from datetime import datetime
 from common.common import load_config
@@ -12,33 +9,7 @@ from uploader.photo_service import PhotoService
 from uploader.google_photos_upload import GooglePhotos
 from uploader.smugmug import SmugMug
 from uploader.s3_photos import S3Photos
-
-
-def check_network_connection(host="8.8.8.8", port=53, timeout=3):
-    """
-    Check network connectivity by trying to connect to a specific host and port.
-    Google's public DNS server at 8.8.8.8 over port 53 (DNS) is used as default.
-    """
-    try:
-        socket.setdefaulttimeout(timeout)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port))
-        sock.close()
-        return True
-    except socket.error as ex:
-        print(f"Network is not reachable. Error: {ex}")
-        return False
-
-
-def wait_for_network_connection():
-    """
-    Wait indefinitely until the network is available.
-    """
-    print("upload_to_s3.py: Waiting for network connection...")
-    while not check_network_connection():
-        time.sleep(5)  # wait for 5 seconds before checking again
-    print("upload_to_s3.py: Network connection established.")
-
+from common.common import wait_for_network_connection
 
 def create_qr_code(url, qr_code_file_path):
     """
@@ -75,8 +46,8 @@ def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
         success = True
     except Exception as foo:
         photo_error_id = photo_name + postfix
-        print("upload_to_s3.py: Failed to upload", photo_error_id)
-        print("upload_to_s3.py: Exception", foo)
+        print("upload_photos.py: Failed to upload", photo_error_id)
+        print("upload_photos.py: Exception", foo)
         photo_error_id = photo_name + postfix
         if photo_error_id not in error_photos:
             with open("/home/colin/upload_error.txt", "a") as err_file:
@@ -98,7 +69,7 @@ def main():
     display_postfix = gray_postfix if display_gray else color_postfix
     other_postfix = color_postfix if display_gray else gray_postfix
     
-    print("upload_to_s3.py: Saving QR codes to", qr_dir)
+    print("upload_photos.py: Saving QR codes to", qr_dir)
     
     wait_for_network_connection()
     
@@ -123,11 +94,11 @@ def main():
         
         if len(missing_qr_names):
             print()
-            print("upload_to_s3.py: Missing qr codes")
+            print("upload_photos.py: Missing qr codes")
             print(missing_qr_names)
             
             if not config.get("enable_upload", True):
-                print("upload_to_s3.py: Upload disabled, skipping")
+                print("upload_photos.py: Upload disabled, skipping")
                 time.sleep(1)
                 continue
     
@@ -142,8 +113,8 @@ def main():
             create_qr_code(qr_target, qr_path)
             qr_db.add_image(photo_name, qr_path)
             qr_db.update_file()
-            print("upload_to_s3.py: Qr target", qr_target)
-            print("upload_to_s3.py: Qr path", qr_path)
+            print("upload_photos.py: Qr target", qr_target)
+            print("upload_photos.py: Qr path", qr_path)
                 
             # Then if that succeeds, try to upload the other photo
             attempt_upload(photo_name, other_postfix, error_photos, photo_db, service)

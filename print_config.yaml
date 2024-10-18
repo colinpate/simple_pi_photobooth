@@ -18,3 +18,5 @@ splash_timeout: 60
 #    logo_width_scale: 0.6
 #    enable: true
 print_format: "2x6"
+status_file_path: "/home/colin/print_status.json"
+status_update_interval: 120

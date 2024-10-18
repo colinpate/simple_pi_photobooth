@@ -28,6 +28,8 @@ import os
 import sys
 from collections import OrderedDict
 import time
+import json
+from datetime import datetime
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -90,6 +92,8 @@ class ImageGallery(RecycleView):
             
         self.photo_dir = config["photo_dir"]
         self.remote_photo_dir = config["remote_photo_dir"]
+        self.status_file_path = config.get("status_file_path", "")
+        self.status_update_interval = config.get("status_update_interval", 60)
         
         #if "fill_dir" in config.keys():
         #    self.fill_image_path_db(config["fill_dir"])
@@ -108,6 +112,25 @@ class ImageGallery(RecycleView):
             self.setup_printer()
         
         Clock.schedule_once(self.update_data, 0)
+        Clock.schedule_once(self.update_status_file, 0)
+
+    def update_status_file(self, dt):
+        if self.status_file_path:
+            try:
+                with open(self.status_file_path, "w") as status_file:
+                    timestamp = time.strftime("%y/%m/%d %H:%M:%S")
+                    print_level = str(self.get_printer_marker_level())
+                    connected = str(self.booth_sync.is_nfs_mounted())
+                    status = {
+                        "timestamp": timestamp,
+                        "print_level": print_level,
+                        "connected": connected
+                    }
+                    json.dump(status, status_file)
+                print(f"Wrote {status} to json file")
+            except Exception as e:
+                print("Failed to write to json file, error ", e)
+            Clock.schedule_once(self.update_status_file, self.status_update_interval)
 
     def setup_printer(self):
         self.conn = cups.Connection()
@@ -119,8 +142,11 @@ class ImageGallery(RecycleView):
         return attrs
         
     def get_printer_marker_level(self):
-        attrs = self.get_printer_info()
-        marker_level = attrs.get("marker-levels", [100])[0]
+        if not LOCAL_TEST:
+            attrs = self.get_printer_info()
+            marker_level = attrs.get("marker-levels", [100])[0]
+        else:
+            marker_level = 39
         return marker_level
         
     def clear_selection(self):
