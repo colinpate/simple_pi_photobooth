@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 import glob
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from booth.apply_watermark import ApplyWatermark
 from argparse import ArgumentParser
 from pprint import pprint
@@ -16,14 +19,14 @@ def get_args():
     parser.add_argument("-f", "--photo_dir", required=True,
                         help="Where to pick .jpg files from to put in the print")
                         
-    parser.add_argument("-p", "--watermark_path",
+    parser.add_argument("--watermark_path",
                         help="Path to watermark")
+                        
+    parser.add_argument("-o", "--yaml_path",
+                        help="Path to save the config yaml file to")
                         
     parser.add_argument("-w", "--weight", type=float, default=1,
                         help="Weight (opaqueness) of the watermark")
-                        
-    parser.add_argument("-o", "--yaml_path",
-                        help="Path to save the yaml config to")
                         
     parser.add_argument("-x", "--x_offset", type=int, default=0,
                         help="Watermark x offset")
@@ -92,18 +95,19 @@ if __name__ == "__main__":
         cv2.imwrite(out_path, in_image)
     
     scp = input("Transfer new config and watermark to Photo Booth? y/(n)/d (d=dryrun) : ")
-    if scp:
+    if scp in ["y", "d"]:
         booth_path = input(f"Path to booth home? Enter for default ({DEFAULT_BOOTH_PATH}) : ")
         if not booth_path:
             booth_path = DEFAULT_BOOTH_PATH
         print("Booth path:", booth_path)
         album_title = input("Album title? : ")
         config["album_title"] = album_title
+        multi_shot = input("Enable double press for 3 shots (recommended for 2x6 print format)? y/(n) : ")
+        config["enable_multi_shot"] = (multi_shot == "y")
         if scp == "d":
             print("Doing dryrun")
             dryrun = True
         else:
             dryrun = False
         scp_files(booth_path, config, dryrun)
-        
-    
+
