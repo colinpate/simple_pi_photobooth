@@ -207,6 +207,7 @@ if __name__ == "__main__":
     output_path = args.output_path
     if os.path.isdir(output_path):
         output_path += "/converted_watermark.png"
+    print("Writing image to", output_path)
     cv2.imwrite(output_path, final_image)
 
     foreground = get_foreground(final_image[:,:,:3], background_color)
