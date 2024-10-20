@@ -1,5 +1,9 @@
-from PyQt5.QtWidgets import QListWidget, QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox
+from PyQt5.QtWidgets import QListWidget, QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QApplication
 import subprocess
+import os
+import sys
+
+#os.environ['QT_IM_MODULE'] = 'qtvirtualkeyboard'
 
 def connect_to_wifi(ssid, password):
     result = subprocess.run(['nmcli', 'device', 'wifi', 'connect', ssid, 'password', password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -8,6 +12,18 @@ def connect_to_wifi(ssid, password):
     else:
         print(f'Failed to connect to {ssid}')
         print(result.stderr.decode('utf-8'))
+
+
+def scan_wifi_networks():
+    result = subprocess.run(['nmcli', '-f', 'SSID', 'device', 'wifi', 'list'], stdout=subprocess.PIPE)
+    output = result.stdout.decode('utf-8')
+    lines = output.strip().split('\n')
+    networks = []
+    for line in lines[1:]:
+        ssid = line.strip()
+        if ssid:
+            networks.append({'SSID': ssid})
+    return networks
 
 
 class PasswordDialog(QDialog):
@@ -24,8 +40,8 @@ class PasswordDialog(QDialog):
         self.layout.addWidget(self.passwordInput)
 
         # On-Screen Keyboard
-        self.keyboard = OnScreenKeyboard(self.passwordInput)
-        self.layout.addWidget(self.keyboard)
+        #self.keyboard = OnScreenKeyboard(self.passwordInput)
+        #self.layout.addWidget(self.keyboard)
 
         # OK and Cancel Buttons
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -38,20 +54,9 @@ class PasswordDialog(QDialog):
         return self.passwordInput.text()
 
 
-def scan_wifi_networks():
-    result = subprocess.run(['nmcli', '-f', 'SSID', 'device', 'wifi', 'list'], stdout=subprocess.PIPE)
-    output = result.stdout.decode('utf-8')
-    lines = output.strip().split('\n')
-    networks = []
-    for line in lines[1:]:
-        ssid = line.strip()
-        if ssid:
-            networks.append({'SSID': ssid})
-    return networks
-
-
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
+        self.local_test = True
         super(SettingsDialog, self).__init__(parent)
         self.setWindowTitle('Settings')
         self.layout = QVBoxLayout(self)
@@ -67,7 +72,13 @@ class SettingsDialog(QDialog):
         self.networkList.itemClicked.connect(self.network_selected)
 
     def load_wifi_networks(self):
-        networks = scan_wifi_networks()
+        if self.local_test:
+            networks = [
+                {"SSID": f"Network{i}"}
+                for i in range(5)
+            ]
+        else:
+            networks = scan_wifi_networks()
         for network in networks:
             self.networkList.addItem(network['SSID'])
 
@@ -78,3 +89,9 @@ class SettingsDialog(QDialog):
             password = self.password_dialog.get_password()
             # Attempt to connect to Wi-Fi
             connect_to_wifi(ssid, password)
+
+if __name__ == "__main__":
+    app = QApplication([])
+    window = SettingsDialog()
+    window.showFullScreen()  # Show in full screen since it's a touch screen
+    sys.exit(app.exec_())
