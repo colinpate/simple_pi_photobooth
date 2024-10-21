@@ -24,6 +24,7 @@ from common.common import load_config
 from apply_watermark import ApplyWatermark
 from overlay_manager import OverlayManager
 import booth_states
+from settings import SettingsDialog
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -115,8 +116,30 @@ def get_exif(w, h, datetime_stamp, postfix=""):
     exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
     exif_bytes = piexif.dump(exif_dict)
     return exif_bytes
+
+
+class TouchSensitivePreview(QGlPicamera2):
+    settings_requested = QtCore.pyqtSignal()
+
+    def __init__(self, camera, width, height, keep_ar, transform, parent=None):
+        super().__init__(camera, parent=parent, width=width, height=height, keep_ar=keep_ar, transform=transform)
     
-    
+    def mousePressEvent(self, event):
+        pos = event.pos()
+        widget_width = self.width()
+        widget_height = self.height()
+
+        # Define the tap area (e.g., top 10% height, right 10% width)
+        margin_width = widget_width * 0.1   # 10% of width
+        margin_height = widget_height * 0.1  # 10% of height
+
+        if (pos.x() >= widget_width - margin_width) and (pos.y() <= margin_height):
+            # Emit signal to open settings
+            self.settings_requested.emit()
+        else:
+            close_window()
+
+
 class PhotoBooth:
     def __init__(self, config):
         self._config = config
@@ -264,7 +287,7 @@ class PhotoBooth:
             })
 
     def init_preview(self):
-        qpicamera2 = QGlPicamera2(
+        qpicamera2 = TouchSensitivePreview(
                         self.picam2,
                         width=DISPLAY_WIDTH,
                         height=DISPLAY_HEIGHT,
@@ -275,12 +298,18 @@ class PhotoBooth:
         qpicamera2.timer.start(25)
         qpicamera2.timer.timeout.connect(self.main_loop)
         qpicamera2.done_signal.connect(self.capture_done)
-        qpicamera2.mousePressEvent = close_window
+        #qpicamera2.mousePressEvent = close_window
+        #qpicamera2.settingsSignal = QtCore.pyqtSignal()
+        qpicamera2.settings_requested.connect(self.open_settings)
 
         self.picam2.start()
 
         qpicamera2.showFullScreen()
         return qpicamera2
+
+    def open_settings(self):
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec_()
 
     def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
