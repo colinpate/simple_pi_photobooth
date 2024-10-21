@@ -137,7 +137,7 @@ class TouchSensitivePreview(QGlPicamera2):
             # Emit signal to open settings
             self.settings_requested.emit()
         else:
-            close_window()
+            close_window(None)
 
 
 class PhotoBooth:

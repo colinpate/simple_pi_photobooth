@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QListWidget, QDialog, QVBoxLayout, QLabel, QLineEdit
 import subprocess
 import os
 import sys
+from PyQt5.QtGui import QFont
 
 
 def connect_to_wifi(ssid, password):
@@ -28,6 +29,9 @@ def scan_wifi_networks():
 class PasswordDialog(QDialog):
     def __init__(self, ssid, parent=None):
         super(PasswordDialog, self).__init__(parent)
+        font = QFont("Arial", 15)
+        self.setFont(font)
+
         self.setWindowTitle('Enter Password')
         self.layout = QVBoxLayout(self)
         self.label = QLabel(f'Enter password for {ssid}:')
@@ -88,8 +92,12 @@ class PasswordDialog(QDialog):
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
-        self.local_test = True
+        self.local_test = False
         super(SettingsDialog, self).__init__(parent)
+
+        font = QFont("Arial", 15)  # You can choose any font family and size
+        self.setFont(font)
+
         self.setWindowTitle('Settings')
         self.layout = QVBoxLayout(self)
 
