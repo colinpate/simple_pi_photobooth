@@ -308,7 +308,7 @@ class PhotoBooth:
         return qpicamera2
 
     def open_settings(self):
-        settings_dialog = SettingsDialog(self)
+        settings_dialog = SettingsDialog(self.qpicamera2)
         settings_dialog.exec_()
 
     def setup_overlays(self, overlay_config):
