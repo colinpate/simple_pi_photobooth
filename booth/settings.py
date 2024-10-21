@@ -3,6 +3,7 @@ import subprocess
 import os
 import sys
 from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
 
 def connect_to_wifi(ssid, password):
@@ -92,8 +93,9 @@ class PasswordDialog(QDialog):
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
-        self.local_test = False
+        self.local_test = True
         super(SettingsDialog, self).__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
 
         font = QFont("Arial", 15)  # You can choose any font family and size
         self.setFont(font)
@@ -103,6 +105,15 @@ class SettingsDialog(QDialog):
 
         # List Widget to Display Networks
         self.networkList = QListWidget()
+        self.networkList.setStyleSheet("""
+            QScrollBar:vertical {
+                width: 25px;   /* Adjust the width as needed */
+            }
+            QScrollBar:horizontal {
+                height: 25px;  /* Adjust the height for horizontal scrollbars if needed */
+            }
+        """)
+
         self.layout.addWidget(self.networkList)
 
         # Load Wi-Fi Networks
@@ -115,7 +126,7 @@ class SettingsDialog(QDialog):
         if self.local_test:
             networks = [
                 {"SSID": f"Network{i}"}
-                for i in range(5)
+                for i in range(15)
             ]
         else:
             networks = scan_wifi_networks()
