@@ -305,11 +305,13 @@ class PhotoBooth:
         self.picam2.start()
 
         qpicamera2.showFullScreen()
+
+        self.settings_dialog = None
         return qpicamera2
 
     def open_settings(self):
-        settings_dialog = SettingsDialog(self.qpicamera2)
-        settings_dialog.exec_()
+        self.settings_dialog = SettingsDialog(self.qpicamera2)
+        self.settings_dialog.show()
 
     def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
