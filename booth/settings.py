@@ -95,7 +95,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         self.local_test = True
         super(SettingsDialog, self).__init__(parent)
-        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.WindowModal)
 
         font = QFont("Arial", 15)  # You can choose any font family and size
         self.setFont(font)
