@@ -3,7 +3,6 @@ import subprocess
 import os
 import sys
 
-#os.environ['QT_IM_MODULE'] = 'qtvirtualkeyboard'
 
 def connect_to_wifi(ssid, password):
     result = subprocess.run(['nmcli', 'device', 'wifi', 'connect', ssid, 'password', password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -39,16 +38,49 @@ class PasswordDialog(QDialog):
         self.passwordInput.setEchoMode(QLineEdit.Password)
         self.layout.addWidget(self.passwordInput)
 
-        # On-Screen Keyboard
-        #self.keyboard = OnScreenKeyboard(self.passwordInput)
-        #self.layout.addWidget(self.keyboard)
-
         # OK and Cancel Buttons
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.layout.addWidget(self.buttonBox)
 
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
+
+        # Initialize the keyboard process variable
+        self.keyboard_process = None
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.launch_keyboard()
+
+    def closeEvent(self, event):
+        self.terminate_keyboard()
+        super().closeEvent(event)
+
+    def accept(self):
+        self.terminate_keyboard()
+        super().accept()
+
+    def reject(self):
+        self.terminate_keyboard()
+        super().reject()
+
+    def launch_keyboard(self):
+        # Start the virtual keyboard process
+        try:
+            self.keyboard_process = subprocess.Popen(['wvkbd-mobintl'])
+            # Ensure the password input retains focus
+            self.passwordInput.setFocus()
+        except Exception as e:
+            print(f"Failed to launch virtual keyboard: {e}")
+
+    def terminate_keyboard(self):
+        if self.keyboard_process:
+            try:
+                self.keyboard_process.terminate()
+                self.keyboard_process.wait()
+                self.keyboard_process = None
+            except Exception as e:
+                print(f"Failed to terminate virtual keyboard: {e}")
 
     def get_password(self):
         return self.passwordInput.text()
@@ -93,5 +125,6 @@ class SettingsDialog(QDialog):
 if __name__ == "__main__":
     app = QApplication([])
     window = SettingsDialog()
-    window.showFullScreen()  # Show in full screen since it's a touch screen
+    window.show()
+    #window.showFullScreen()  # Show in full screen since it's a touch screen
     sys.exit(app.exec_())
