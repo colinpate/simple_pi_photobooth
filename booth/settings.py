@@ -33,7 +33,6 @@ def scan_wifi_networks():
 
 class PasswordDialog(QDialog):
     def __init__(self, ssid, parent=None):
-        parent.close()
         super(PasswordDialog, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
         font = QFont("Arial", 15)
@@ -125,6 +124,9 @@ class SettingsDialog(QDialog):
     def __init__(self, config, signal_restart, parent=None):
         self.local_test = True
         super(SettingsDialog, self).__init__(parent)
+        
+        if parent:
+            parent.close()
 
         self.original_config = config
         self.config_changes = {}
