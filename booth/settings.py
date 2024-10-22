@@ -232,6 +232,7 @@ class SettingsDialog(QDialog):
 
     def network_selected(self, item):
         ssid = item.text()
+        print("Network selected")
         self.password_dialog = PasswordDialog(ssid)
         if self.password_dialog.exec_():
             password = self.password_dialog.get_password()
