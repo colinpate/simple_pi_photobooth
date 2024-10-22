@@ -111,7 +111,7 @@ class WifiInfo(QDialog):
 
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
         self.layout.addWidget(self.buttonBox)
-        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.accepted.connect(self.close)
         
         # Add a timer to close the dialog after a set time period
         self.auto_close_timer = QTimer(self)
