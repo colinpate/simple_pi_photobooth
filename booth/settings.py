@@ -59,8 +59,6 @@ class PasswordDialog(QDialog):
         # Initialize the keyboard process variable
         self.keyboard_process = None
 
-        self.exec()
-
     def showEvent(self, event):
         super().showEvent(event)
         self.launch_keyboard()
@@ -183,6 +181,8 @@ class SettingsDialog(QDialog):
         self.auto_close_timer.setSingleShot(True)  # Ensures it runs only once
         self.auto_close_timer.timeout.connect(self.close)
         self.auto_close_timer.start(60 * 1000) # 60 seconds
+
+        self.exec()
 
     def save_config(self):
         user_config_filename = "config.user.yaml"
