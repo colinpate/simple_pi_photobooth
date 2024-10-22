@@ -312,13 +312,12 @@ class PhotoBooth:
         self.needs_restart = True
 
     def open_settings(self):
-        self.qpicamera2.close()
         self.settings_dialog = SettingsDialog(
                 config=self._config,
                 signal_restart=self.signal_restart, 
-                parent=None#self.qpicamera2
+                parent=self.qpicamera2
             )
-        self.settings_dialog.show()
+        self.settings_dialog.exec_()
 
     def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
