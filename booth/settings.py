@@ -124,9 +124,7 @@ class SettingsDialog(QDialog):
     def __init__(self, config, signal_restart, parent=None):
         self.local_test = True
         super(SettingsDialog, self).__init__(parent)
-        
-        if parent:
-            parent.close()
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
 
         self.original_config = config
         self.config_changes = {}
