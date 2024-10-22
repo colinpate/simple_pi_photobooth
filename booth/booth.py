@@ -156,7 +156,7 @@ class PhotoBooth:
         self._color_image_dir = config["color_image_dir"]
         self._gray_image_dir = config["gray_image_dir"]
         
-        self._display_gray = config.get("display_gray", True)
+        self._display_gray = config["display_gray"]
         self._display_shuffle_time = config["display_shuffle_time"]
         self._display_first_image_time = config["display_first_image_time"]
         
@@ -178,6 +178,8 @@ class PhotoBooth:
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
         
         self.wifi_check = config["wifi_check"]
+
+        self.needs_restart = False
 
         for dir_i in [
                         self._gray_image_dir,
@@ -256,7 +258,6 @@ class PhotoBooth:
             )
 
         picam2.configure(still_config)
-        got_config = picam2.camera_configuration()
 
         if not FOCUS_MODE:
             picam2.set_controls({
@@ -298,8 +299,6 @@ class PhotoBooth:
         qpicamera2.timer.start(25)
         qpicamera2.timer.timeout.connect(self.main_loop)
         qpicamera2.done_signal.connect(self.capture_done)
-        #qpicamera2.mousePressEvent = close_window
-        #qpicamera2.settingsSignal = QtCore.pyqtSignal()
         qpicamera2.settings_requested.connect(self.open_settings)
 
         self.picam2.start()
@@ -308,9 +307,16 @@ class PhotoBooth:
 
         self.settings_dialog = None
         return qpicamera2
+    
+    def signal_restart(self):
+        self.needs_restart = True
 
     def open_settings(self):
-        self.settings_dialog = SettingsDialog(self.qpicamera2)
+        self.settings_dialog = SettingsDialog(
+                config=self._config,
+                signal_restart=self.signal_restart, 
+                parent=self.qpicamera2
+            )
         self.settings_dialog.show()
 
     def setup_overlays(self, overlay_config):
@@ -455,6 +461,10 @@ class PhotoBooth:
     def main_loop(self):
         self.timers.update_time()
         self.check_shutdown_button()
+        if self.needs_restart:
+            print("Restarting uploader and booth now")
+            os.system(self._config["restart_uploader_command"])
+            close_window(None)
         
         if self.next_state != self.state:
             print("Moving from", self.state, "to", self.next_state, "at", time.time() % 100)

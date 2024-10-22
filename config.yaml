@@ -12,6 +12,7 @@ smugmug_creds_path: "/home/colin/smugmug.json"
 photo_title: ""
 photo_caption: "Tap and hold to save!"
 request_timeout: 20
+restart_uploader_command: "sh /home/colin/simple_pi_photobooth/disable_upload_service.sh; sh /home/colin/simple_pi_photobooth/enable_upload_service.sh"
 
 # UI settings
 qr_pos: [0, 405, 195, 195]
