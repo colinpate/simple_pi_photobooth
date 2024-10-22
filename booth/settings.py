@@ -33,6 +33,7 @@ def scan_wifi_networks():
 
 class PasswordDialog(QDialog):
     def __init__(self, ssid, parent=None):
+        parent.close()
         super(PasswordDialog, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
         font = QFont("Arial", 15)
@@ -57,6 +58,8 @@ class PasswordDialog(QDialog):
 
         # Initialize the keyboard process variable
         self.keyboard_process = None
+
+        self.exec()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -241,8 +244,8 @@ class SettingsDialog(QDialog):
                 return_code = connect_to_wifi(ssid, password)
             else:
                 return_code = 0
-            wifi_dialog = WifiInfo(ssid, return_code)
-            wifi_dialog.exec_()
+            self.wifi_dialog = WifiInfo(ssid, return_code)
+            self.wifi_dialog.exec_()
 
 
 if __name__ == "__main__":
