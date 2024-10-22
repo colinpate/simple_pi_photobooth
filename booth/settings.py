@@ -125,6 +125,7 @@ class SettingsDialog(QDialog):
         self.local_test = True
         super(SettingsDialog, self).__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.original_config = config
         self.config_changes = {}
