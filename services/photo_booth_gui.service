@@ -5,6 +5,7 @@ After=graphical.target
 [Service]
 User=colin
 Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games
 ExecStart=bash /home/colin/simple_pi_photobooth/launch.sh
 Restart=always
