@@ -246,7 +246,7 @@ class SettingsDialog(QDialog):
 
 if __name__ == "__main__":
     app = QApplication([])
-    window = SettingsDialog(config=load_config())
+    window = SettingsDialog(signal_restart=None, config=load_config())
     window.show()
     #window.showFullScreen()  # Show in full screen since it's a touch screen
     sys.exit(app.exec_())

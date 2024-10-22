@@ -312,10 +312,11 @@ class PhotoBooth:
         self.needs_restart = True
 
     def open_settings(self):
+        self.qpicamera2.close()
         self.settings_dialog = SettingsDialog(
                 config=self._config,
                 signal_restart=self.signal_restart, 
-                parent=self.qpicamera2
+                parent=None#self.qpicamera2
             )
         self.settings_dialog.show()
 
