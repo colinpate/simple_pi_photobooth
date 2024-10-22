@@ -232,7 +232,7 @@ class SettingsDialog(QDialog):
 
     def network_selected(self, item):
         ssid = item.text()
-        self.password_dialog = PasswordDialog(ssid)
+        self.password_dialog = PasswordDialog(ssid, parent=self)
         if self.password_dialog.exec_():
             password = self.password_dialog.get_password()
             # Attempt to connect to Wi-Fi
