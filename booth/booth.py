@@ -136,8 +136,6 @@ class TouchSensitivePreview(QGlPicamera2):
         if (pos.x() >= widget_width - margin_width) and (pos.y() <= margin_height):
             # Emit signal to open settings
             self.settings_requested.emit()
-        else:
-            close_window(None)
 
 
 class PhotoBooth:
@@ -312,12 +310,14 @@ class PhotoBooth:
         self.needs_restart = True
 
     def open_settings(self):
-        print("opening settings")
+        self.qpicamera2.hide()
         self.settings_dialog = SettingsDialog(
                 config=self._config,
                 signal_restart=self.signal_restart, 
                 parent=self.qpicamera2
             )
+        if not self.needs_restart:
+            self.qpicamera2.show()
 
     def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")

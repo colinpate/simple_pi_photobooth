@@ -12,11 +12,11 @@ def connect_to_wifi(ssid, password):
     result = subprocess.run(['nmcli', 'device', 'wifi', 'connect', ssid, 'password', password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode == 0:
         print(f'Connected to {ssid}')
-        return -1
+        return 0
     else:
         print(f'Failed to connect to {ssid}')
         print(result.stderr.decode('utf-8'))
-        return 0
+        return -1
 
 
 def scan_wifi_networks():
@@ -31,21 +31,22 @@ def scan_wifi_networks():
     return networks
 
 
-class PasswordDialog(QDialog):
-    def __init__(self, ssid, parent=None):
-        super(PasswordDialog, self).__init__(parent)
-        self.setWindowFlag(Qt.FramelessWindowHint)
+class TextDialog(QDialog):
+    def __init__(self, label_text, input_text="", parent=None):
+        super(TextDialog, self).__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         font = QFont("Arial", 15)
         self.setFont(font)
 
-        self.setWindowTitle('Enter Password')
+        self.setWindowTitle('')
         self.layout = QVBoxLayout(self)
-        self.label = QLabel(f'Enter password for {ssid}:')
+
+        self.label = QLabel(label_text)
         self.layout.addWidget(self.label)
 
         # Password Input Field
         self.passwordInput = QLineEdit()
-        self.passwordInput.setEchoMode(QLineEdit.Password)
+        self.passwordInput.setText(input_text)
         self.layout.addWidget(self.passwordInput)
 
         # OK and Cancel Buttons
@@ -57,6 +58,7 @@ class PasswordDialog(QDialog):
 
         # Initialize the keyboard process variable
         self.keyboard_process = None
+        self.resize(400, 100)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -77,9 +79,9 @@ class PasswordDialog(QDialog):
     def launch_keyboard(self):
         # Start the virtual keyboard process
         try:
-            self.keyboard_process = subprocess.Popen(['wvkbd-mobintl'])
+            self.keyboard_process = subprocess.Popen(['wvkbd-mobintl', "-L", "200"])
             # Ensure the password input retains focus
-            self.passwordInput.setFocus()
+            #self.passwordInput.setFocus()
         except Exception as e:
             print(f"Failed to launch virtual keyboard: {e}")
 
@@ -92,7 +94,7 @@ class PasswordDialog(QDialog):
             except Exception as e:
                 print(f"Failed to terminate virtual keyboard: {e}")
 
-    def get_password(self):
+    def get_text(self):
         return self.passwordInput.text()
 
 
@@ -120,12 +122,34 @@ class WifiInfo(QDialog):
         self.auto_close_timer.start(5 * 1000) # 5 seconds
 
 
+class ConfirmDeleteDialog(QDialog):
+    def __init__(self, parent=None):
+        super(ConfirmDeleteDialog, self).__init__(parent)
+        self.setWindowFlag(Qt.FramelessWindowHint)
+        font = QFont("Arial", 15)
+        self.setFont(font)
+
+        self.setWindowTitle('')
+        self.layout = QVBoxLayout(self)
+        label_text = "Are you sure you want to delete all photos on the Photo Booth?"
+        self.label = QLabel(label_text)
+        self.layout.addWidget(self.label)
+
+        # OK and Cancel Buttons
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.layout.addWidget(self.buttonBox)
+
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+
 class SettingsDialog(QDialog):
+    album_title_key = "album_title"
+
     def __init__(self, config, signal_restart, parent=None):
-        self.local_test = True
+        self.local_test = False
         super(SettingsDialog, self).__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        #self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
 
         self.original_config = config
         self.config_changes = {}
@@ -158,15 +182,26 @@ class SettingsDialog(QDialog):
         self.toggle_button.toggled.connect(self.toggle_button_clicked)
 
         # Add the Contrast slider
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setMinimum(100)
-        self.slider.setMaximum(200)
-        self.slider.setValue(110)  # Set default value
-        self.slider.valueChanged.connect(self.on_value_change)
-        self.layout.addWidget(self.slider)
+        # self.slider = QSlider(Qt.Horizontal)
+        # self.slider.setMinimum(100)
+        # self.slider.setMaximum(200)
+        # self.slider.setValue(110)  # Set default value
+        # self.slider.valueChanged.connect(self.on_value_change)
+        # self.layout.addWidget(self.slider)
+
+        # Add the delete photos Button
+        self.album_title_button = QPushButton('')
+        self.update_album_button()
+        self.layout.addWidget(self.album_title_button)
+        self.album_title_button.pressed.connect(self.change_album_title)
+
+        # Add the delete photos Button
+        self.delete_button = QPushButton("Delete Photos")
+        self.layout.addWidget(self.delete_button)
+        self.delete_button.pressed.connect(self.confirm_delete)
 
         # Add the save Button
-        self.save_button = QPushButton("Save settings")
+        self.save_button = QPushButton("Apply settings")
         self.layout.addWidget(self.save_button)
         self.save_button.pressed.connect(self.save_config)
 
@@ -174,6 +209,11 @@ class SettingsDialog(QDialog):
         self.cancel_button = QPushButton("Cancel")
         self.layout.addWidget(self.cancel_button)
         self.cancel_button.pressed.connect(self.close)
+
+        # Add the cancel Button
+        self.restart_button = QPushButton("Restart")
+        self.layout.addWidget(self.restart_button)
+        self.restart_button.pressed.connect(self.restart)
 
         self.resize(600, 400)
         
@@ -185,6 +225,39 @@ class SettingsDialog(QDialog):
 
         self.exec()
 
+    def restart(self):
+        self.signal_restart()
+        self.close()
+
+    def get_latest_value(self, parameter_key):
+        return self.config_changes.get(parameter_key, self.original_config[parameter_key])
+
+    def update_album_button(self):
+        self.album_title_button.setText(f"Album Title: {self.get_latest_value(self.album_title_key)}")
+
+    def change_album_title(self):
+        album_title = self.get_latest_value(self.album_title_key)
+        dialog = TextDialog("Album title:", album_title, parent=self)
+        if dialog.exec():
+            self.config_changes["album_title"] = dialog.get_text()
+            self.update_album_button()
+
+    def confirm_delete(self):
+        dialog = ConfirmDeleteDialog(self)
+        if dialog.exec():
+            self.delete_photos()
+            self.signal_restart()
+            self.close()
+
+    def delete_photos(self):
+        for postfix in ["gray", "color", "original"]:
+            photo_dir = self.original_config[f"{postfix}_image_dir"]
+            delete_command = f"rm -rf {photo_dir}/*.jpg"
+            print(delete_command)
+            os.system(delete_command)
+        with open(self.original_config["photo_path_db"], "w") as path_db:
+            path_db.write("{}")
+        
     def save_config(self):
         user_config_filename = "config.user.yaml"
         try:
@@ -212,7 +285,7 @@ class SettingsDialog(QDialog):
 
     def get_display_gray_text(self):
         if self.config_changes.get("display_gray", self.original_config["display_gray"]):
-            return "Displaying Black & White"
+            return "Displaying Black/White"
         else:
             return "Displaying Color"
 
@@ -237,21 +310,18 @@ class SettingsDialog(QDialog):
     def network_selected(self, item):
         ssid = item.text()
         print("Network selected")
-        self.password_dialog = PasswordDialog(ssid)
+        self.password_dialog = TextDialog(label_text=f'Enter password for {ssid}:', parent=self)
         if self.password_dialog.exec_():
-            password = self.password_dialog.get_password()
+            password = self.password_dialog.get_text()
             # Attempt to connect to Wi-Fi
             if not self.local_test:
                 return_code = connect_to_wifi(ssid, password)
             else:
                 return_code = 0
-            self.wifi_dialog = WifiInfo(ssid, return_code)
+            self.wifi_dialog = WifiInfo(ssid, return_code, parent=self)
             self.wifi_dialog.exec_()
 
 
 if __name__ == "__main__":
     app = QApplication([])
     window = SettingsDialog(signal_restart=None, config=load_config())
-    window.show()
-    #window.showFullScreen()  # Show in full screen since it's a touch screen
-    sys.exit(app.exec_())
