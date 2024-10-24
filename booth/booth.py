@@ -24,6 +24,7 @@ from common.common import load_config
 from apply_watermark import ApplyWatermark
 from overlay_manager import OverlayManager
 import booth_states
+from settings import SettingsDialog
 
 # Pi 5 stuff
 from gpiozero import Button
@@ -115,8 +116,28 @@ def get_exif(w, h, datetime_stamp, postfix=""):
     exif_dict = {"0th":zeroth_ifd, "Exif":exif_ifd}
     exif_bytes = piexif.dump(exif_dict)
     return exif_bytes
+
+
+class TouchSensitivePreview(QGlPicamera2):
+    settings_requested = QtCore.pyqtSignal()
+
+    def __init__(self, camera, width, height, keep_ar, transform, parent=None):
+        super().__init__(camera, parent=parent, width=width, height=height, keep_ar=keep_ar, transform=transform)
     
-    
+    def mousePressEvent(self, event):
+        pos = event.pos()
+        widget_width = self.width()
+        widget_height = self.height()
+
+        # Define the tap area (e.g., top 10% height, right 10% width)
+        margin_width = widget_width * 0.1   # 10% of width
+        margin_height = widget_height * 0.1  # 10% of height
+
+        if (pos.x() >= widget_width - margin_width) and (pos.y() <= margin_height):
+            # Emit signal to open settings
+            self.settings_requested.emit()
+
+
 class PhotoBooth:
     def __init__(self, config):
         self._config = config
@@ -133,7 +154,7 @@ class PhotoBooth:
         self._color_image_dir = config["color_image_dir"]
         self._gray_image_dir = config["gray_image_dir"]
         
-        self._display_gray = config.get("display_gray", True)
+        self._display_gray = config["display_gray"]
         self._display_shuffle_time = config["display_shuffle_time"]
         self._display_first_image_time = config["display_first_image_time"]
         
@@ -155,6 +176,8 @@ class PhotoBooth:
         self.qr_path_db = ImagePathDB(config["qr_path_db"])
         
         self.wifi_check = config["wifi_check"]
+
+        self.needs_restart = False
 
         for dir_i in [
                         self._gray_image_dir,
@@ -233,7 +256,6 @@ class PhotoBooth:
             )
 
         picam2.configure(still_config)
-        got_config = picam2.camera_configuration()
 
         if not FOCUS_MODE:
             picam2.set_controls({
@@ -264,7 +286,7 @@ class PhotoBooth:
             })
 
     def init_preview(self):
-        qpicamera2 = QGlPicamera2(
+        qpicamera2 = TouchSensitivePreview(
                         self.picam2,
                         width=DISPLAY_WIDTH,
                         height=DISPLAY_HEIGHT,
@@ -275,12 +297,27 @@ class PhotoBooth:
         qpicamera2.timer.start(25)
         qpicamera2.timer.timeout.connect(self.main_loop)
         qpicamera2.done_signal.connect(self.capture_done)
-        qpicamera2.mousePressEvent = close_window
+        qpicamera2.settings_requested.connect(self.open_settings)
 
         self.picam2.start()
 
         qpicamera2.showFullScreen()
+
+        self.settings_dialog = None
         return qpicamera2
+    
+    def signal_restart(self):
+        self.needs_restart = True
+
+    def open_settings(self):
+        self.qpicamera2.hide()
+        self.settings_dialog = SettingsDialog(
+                config=self._config,
+                signal_restart=self.signal_restart, 
+                parent=self.qpicamera2
+            )
+        if not self.needs_restart:
+            self.qpicamera2.show()
 
     def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
@@ -424,6 +461,10 @@ class PhotoBooth:
     def main_loop(self):
         self.timers.update_time()
         self.check_shutdown_button()
+        if self.needs_restart:
+            print("Restarting uploader and booth now")
+            os.system(self._config["restart_uploader_command"])
+            close_window(None)
         
         if self.next_state != self.state:
             print("Moving from", self.state, "to", self.next_state, "at", time.time() % 100)
