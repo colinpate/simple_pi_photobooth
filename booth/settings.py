@@ -145,10 +145,10 @@ class ConfirmDeleteDialog(QDialog):
 
 class SettingsDialog(QDialog):
     album_title_key = "album_title"
-    local_test = False
 
-    def __init__(self, config, signal_restart, parent=None):
+    def __init__(self, config, signal_restart, parent=None, local_test=False):
         super(SettingsDialog, self).__init__(parent)
+        self.local_test = local_test
 
         self.original_config = config
         self.config_changes = {}
@@ -195,25 +195,25 @@ class SettingsDialog(QDialog):
         self.layout.addWidget(self.album_title_button)
         self.album_title_button.pressed.connect(self.change_album_title)
 
+        # Add the save Button
+        self.save_button = QPushButton("Apply")
+        self.layout.addWidget(self.save_button)
+        self.save_button.pressed.connect(self.save_config)
+
         # Add the delete photos Button
         self.delete_button = QPushButton("Delete Photos")
         self.layout.addWidget(self.delete_button)
         self.delete_button.pressed.connect(self.confirm_delete)
 
-        # Add the save Button
-        self.save_button = QPushButton("Apply settings")
-        self.layout.addWidget(self.save_button)
-        self.save_button.pressed.connect(self.save_config)
-
         # Add the cancel Button
-        self.cancel_button = QPushButton("Cancel")
-        self.layout.addWidget(self.cancel_button)
-        self.cancel_button.pressed.connect(self.close)
-
-        # Add the cancel Button
-        self.restart_button = QPushButton("Restart")
+        self.restart_button = QPushButton("Restart Software")
         self.layout.addWidget(self.restart_button)
         self.restart_button.pressed.connect(self.restart)
+
+        # Add the cancel Button
+        self.cancel_button = QPushButton("Exit Settings")
+        self.layout.addWidget(self.cancel_button)
+        self.cancel_button.pressed.connect(self.close)
 
         self.resize(600, 400)
         
@@ -325,4 +325,4 @@ class SettingsDialog(QDialog):
 
 if __name__ == "__main__":
     app = QApplication([])
-    window = SettingsDialog(signal_restart=None, config=load_config())
+    window = SettingsDialog(signal_restart=sys.exit, config=load_config(), local_test=True)
