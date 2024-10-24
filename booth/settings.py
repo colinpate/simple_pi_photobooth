@@ -35,7 +35,7 @@ class TextDialog(QDialog):
     def __init__(self, label_text, input_text="", parent=None):
         super(TextDialog, self).__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        font = QFont("Arial", 15)
+        font = QFont("Arial", 20)
         self.setFont(font)
 
         self.setWindowTitle('')
@@ -81,7 +81,7 @@ class TextDialog(QDialog):
         try:
             self.keyboard_process = subprocess.Popen(['wvkbd-mobintl', "-L", "200"])
             # Ensure the password input retains focus
-            #self.passwordInput.setFocus()
+            #vself.passwordInput.setFocus()
         except Exception as e:
             print(f"Failed to launch virtual keyboard: {e}")
 
@@ -102,7 +102,7 @@ class WifiInfo(QDialog):
     def __init__(self, ssid, return_code, parent=None):
         super(WifiInfo, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
-        font = QFont("Arial", 15)
+        font = QFont("Arial", 20)
         self.setFont(font)
 
         self.setWindowTitle('')
@@ -126,7 +126,7 @@ class ConfirmDeleteDialog(QDialog):
     def __init__(self, parent=None):
         super(ConfirmDeleteDialog, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
-        font = QFont("Arial", 15)
+        font = QFont("Arial", 20)
         self.setFont(font)
 
         self.setWindowTitle('')
@@ -145,17 +145,16 @@ class ConfirmDeleteDialog(QDialog):
 
 class SettingsDialog(QDialog):
     album_title_key = "album_title"
+    local_test = False
 
     def __init__(self, config, signal_restart, parent=None):
-        self.local_test = False
         super(SettingsDialog, self).__init__(parent)
-        #self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
 
         self.original_config = config
         self.config_changes = {}
         self.signal_restart = signal_restart
 
-        font = QFont("Arial", 25)  # You can choose any font family and size
+        font = QFont("Arial", 20)
         self.setFont(font)
 
         self.setWindowTitle('Settings')
@@ -163,6 +162,7 @@ class SettingsDialog(QDialog):
 
         # List Widget to Display Networks
         self.networkList = QListWidget()
+        self.networkList.setFixedHeight(200)
         self.networkList.setStyleSheet("""
             QScrollBar:vertical {
                 width: 25px;   /* Adjust the width as needed */
@@ -305,7 +305,8 @@ class SettingsDialog(QDialog):
         else:
             networks = scan_wifi_networks()
         for network in networks:
-            self.networkList.addItem(network['SSID'])
+            if network["SSID"] != "--":
+                self.networkList.addItem(network['SSID'])
 
     def network_selected(self, item):
         ssid = item.text()
