@@ -73,6 +73,9 @@ class PrintFormatter:
             else:
                 y_padding = int((canvas_height - (image_height * 3)) / 4)
             
+            if y_padding < 0:
+                raise ValueError("Image is too tall, try increasing v crop or decreasing h crop")
+                
             canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
             y = y_padding
             for image in images:
@@ -85,7 +88,7 @@ class PrintFormatter:
             if self.logo is not None:
                 end_y = y + logo_height
                 if end_y > canvas_height:
-                    raise ValueError("Logo is too tall, try decreasing the h scale")
+                    raise ValueError("Logo is too tall, try decreasing the width scale")
                 canvas[y : end_y, logo_x_offset:logo_x_offset + logo_width, :] = logo
                 
             preview_image = cv2.resize(canvas, (220, 660), cv2.INTER_NEAREST)
