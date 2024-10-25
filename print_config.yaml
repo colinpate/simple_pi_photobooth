@@ -10,6 +10,8 @@ h_pad: 0.04
 mount_addresses:
     - "192.168.1.114"
     - "boothpi"
+    - "192.168.1.176"
+    - "boothpi2"
 mount_source: "/home/colin/booth_photos"
 splash_image: "/home/colin/kiosk_splash.png"
 splash_timeout: 60
