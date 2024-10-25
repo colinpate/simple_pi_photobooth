@@ -93,7 +93,6 @@ class OverlayManager:
                 if is_empty:
                     overlay = None
             time_ms = int((time.time() - start_time)*1000)
-            print("Overlay update time", time_ms, "ms")
             return True, overlay
         else:
             return False, None

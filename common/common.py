@@ -38,6 +38,13 @@ def load_config_file(filename):
     return config
 
 
+def save_config_file(filename, config):
+    parent_dir = os.path.dirname(os.path.realpath(__file__))
+    config_path = os.path.join(parent_dir, "../" + filename)
+    with open(config_path, "w") as config_file:
+        yaml.dump(config, config_file)
+
+
 def load_config(config_name="config"):
     config = load_config_file(f"{config_name}.yaml")
     try:

@@ -42,6 +42,7 @@ class StateIdle(State):
             crop_preview = False
         else:
             crop_preview = self.machine._config["crop_preview"]
+        self.machine.set_leds(idle=True)
         self.machine.set_cam_controls_preview(crop_preview)
         self.overlay_manager.set_main_image(None, exclusive=False)
 
@@ -178,6 +179,7 @@ class StateDisplayCapture(State):
         self.timers.start("display_capture_timeout")
         self.timers.start("display_image_timeout", self.machine._display_first_image_time)
         self.timers.start("qr_code_check")
+        self.machine.set_leds(idle=True)
         self.display_image(self.machine.captured_display_image)
         self._display_image_name = self.machine.captured_image_name
 
