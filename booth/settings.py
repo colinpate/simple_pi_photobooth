@@ -131,7 +131,7 @@ class ConfirmDeleteDialog(QDialog):
 
         self.setWindowTitle('')
         self.layout = QVBoxLayout(self)
-        label_text = "Are you sure you want to delete all photos on the Photo Booth?"
+        label_text = "Are you sure you want to delete all photos on the Photo Booth immediately?"
         self.label = QLabel(label_text)
         self.layout.addWidget(self.label)
 
@@ -146,13 +146,12 @@ class ConfirmDeleteDialog(QDialog):
 class SettingsDialog(QDialog):
     album_title_key = "album_title"
 
-    def __init__(self, config, signal_restart, parent=None, local_test=False):
+    def __init__(self, config, parent=None, local_test=False):
         super(SettingsDialog, self).__init__(parent)
         self.local_test = local_test
 
         self.original_config = config
         self.config_changes = {}
-        self.signal_restart = signal_restart
 
         font = QFont("Arial", 20)
         self.setFont(font)
@@ -195,23 +194,18 @@ class SettingsDialog(QDialog):
         self.layout.addWidget(self.album_title_button)
         self.album_title_button.pressed.connect(self.change_album_title)
 
-        # Add the save Button
-        self.save_button = QPushButton("Apply")
-        self.layout.addWidget(self.save_button)
-        self.save_button.pressed.connect(self.save_config)
-
         # Add the delete photos Button
         self.delete_button = QPushButton("Delete Photos")
         self.layout.addWidget(self.delete_button)
         self.delete_button.pressed.connect(self.confirm_delete)
 
-        # Add the cancel Button
-        self.restart_button = QPushButton("Restart Software")
-        self.layout.addWidget(self.restart_button)
-        self.restart_button.pressed.connect(self.restart)
+        # Add the save Button
+        self.save_button = QPushButton("Apply and Exit")
+        self.layout.addWidget(self.save_button)
+        self.save_button.pressed.connect(self.save_config)
 
         # Add the cancel Button
-        self.cancel_button = QPushButton("Exit Settings")
+        self.cancel_button = QPushButton("Exit")
         self.layout.addWidget(self.cancel_button)
         self.cancel_button.pressed.connect(self.close)
 
@@ -224,10 +218,6 @@ class SettingsDialog(QDialog):
         self.auto_close_timer.start(60 * 1000) # 60 seconds
 
         self.exec()
-
-    def restart(self):
-        self.signal_restart()
-        self.close()
 
     def get_latest_value(self, parameter_key):
         return self.config_changes.get(parameter_key, self.original_config[parameter_key])
@@ -246,7 +236,6 @@ class SettingsDialog(QDialog):
         dialog = ConfirmDeleteDialog(self)
         if dialog.exec():
             self.delete_photos()
-            self.signal_restart()
             self.close()
 
     def delete_photos(self):
@@ -275,7 +264,6 @@ class SettingsDialog(QDialog):
         if config_changed:
             print("Writing new user config:", user_config)
             save_config_file(user_config_filename, user_config)
-            self.signal_restart()
         self.close()
 
     def on_value_change(self, value):
@@ -325,4 +313,4 @@ class SettingsDialog(QDialog):
 
 if __name__ == "__main__":
     app = QApplication([])
-    window = SettingsDialog(signal_restart=sys.exit, config=load_config(), local_test=True)
+    window = SettingsDialog(config=load_config(), local_test=True)

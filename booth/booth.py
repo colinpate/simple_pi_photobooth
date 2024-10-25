@@ -177,7 +177,7 @@ class PhotoBooth:
         
         self.wifi_check = config["wifi_check"]
 
-        self.needs_restart = False
+        self.settings_signal = False
 
         for dir_i in [
                         self._gray_image_dir,
@@ -297,7 +297,7 @@ class PhotoBooth:
         qpicamera2.timer.start(25)
         qpicamera2.timer.timeout.connect(self.main_loop)
         qpicamera2.done_signal.connect(self.capture_done)
-        qpicamera2.settings_requested.connect(self.open_settings)
+        qpicamera2.settings_requested.connect(self.set_settings_signal)
 
         self.picam2.start()
 
@@ -306,18 +306,15 @@ class PhotoBooth:
         self.settings_dialog = None
         return qpicamera2
     
-    def signal_restart(self):
-        self.needs_restart = True
+    def set_settings_signal(self):
+        self.settings_signal = True
 
     def open_settings(self):
         self.qpicamera2.hide()
         self.settings_dialog = SettingsDialog(
                 config=self._config,
-                signal_restart=self.signal_restart, 
                 parent=self.qpicamera2
             )
-        if not self.needs_restart:
-            self.qpicamera2.show()
 
     def setup_overlays(self, overlay_config):
         self.overlay_manager.set_layer(NO_WIFI_OVERLAY, name="wifi")
@@ -355,8 +352,8 @@ class PhotoBooth:
         self.pwm_button_led.stop()
         self.pwm_main_leds.stop()
 
-    def set_leds(self, idle=True, fade=0):
-        if fade:
+    def set_leds(self, idle=True, fade=-1):
+        if fade >= 0:
             interval = self._led_capture_dc - self._led_idle_dc
             fade = max(min(fade, 1), 0)
             dc = min(100, interval * fade + self._led_idle_dc)
@@ -461,10 +458,14 @@ class PhotoBooth:
     def main_loop(self):
         self.timers.update_time()
         self.check_shutdown_button()
-        if self.needs_restart:
-            print("Restarting uploader and booth now")
-            os.system(self._config["restart_uploader_command"])
-            close_window(None)
+        if self.settings_signal:
+            self.settings_signal = False
+            if self.state in [self.state_idle, self.state_display_capture]:
+                self.stop_pwm()
+                self.open_settings()
+                print("Restarting uploader and booth now")
+                os.system(self._config["restart_uploader_command"])
+                close_window(None)
         
         if self.next_state != self.state:
             print("Moving from", self.state, "to", self.next_state, "at", time.time() % 100)

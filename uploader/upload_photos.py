@@ -10,6 +10,7 @@ from uploader.google_photos_upload import GooglePhotos
 from uploader.smugmug import SmugMug
 from uploader.s3_photos import S3Photos
 from common.common import wait_for_network_connection
+import signal
 
 def create_qr_code(url, qr_code_file_path):
     """
@@ -57,6 +58,15 @@ def attempt_upload(photo_name, postfix, error_photos, photo_db, service):
     return success, image_url
 
 
+class SigtermHandler:
+    def __init__(self):
+        self.sigterm = False
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
+
+    def handle_sigterm(self, frame, ts):
+        self.sigterm = True
+
+
 def main():
     config = load_config()
     display_gray = config.get("display_gray", True)
@@ -68,6 +78,8 @@ def main():
     qr_dir = config["qr_dir"]
     display_postfix = gray_postfix if display_gray else color_postfix
     other_postfix = color_postfix if display_gray else gray_postfix
+
+    sigterm_handler = SigtermHandler()
     
     print("upload_photos.py: Saving QR codes to", qr_dir)
     
@@ -86,6 +98,10 @@ def main():
     error_photos = []
         
     while True:
+        if sigterm_handler.sigterm:
+            print("upload_photos.py: Exiting gracefully")
+            break
+
         # Returns list of photo file names
         photo_db.try_update_from_file()
         missing_qr_names = list(photo_db.image_names() - qr_db.image_names())
