@@ -188,11 +188,17 @@ class SettingsDialog(QDialog):
         # self.slider.valueChanged.connect(self.on_value_change)
         # self.layout.addWidget(self.slider)
 
-        # Add the delete photos Button
+        # Add the album title Button
         self.album_title_button = QPushButton('')
         self.update_album_button()
         self.layout.addWidget(self.album_title_button)
         self.album_title_button.pressed.connect(self.change_album_title)
+
+        # Add the multi shotButton
+        self.multi_shot_button = QPushButton(self.get_multi_shot_text())
+        self.multi_shot_button.setCheckable(True)
+        self.layout.addWidget(self.multi_shot_button)
+        self.multi_shot_button.toggled.connect(self.multi_shot_button_clicked)
 
         # Add the delete photos Button
         self.delete_button = QPushButton("Delete Photos")
@@ -272,7 +278,7 @@ class SettingsDialog(QDialog):
         print(value)
 
     def get_display_gray_text(self):
-        if self.config_changes.get("display_gray", self.original_config["display_gray"]):
+        if self.get_latest_value("display_gray"):
             return "Displaying Black/White"
         else:
             return "Displaying Color"
@@ -283,6 +289,19 @@ class SettingsDialog(QDialog):
         else:
             self.config_changes["display_gray"] = False
         self.toggle_button.setText(self.get_display_gray_text())
+
+    def get_multi_shot_text(self):
+        if self.get_latest_value("enable_multi_shot"):
+            return "3-Shot Mode Enabled"
+        else:
+            return "3-Shot Mode Disabled"
+
+    def multi_shot_button_clicked(self, checked):
+        if checked:
+            self.config_changes["enable_multi_shot"] = True
+        else:
+            self.config_changes["enable_multi_shot"] = False
+        self.multi_shot_button.setText(self.get_multi_shot_text())
 
     def load_wifi_networks(self):
         if self.local_test:
@@ -302,13 +321,14 @@ class SettingsDialog(QDialog):
         self.password_dialog = TextDialog(label_text=f'Enter password for {ssid}:', parent=self)
         if self.password_dialog.exec_():
             password = self.password_dialog.get_text()
-            # Attempt to connect to Wi-Fi
-            if not self.local_test:
-                return_code = connect_to_wifi(ssid, password)
-            else:
-                return_code = 0
-            self.wifi_dialog = WifiInfo(ssid, return_code, parent=self)
-            self.wifi_dialog.exec_()
+            if len(password):
+                # Attempt to connect to Wi-Fi
+                if not self.local_test:
+                    return_code = connect_to_wifi(ssid, password)
+                else:
+                    return_code = 0
+                self.wifi_dialog = WifiInfo(ssid, return_code, parent=self)
+                self.wifi_dialog.exec_()
 
 
 if __name__ == "__main__":
