@@ -175,13 +175,9 @@ class SettingsDialog(QDialog):
         self.load_wifi_networks()
 
         # Add the delete photos Button
-        self.delete_button = QPushButton("Delete Photos")
+        self.delete_button = QPushButton(f"Delete {photo_count} Photos")
         self.layout.addWidget(self.delete_button)
         self.delete_button.pressed.connect(self.confirm_delete)
-
-        self.label = QLabel(f"Photo Count: {photo_count}")
-        self.layout.addWidget(self.label)
-        self.label.setAlignment(Qt.AlignCenter)
 
         # Add the preview color Button
         self.toggle_button = QPushButton(self.get_display_gray_text())

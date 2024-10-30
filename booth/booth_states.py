@@ -13,7 +13,7 @@ COUNT_S = 5
 # Capture sequence timing on 2nd and 3rd shots
 LED_FADE_S_EXTRA_SHOT = 0.51 # How long before capture to start brightening LEDs
 LED_END_S_EXTRA_SHOT = 0.31 # How long before capture to hit 100% brightness
-COUNT_S_EXTRA_SHOT = 3
+COUNT_S_EXTRA_SHOT = 4
 
 class State:
     def __init__(self, machine):
@@ -32,16 +32,25 @@ class State:
     
 
 class StateIdle(State):
+    led_sleep_timer = "led_sleep"
+
     def __init__(self, machine):
         super().__init__(machine)
+        self.led_sleep_timeout = self.machine._config.get("led_sleep_timeout", -1)
+        if self.led_sleep_timeout > 0:
+            self.timers.setup(self.led_sleep_timer, self.led_sleep_timeout)
         self.first_run = True
 
     def enter(self):
+        if self.led_sleep_timeout > 0:
+            self.timers.start(self.led_sleep_timer)
+
         if self.first_run:
             self.first_run = False
             crop_preview = False
         else:
             crop_preview = self.machine._config["crop_preview"]
+
         self.machine.set_leds(idle=True)
         self.machine.set_cam_controls_preview(crop_preview)
         self.overlay_manager.set_main_image(None, exclusive=False)
@@ -50,6 +59,10 @@ class StateIdle(State):
         self.machine.extra_shots = 0
         
     def run(self):
+        if self.led_sleep_timeout > 0:
+            if self.timers.check(self.led_sleep_timer):
+                # Turn down the main LEDs
+                self.machine.change_main_led_dc(0)
         if self.machine.is_button_pressed() or self.machine._continuous_cap:
             return self.machine.state_countdown
         return self
