@@ -146,7 +146,7 @@ class ConfirmDeleteDialog(QDialog):
 class SettingsDialog(QDialog):
     album_title_key = "album_title"
 
-    def __init__(self, config, parent=None, local_test=False):
+    def __init__(self, config, photo_count, parent=None, local_test=False):
         super(SettingsDialog, self).__init__(parent)
         self.local_test = local_test
 
@@ -174,6 +174,15 @@ class SettingsDialog(QDialog):
         self.networkList.itemClicked.connect(self.network_selected)
         self.load_wifi_networks()
 
+        # Add the delete photos Button
+        self.delete_button = QPushButton("Delete Photos")
+        self.layout.addWidget(self.delete_button)
+        self.delete_button.pressed.connect(self.confirm_delete)
+
+        self.label = QLabel(f"Photo Count: {photo_count}")
+        self.layout.addWidget(self.label)
+        self.label.setAlignment(Qt.AlignCenter)
+
         # Add the preview color Button
         self.toggle_button = QPushButton(self.get_display_gray_text())
         self.toggle_button.setCheckable(True)
@@ -200,18 +209,13 @@ class SettingsDialog(QDialog):
         self.layout.addWidget(self.multi_shot_button)
         self.multi_shot_button.toggled.connect(self.multi_shot_button_clicked)
 
-        # Add the delete photos Button
-        self.delete_button = QPushButton("Delete Photos")
-        self.layout.addWidget(self.delete_button)
-        self.delete_button.pressed.connect(self.confirm_delete)
-
         # Add the save Button
-        self.save_button = QPushButton("Apply and Exit")
+        self.save_button = QPushButton("Apply and Exit Settings")
         self.layout.addWidget(self.save_button)
         self.save_button.pressed.connect(self.save_config)
 
         # Add the cancel Button
-        self.cancel_button = QPushButton("Exit")
+        self.cancel_button = QPushButton("Exit Settings")
         self.layout.addWidget(self.cancel_button)
         self.cancel_button.pressed.connect(self.close)
 
@@ -333,4 +337,4 @@ class SettingsDialog(QDialog):
 
 if __name__ == "__main__":
     app = QApplication([])
-    window = SettingsDialog(config=load_config(), local_test=True)
+    window = SettingsDialog(config=load_config(), photo_count=69, local_test=True)

@@ -313,6 +313,7 @@ class PhotoBooth:
         self.qpicamera2.hide()
         self.settings_dialog = SettingsDialog(
                 config=self._config,
+                photo_count=len(self.photo_path_db.db.keys()),
                 parent=self.qpicamera2
             )
 
