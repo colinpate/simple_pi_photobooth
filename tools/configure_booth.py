@@ -13,7 +13,7 @@ def get_args():
                     description='Generates Photo Booth configuration and copies it to the booth if you want')
     
     parser.add_argument("-w", "--wm_config",
-                        help="Path to load the watermark config yaml file to (optional)")
+                        help="Path to load the watermark config yaml file from (optional)")
                         
     parser.add_argument("-o", "--yaml_out",
                         help="Path to save the config yaml file to")

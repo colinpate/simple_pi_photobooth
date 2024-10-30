@@ -22,6 +22,7 @@ display_shuffle_time: 30 # Show a new image from the saved ones every 30 seconds
 display_timeout: 1200 # Go back to preview after 20 minutes
 led_idle_brightness: 15 # normally 15
 led_capture_brightness: 100 # normally 100
+led_sleep_timeout: 600 # When idle, turn off the main LEDs after this number of seconds
 button_pulse_time: 4
 wifi_check: true
 wifi_check_time: 5 # Interval to check if the wifi is connected
