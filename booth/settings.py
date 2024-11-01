@@ -292,7 +292,7 @@ class SettingsDialog(ConfigSettings, QDialog):
                 for i in range(15)
             ]
         else:
-            networks = scan_wifi_networks()
+            networks = set(scan_wifi_networks())
         for network in networks:
             if network["SSID"] != "--":
                 self.networkList.addItem(network['SSID'])
