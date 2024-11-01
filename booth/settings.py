@@ -5,7 +5,7 @@ import sys
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QTimer, Qt
 
-from common.common import load_config_file, load_config, save_config_file
+from common.common import load_config, ConfigSettings
 
 
 def connect_to_wifi(ssid, password):
@@ -143,15 +143,15 @@ class ConfirmDeleteDialog(QDialog):
         self.buttonBox.rejected.connect(self.reject)
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(ConfigSettings, QDialog):
     album_title_key = "album_title"
 
     def __init__(self, config, photo_count, parent=None, local_test=False):
-        super(SettingsDialog, self).__init__(parent)
+        print(QDialog.__init__)
+        QDialog.__init__(self, parent=parent)
+        ConfigSettings.__init__(self, original_config=config, user_config_filename="config.user.yaml")
+        
         self.local_test = local_test
-
-        self.original_config = config
-        self.config_changes = {}
 
         font = QFont("Arial", 20)
         self.setFont(font)
@@ -208,7 +208,7 @@ class SettingsDialog(QDialog):
         # Add the save Button
         self.save_button = QPushButton("Apply and Exit Settings")
         self.layout.addWidget(self.save_button)
-        self.save_button.pressed.connect(self.save_config)
+        self.save_button.pressed.connect(self.apply_close)
 
         # Add the cancel Button
         self.cancel_button = QPushButton("Exit Settings")
@@ -224,9 +224,10 @@ class SettingsDialog(QDialog):
         self.auto_close_timer.start(60 * 1000) # 60 seconds
 
         self.exec()
-
-    def get_latest_value(self, parameter_key):
-        return self.config_changes.get(parameter_key, self.original_config[parameter_key])
+        
+    def apply_close(self):
+        self.save_config()
+        self.close()
 
     def update_album_button(self):
         self.album_title_button.setText(f"Album Title: {self.get_latest_value(self.album_title_key)}")
@@ -252,25 +253,6 @@ class SettingsDialog(QDialog):
             os.system(delete_command)
         with open(self.original_config["photo_path_db"], "w") as path_db:
             path_db.write("{}")
-        
-    def save_config(self):
-        user_config_filename = "config.user.yaml"
-        try:
-            user_config = load_config_file(user_config_filename)
-            print("Found user config:", user_config)
-        except FileNotFoundError:
-            user_config = {}
-
-        config_changed = False
-        for key, value in self.config_changes.items():
-            if value != self.original_config[key]:
-                user_config[key] = value
-                config_changed = True
-
-        if config_changed:
-            print("Writing new user config:", user_config)
-            save_config_file(user_config_filename, user_config)
-        self.close()
 
     def on_value_change(self, value):
         # Update the label text with the slider's current value

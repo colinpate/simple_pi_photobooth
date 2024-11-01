@@ -34,7 +34,7 @@ class BoothSync:
         self._is_syncing = False
         self.thumbnails = {}
         self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if self.local_test else None)
-        self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
+        self.mount_check_thread = threading.Thread(target=self.sync)
         self.mount_check_thread.start()
         self.update_watchdog()
         
@@ -46,7 +46,7 @@ class BoothSync:
     def is_syncing(self):
         return self._is_syncing
         
-    def check_nfs_mount(self):
+    def sync(self):
         old_db = {}
         while not self.stop_thread:
             ls_timeout = False

@@ -54,3 +54,32 @@ def load_config(config_name="config"):
     except:
         print("Failed to load user config")
     return config
+
+class ConfigSettings:
+    def __init__(self, original_config, user_config_filename):
+        self.original_config = original_config
+        self.user_config_filename = user_config_filename
+        self.config_changes = {}
+
+    def get_latest_value(self, parameter_key):
+        return self.config_changes.get(parameter_key, self.original_config[parameter_key])
+
+    def save_config(self):
+        try:
+            user_config = load_config_file(self.user_config_filename)
+            print("Found user config:", user_config)
+        except FileNotFoundError:
+            user_config = {}
+
+        config_changed = False
+        for key, value in self.config_changes.items():
+            if value != self.original_config[key]:
+                user_config[key] = value
+                config_changed = True
+
+        if config_changed:
+            print("Writing new user config:", user_config)
+            save_config_file(self.user_config_filename, user_config)
+            return True
+        else:
+            return False

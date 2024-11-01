@@ -34,7 +34,7 @@ from datetime import datetime
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
 from booth_sync import BoothSync
-from common.common import load_config
+from common.common import load_config, ConfigSettings
 
 if os.path.isfile("print_config_test.yaml"):
     LOCAL_TEST = True
@@ -423,7 +423,7 @@ class ImageGalleryApp(App):
         if self.has_error_label:
             self.has_error_label = False
             self.root.remove_widget(self.error_label)
-        
+
     def show_settings_popup(self, instance):
         ''' Show a popup with the expanded image '''
         layout = GridLayout(cols=1)
@@ -431,7 +431,15 @@ class ImageGalleryApp(App):
                       content=layout,
                       size_hint=(0.8, 0.9))
         self.popups["settings"] = popup
-                      
+        config_settings = ConfigSettings(
+            original_config=self.config_yaml,
+            user_config_filename="print_config.user.yaml"
+        )
+        def close(instance):
+            self.gallery.shutdown()
+            sys.exit(0)
+        
+        # Create print level display
         double = GridLayout(cols=2, size_hint=(0.3, 0.1))
         print_level_label = Label(text='', font_size=sp(20))
         double.add_widget(print_level_label)
@@ -444,33 +452,59 @@ class ImageGalleryApp(App):
         print_level_label.text = f"Print Level {marker_level}%"
         double.add_widget(print_level)
         layout.add_widget(double)
+
+        # Create print format button
+        def get_print_fmt_button_text():
+                return f'Format: {config_settings.get_latest_value("print_format")}'
+        toggle_button = Button(text=get_print_fmt_button_text(), size_hint=(0.3, 0.1))
+        layout.add_widget(toggle_button)
+        def change_print_format(instance):
+            if config_settings.get_latest_value("print_format") == "2x6":
+                config_settings.config_changes["print_format"] = "4x3"
+            elif config_settings.get_latest_value("print_format") == "4x3":
+                config_settings.config_changes["print_format"] = "3x2"
+            else:
+                config_settings.config_changes["print_format"] = "2x6"
+            instance.text = get_print_fmt_button_text()
+        toggle_button.bind(on_press=change_print_format)
          
+        # Create close button
         close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
-        close_button.bind(on_release=popup.dismiss)
+        def dismiss(instance):
+            if config_settings.save_config():
+                close(instance)
+            else:
+                popup.dismiss()
+        close_button.bind(on_release=dismiss)
         layout.add_widget(close_button)
-                      
-        exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
-        def close(instance):
-            self.gallery.shutdown()
-            sys.exit(0)
-        exit_button.bind(on_release=close)
-        layout.add_widget(exit_button)
-                      
+
+        # Create shutdown button      
         shutdown_button = Button(text='Shutdown', size_hint=(0.3, 0.1))
         def shutdown(instance):
+            config_settings.save_config()
             self.gallery.shutdown()
             os.system("sudo shutdown now")
             sys.exit(0)
         shutdown_button.bind(on_release=shutdown)
         layout.add_widget(shutdown_button)
-                      
+        
+        # Create reboot button
         restart_button = Button(text='Reboot', size_hint=(0.3, 0.1))
         def restart(instance):
+            config_settings.save_config()
             self.gallery.shutdown()
             os.system("sudo reboot")
             sys.exit(0)
         restart_button.bind(on_release=restart)
         layout.add_widget(restart_button)
+
+        # Create exit button         
+        exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
+        def exit_kiosk(instance):
+            config_settings.save_config()
+            close(instance)
+        exit_button.bind(on_release=exit_kiosk)
+        layout.add_widget(exit_button)
         
         popup.open()
 
