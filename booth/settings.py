@@ -147,7 +147,6 @@ class SettingsDialog(ConfigSettings, QDialog):
     album_title_key = "album_title"
 
     def __init__(self, config, photo_count, parent=None, local_test=False):
-        print(QDialog.__init__)
         QDialog.__init__(self, parent=parent)
         ConfigSettings.__init__(self, original_config=config, user_config_filename="config.user.yaml")
         
