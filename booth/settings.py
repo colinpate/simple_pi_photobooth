@@ -27,7 +27,7 @@ def scan_wifi_networks():
     for line in lines[1:]:
         ssid = line.strip()
         if ssid:
-            networks.append({'SSID': ssid})
+            networks.append(ssid)
     return networks
 
 
@@ -288,14 +288,14 @@ class SettingsDialog(ConfigSettings, QDialog):
     def load_wifi_networks(self):
         if self.local_test:
             networks = [
-                {"SSID": f"Network{i}"}
+                f"Network{i}"
                 for i in range(15)
             ]
         else:
             networks = set(scan_wifi_networks())
         for network in networks:
-            if network["SSID"] != "--":
-                self.networkList.addItem(network['SSID'])
+            if network != "--":
+                self.networkList.addItem(network)
 
     def network_selected(self, item):
         ssid = item.text()
