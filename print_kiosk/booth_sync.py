@@ -127,6 +127,10 @@ class BoothSync:
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
+                if not os.path.isfile(image_path):
+                    success = self.sync_photo_to_local(image_path)
+                    if not success:
+                        continue
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
@@ -150,10 +154,6 @@ class BoothSync:
         filename = filename.split(".")[0]
         thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
         if not os.path.isfile(thumbnail_path):
-            if not os.path.isfile(image_path):
-                success = self.sync_photo_to_local(image_path)
-                if not success:
-                    return None
             success = create_thumbnail(
                 photo_path=image_path,
                 thumbnail_path=thumbnail_path,

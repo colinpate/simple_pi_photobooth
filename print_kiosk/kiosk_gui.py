@@ -23,13 +23,11 @@ from kivy.clock import Clock
 from kivy.config import Config
 
 from glob import glob
-import yaml
 import os
 import sys
-from collections import OrderedDict
 import time
 import json
-from datetime import datetime
+import signal
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -388,6 +386,8 @@ class ImageGalleryApp(App):
         
         Clock.schedule_once(self.check_last_touch, 1)
         self.popups = {}
+
+        signal.signal(signal.SIGTERM, self.close)
         
         return root
         
@@ -424,6 +424,52 @@ class ImageGalleryApp(App):
             self.has_error_label = False
             self.root.remove_widget(self.error_label)
 
+    def close(self, frame=None, ts=None):
+        self.gallery.shutdown()
+        sys.exit(0)
+
+    def clean_files(self):
+        layout = GridLayout(cols=1)
+        popup = Popup(title='',
+                      content=layout,
+                      size_hint=(0.5, 0.3))
+        printing_label = Label(text='Cleaning files...', font_size=sp(30))
+        layout.add_widget(printing_label)
+        delete_progress = ProgressBar(max=100)
+        layout.add_widget(delete_progress)
+        popup.open()
+        
+        thumbnail_dir = self.config_yaml["thumbnail_dir"]
+        photo_dir = self.config_yaml["photo_dir"]
+        thumbnail_files = set(glob(thumbnail_dir + "/*.png"))
+        photo_files = set(glob(photo_dir + "/**/*.jpg"))
+        thumbnails = self.gallery.booth_sync.thumbnails.copy()
+        current_thumbnails = set(thumbnails.values())
+        current_photos = set(thumbnails.keys())
+        dead_thumbnails = thumbnail_files - current_thumbnails
+        dead_photos = photo_files - current_photos
+
+        print(len(dead_thumbnails), "dead thumbnails")
+        print(len(dead_photos), "dead photos")
+
+        deads = list(dead_thumbnails) + list(dead_photos)
+        num_deads = len(deads)
+
+        def delete_deads(dt):
+            remaining = len(deads)
+            if remaining:
+                dead = deads.pop(0)
+                print("Deleting", dead)
+                os.remove(dead)
+                printing_label.text = f"{remaining}/{num_deads} remaining"
+                delete_progress.value = 100 * (1 - (remaining / num_deads))
+                Clock.schedule_once(delete_deads, 0)
+            else:
+                popup.dismiss()
+                self.close()
+        
+        Clock.schedule_once(delete_deads, 0)
+
     def show_settings_popup(self, instance):
         ''' Show a popup with the expanded image '''
         layout = GridLayout(cols=1)
@@ -435,10 +481,6 @@ class ImageGalleryApp(App):
             original_config=self.config_yaml,
             user_config_filename="print_config.user.yaml"
         )
-        def close(instance):
-            self.gallery.shutdown()
-            sys.exit(0)
-        
         # Create print level display
         double = GridLayout(cols=2, size_hint=(0.3, 0.1))
         print_level_label = Label(text='', font_size=sp(20))
@@ -455,7 +497,7 @@ class ImageGalleryApp(App):
 
         # Create print format button
         def get_print_fmt_button_text():
-                return f'Format: {config_settings.get_latest_value("print_format")}'
+            return f'Format: {config_settings.get_latest_value("print_format")}'
         toggle_button = Button(text=get_print_fmt_button_text(), size_hint=(0.3, 0.1))
         layout.add_widget(toggle_button)
         def change_print_format(instance):
@@ -468,11 +510,23 @@ class ImageGalleryApp(App):
             instance.text = get_print_fmt_button_text()
         toggle_button.bind(on_press=change_print_format)
          
+        # Create clean button
+        clean_button = Button(text='Clean Files', size_hint=(0.3, 0.1))
+        def clean_files(instance):
+            popup.dismiss()
+            config_settings.save_config()
+            self.clean_files()
+        layout.add_widget(clean_button)
+        if self.gallery.booth_sync.is_nfs_mounted():
+            clean_button.bind(on_release=clean_files)
+        else:
+            clean_button.set_disabled(True)
+
         # Create close button
         close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
         def dismiss(instance):
             if config_settings.save_config():
-                close(instance)
+                self.close()
             else:
                 popup.dismiss()
         close_button.bind(on_release=dismiss)
@@ -502,7 +556,7 @@ class ImageGalleryApp(App):
         exit_button = Button(text='Exit Kiosk', size_hint=(0.3, 0.1))
         def exit_kiosk(instance):
             config_settings.save_config()
-            close(instance)
+            self.close()
         exit_button.bind(on_release=exit_kiosk)
         layout.add_widget(exit_button)
         
