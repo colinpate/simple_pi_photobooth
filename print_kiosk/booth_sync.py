@@ -34,7 +34,7 @@ class BoothSync:
         self._is_syncing = False
         self.thumbnails = {}
         self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if self.local_test else None)
-        self.mount_check_thread = threading.Thread(target=self.check_nfs_mount)
+        self.mount_check_thread = threading.Thread(target=self.sync)
         self.mount_check_thread.start()
         self.update_watchdog()
         
@@ -46,7 +46,7 @@ class BoothSync:
     def is_syncing(self):
         return self._is_syncing
         
-    def check_nfs_mount(self):
+    def sync(self):
         old_db = {}
         while not self.stop_thread:
             ls_timeout = False
@@ -127,6 +127,10 @@ class BoothSync:
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
+                if not os.path.isfile(image_path):
+                    success = self.sync_photo_to_local(image_path)
+                    if not success:
+                        continue
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
@@ -150,10 +154,6 @@ class BoothSync:
         filename = filename.split(".")[0]
         thumbnail_path = os.path.join(self.thumbnail_dir, filename + ".png")
         if not os.path.isfile(thumbnail_path):
-            if not os.path.isfile(image_path):
-                success = self.sync_photo_to_local(image_path)
-                if not success:
-                    return None
             success = create_thumbnail(
                 photo_path=image_path,
                 thumbnail_path=thumbnail_path,

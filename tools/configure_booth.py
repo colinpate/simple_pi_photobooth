@@ -65,7 +65,12 @@ if __name__ == "__main__":
     config = {}
 
     if args.wm_config:
-        with open(args.wm_config, "r") as config_file:
+        wm_config_path = args.wm_config
+    else:
+        wm_config_path = input("Watermark configuration file? (Enter to skip) :")
+    
+    if wm_config_path:
+        with open(wm_config_path, "r") as config_file:
             wm_config = yaml.load(config_file, yaml.Loader)
         config["watermark"] = wm_config["watermark"]
 
