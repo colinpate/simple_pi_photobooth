@@ -220,7 +220,7 @@ class SettingsDialog(ConfigSettings, QDialog):
         self.auto_close_timer = QTimer(self)
         self.auto_close_timer.setSingleShot(True)  # Ensures it runs only once
         self.auto_close_timer.timeout.connect(self.close)
-        self.auto_close_timer.start(60 * 1000) # 60 seconds
+        self.auto_close_timer.start(180 * 1000) # 3 minutes
 
         self.exec()
         
