@@ -143,6 +143,12 @@ class ConfirmDeleteDialog(QDialog):
         self.buttonBox.rejected.connect(self.reject)
 
 
+class ConfirmDeleteWatermarkDialog(ConfirmDeleteDialog):
+    def __init__(self, parent=None):
+        super().__init__(self, parent=parent)
+        self.label.text = "Are you sure you want to delete the watermark configuration?"
+
+
 class SettingsDialog(ConfigSettings, QDialog):
     album_title_key = "album_title"
 
@@ -177,6 +183,12 @@ class SettingsDialog(ConfigSettings, QDialog):
         self.delete_button = QPushButton(f"Delete {photo_count} Photos")
         self.layout.addWidget(self.delete_button)
         self.delete_button.pressed.connect(self.confirm_delete)
+
+        if self.original_config.get("watermark", None):
+            # Add the delete watermark Button
+            self.delete_wm_button = QPushButton(f"Delete watermark")
+            self.layout.addWidget(self.delete_wm_button)
+            self.delete_wm_button.pressed.connect(self.confirm_delete_wm)
 
         # Add the preview color Button
         self.toggle_button = QPushButton(self.get_display_gray_text())
@@ -243,6 +255,12 @@ class SettingsDialog(ConfigSettings, QDialog):
         if dialog.exec():
             self.delete_photos()
             self.close()
+
+    def confirm_delete_wm(self):
+        dialog = ConfirmDeleteWatermarkDialog(self)
+        if dialog.exec():
+            self.config_changes["watermark"] = None
+            self.apply_close()
 
     def delete_photos(self):
         for postfix in ["gray", "color", "original"]:
