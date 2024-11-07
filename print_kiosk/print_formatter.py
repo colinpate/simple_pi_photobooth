@@ -2,16 +2,16 @@ import cv2
 import numpy as np
 
 class PrintFormatter:
-    def __init__(self, print_format, h_crop_2x6=1, v_crop_2x6=1, h_pad=0, logo_config=None, **kwargs):
+    def __init__(self, print_format, h_crop_2x6=1, v_crop_2x6=1, h_pad=0, watermark=None, **kwargs):
         self.print_format = print_format
         self.h_pad = 0.04
         
         self.logo = None
         self.logo_width_scale = -1
-        if logo_config:
-            if logo_config["enable"]:
-                self.logo = cv2.imread(logo_config["logo_path"])
-                self.logo_width_scale = logo_config["logo_width_scale"]
+        if watermark:
+            if watermark["enable"]:
+                self.logo = cv2.imread(watermark["watermark_path"])
+                self.logo_width_scale = watermark["logo_width_scale"]
         
         if print_format == "4x3":
             self._num_photos = 2
