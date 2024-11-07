@@ -123,6 +123,7 @@ class WifiInfo(QDialog):
 
 
 class ConfirmDeleteDialog(QDialog):
+    label_text = "Are you sure you want to delete all photos on the Photo Booth immediately?"
     def __init__(self, parent=None):
         super(ConfirmDeleteDialog, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
@@ -131,8 +132,7 @@ class ConfirmDeleteDialog(QDialog):
 
         self.setWindowTitle('')
         self.layout = QVBoxLayout(self)
-        label_text = "Are you sure you want to delete all photos on the Photo Booth immediately?"
-        self.label = QLabel(label_text)
+        self.label = QLabel(self.label_text)
         self.layout.addWidget(self.label)
 
         # OK and Cancel Buttons
@@ -144,9 +144,9 @@ class ConfirmDeleteDialog(QDialog):
 
 
 class ConfirmDeleteWatermarkDialog(ConfirmDeleteDialog):
+    label_text = "Are you sure you want to delete the watermark configuration?"
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.label.text = "Are you sure you want to delete the watermark configuration?"
 
 
 class SettingsDialog(ConfigSettings, QDialog):
