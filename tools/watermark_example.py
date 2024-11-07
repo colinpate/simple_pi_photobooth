@@ -36,6 +36,9 @@ def get_args():
                         
     parser.add_argument("-n", "--no_preview", action="store_true",
                         help="Don't show image preview")
+    
+    parser.add_argument("--album_title", default="test",
+                        help="Title of the photo album. Must be specified for transferring to booth")
                         
     return parser.parse_args()
     
@@ -51,7 +54,8 @@ if __name__ == "__main__":
                 "h_size": args.h_size,
                 "offset_x": args.x_offset,
                 "offset_y": args.y_offset
-            }
+            },
+            "album_title": args.album_title
         }
         
     print("Config:")
