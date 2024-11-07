@@ -12,8 +12,8 @@ from argparse import ArgumentParser
 from pprint import pprint
     
 def get_args():
-    parser = ArgumentParser(prog='Print Format Example',
-                    description='Generates sample print images and can copy print logo and configuration to the Print Kiosk')
+    parser = ArgumentParser(prog='Print Kiosk Config Generator',
+                    description='Generates a config file and example images for the Print Kiosk')
                     
     parser.add_argument("-f", "--photo_dir",
                         help="Where to pick .jpg files to put in the example photo")
@@ -96,7 +96,7 @@ def main():
         assert len(photos) >= formatter.num_photos()
         print(f"Found {len(photos)}, using {formatter.num_photos()} in {args.photo_dir}")
         
-        full_image, preview_image = formatter.format_print(photos[:formatter.num_photos()])
+        _, preview_image = formatter.format_print(photos[:formatter.num_photos()])
         print("Writing preview to preview.jpg")
         cv2.imwrite("preview.jpg", preview_image)
         if not args.no_preview:

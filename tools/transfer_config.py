@@ -10,15 +10,19 @@ def get_args():
                     description='Transfers a config file and watermark image (if applicable) to the booth/kiosk')
                         
     parser.add_argument("-d", "--device",
-                        help="b for Booth or k for Kiosk")
+                        help="Choose the device to transfer to: b for Booth or k for Kiosk")
 
     parser.add_argument("-i", "--config_path",
                         help="Config file path")
     
     parser.add_argument("-a", "--address",
                         help="IP address of Booth/Kiosk")
+    
+    parser.add_argument("-w", "--watermark_path",
+                        help="Path to watermark image, if you want to change it")
                         
     return parser.parse_args()
+
 
 def scp_image_to_watermarks(logo_path, kiosk_path, dryrun):
     logo_filename = os.path.split(logo_path)[-1]
@@ -48,18 +52,16 @@ def scp_files(booth_path, config, yaml_name, dryrun):
             watermark_dest_path = scp_image_to_watermarks(watermark_path, booth_path, dryrun)
             print("Copied", watermark_path, "to", watermark_dest_path)
             config["watermark"]["watermark_path"] = watermark_dest_path
-            print("Changed watermark_path in config to", watermark_dest_path)
-            print("New config:")
-            pprint(config)
+            print("Changed watermark_path in config from", watermark_path, "to", watermark_dest_path)
         else:
-            print(watermark_path, "not found, hopefully it's already on the booth/kiosk")
+            raise FileNotFoundError(f"Watermark file {watermark_path} not found")
         
     scp_temp_yaml(booth_path, config, yaml_name=yaml_name, dryrun=dryrun)
 
 
 def run_booth_command(booth_ip, dryrun, booth_command):
     command = f'ssh {BOOTH_USER}@{booth_ip} "{booth_command}"' 
-    print(command)
+    print("\n", command)
     if not dryrun:
         os.system(command)
 
@@ -76,9 +78,9 @@ def main():
 
     device = args.device
     while device not in ["b", "k"]:
-        device = input("(b)ooth or (k)iosk? ")
+        device = input("Transfer to (b)ooth or (k)iosk? ")
         if device not in ["b", "k"]:
-            print("Error: You must specify either booth or kiosk.")
+            print("Error: You must specify either b for booth or k for kiosk.")
     if device == "b":
         device_name = "Photo Booth"
         services = ["booth", "upload"]
@@ -90,7 +92,7 @@ def main():
     print(f"{device_name} selected")
 
     if not args.config_path:
-        config_path = input("Path to config yaml file? ")
+        config_path = input("Path to config yaml file to transfer? ")
     else:
         config_path = args.config_path
     print("Loading config from", config_path)
@@ -100,6 +102,9 @@ def main():
         booth_ip = input(f"{device_name} IP address? ")
     else:
         booth_ip = args.address
+
+    if args.watermark_path:
+        config["watermark"]["watermark_path"] = args.watermark_path
     
     scp = input(f"Transfer new config and logo/watermark to {device_name}? y/(n)/d (d=dryrun) : ")
     if scp in ["y", "d"]:
@@ -113,6 +118,8 @@ def main():
         scp_files(booth_path, config, yaml_name, dryrun)
         print(f"Restarting {device_name} services to apply updates")
         restart_booth_services(booth_ip, services, dryrun)
+    else:
+        print("Not transferring.")
 
 
 if __name__ == "__main__":
