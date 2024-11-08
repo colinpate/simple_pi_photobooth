@@ -145,8 +145,6 @@ class ConfirmDeleteDialog(QDialog):
 
 class ConfirmDeleteWatermarkDialog(ConfirmDeleteDialog):
     label_text = "Are you sure you want to delete the watermark configuration?"
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
 
 
 class SettingsDialog(ConfigSettings, QDialog):

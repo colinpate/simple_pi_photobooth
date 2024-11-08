@@ -1,6 +1,5 @@
 import os
-from pprint import pprint
-from print_example import read_yaml, write_yaml
+from print_config import read_yaml, write_yaml
 from argparse import ArgumentParser
     
 BOOTH_USER = "colin"
@@ -109,7 +108,6 @@ def main():
     scp = input(f"Transfer new config and logo/watermark to {device_name}? y/(n)/d (d=dryrun) : ")
     if scp in ["y", "d"]:
         booth_path = f"{BOOTH_USER}@{booth_ip}:/home/{BOOTH_USER}/"
-        print(f"{device_name} path:", booth_path)
         if scp == "d":
             print("Doing dryrun")
             dryrun = True
