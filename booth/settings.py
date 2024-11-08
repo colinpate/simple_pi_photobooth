@@ -122,17 +122,16 @@ class WifiInfo(QDialog):
         self.auto_close_timer.start(5 * 1000) # 5 seconds
 
 
-class ConfirmDeleteDialog(QDialog):
-    label_text = "Are you sure you want to delete all photos on the Photo Booth immediately?"
-    def __init__(self, parent=None):
-        super(ConfirmDeleteDialog, self).__init__(parent)
+class ConfirmDialog(QDialog):
+    def __init__(self, label_text, parent=None):
+        super(ConfirmDialog, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
         font = QFont("Arial", 20)
         self.setFont(font)
 
         self.setWindowTitle('')
         self.layout = QVBoxLayout(self)
-        self.label = QLabel(self.label_text)
+        self.label = QLabel(label_text)
         self.layout.addWidget(self.label)
 
         # OK and Cancel Buttons
@@ -141,10 +140,6 @@ class ConfirmDeleteDialog(QDialog):
 
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-
-
-class ConfirmDeleteWatermarkDialog(ConfirmDeleteDialog):
-    label_text = "Are you sure you want to delete the watermark configuration?"
 
 
 class SettingsDialog(ConfigSettings, QDialog):
@@ -249,13 +244,19 @@ class SettingsDialog(ConfigSettings, QDialog):
             self.update_album_button()
 
     def confirm_delete(self):
-        dialog = ConfirmDeleteDialog(self)
+        dialog = ConfirmDialog(
+            label_text="Are you sure you want to delete all photos on the Photo Booth immediately?",
+            parent=self
+        )
         if dialog.exec():
             self.delete_photos()
             self.close()
 
     def confirm_delete_wm(self):
-        dialog = ConfirmDeleteWatermarkDialog(self)
+        dialog = ConfirmDialog(
+            label_text="Are you sure you want to delete the watermark configuration?",
+            parent=self
+        )
         if dialog.exec():
             self.config_changes["watermark"] = None
             self.apply_close()

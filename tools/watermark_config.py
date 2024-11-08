@@ -37,8 +37,6 @@ def get_args():
     parser.add_argument("-n", "--no_preview", action="store_true",
                         help="Don't show image preview")
     
-    
-    
     parser.add_argument("--album_title", default="test",
                         help="Title of the online photo album")
                         
