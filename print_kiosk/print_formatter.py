@@ -4,7 +4,7 @@ import numpy as np
 class PrintFormatter:
     def __init__(self, print_format, h_crop_2x6=1, v_crop_2x6=1, h_pad=0, watermark=None, **kwargs):
         self.print_format = print_format
-        self.h_pad = 0.04
+        self.h_pad = h_pad
         
         self.logo = None
         self.logo_width_scale = -1
