@@ -40,7 +40,7 @@ overlays:
     three_shots:
         path: "/home/colin/overlays/three_shots_v2.png"
         size: [840,120]
-        offset: [480,112]
+        offset: [480,92]
         weight: 0.75
     countdown_5:
         path: "/home/colin/overlays/Countdown_5.png"
