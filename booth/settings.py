@@ -122,16 +122,15 @@ class WifiInfo(QDialog):
         self.auto_close_timer.start(5 * 1000) # 5 seconds
 
 
-class ConfirmDeleteDialog(QDialog):
-    def __init__(self, parent=None):
-        super(ConfirmDeleteDialog, self).__init__(parent)
+class ConfirmDialog(QDialog):
+    def __init__(self, label_text, parent=None):
+        super(ConfirmDialog, self).__init__(parent)
         self.setWindowFlag(Qt.FramelessWindowHint)
         font = QFont("Arial", 20)
         self.setFont(font)
 
         self.setWindowTitle('')
         self.layout = QVBoxLayout(self)
-        label_text = "Are you sure you want to delete all photos on the Photo Booth immediately?"
         self.label = QLabel(label_text)
         self.layout.addWidget(self.label)
 
@@ -177,6 +176,12 @@ class SettingsDialog(ConfigSettings, QDialog):
         self.delete_button = QPushButton(f"Delete {photo_count} Photos")
         self.layout.addWidget(self.delete_button)
         self.delete_button.pressed.connect(self.confirm_delete)
+
+        if self.original_config.get("watermark", None):
+            # Add the delete watermark Button
+            self.delete_wm_button = QPushButton(f"Delete watermark")
+            self.layout.addWidget(self.delete_wm_button)
+            self.delete_wm_button.pressed.connect(self.confirm_delete_wm)
 
         # Add the preview color Button
         self.toggle_button = QPushButton(self.get_display_gray_text())
@@ -239,10 +244,22 @@ class SettingsDialog(ConfigSettings, QDialog):
             self.update_album_button()
 
     def confirm_delete(self):
-        dialog = ConfirmDeleteDialog(self)
+        dialog = ConfirmDialog(
+            label_text="Are you sure you want to delete all photos on the Photo Booth immediately?",
+            parent=self
+        )
         if dialog.exec():
             self.delete_photos()
             self.close()
+
+    def confirm_delete_wm(self):
+        dialog = ConfirmDialog(
+            label_text="Are you sure you want to delete the watermark configuration?",
+            parent=self
+        )
+        if dialog.exec():
+            self.config_changes["watermark"] = None
+            self.apply_close()
 
     def delete_photos(self):
         for postfix in ["gray", "color", "original"]:

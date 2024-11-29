@@ -74,7 +74,7 @@ class ColoredLabel(Label):
         super().__init__(**kwargs)
         self.bind(size=self.update_rect, pos=self.update_rect)
         with self.canvas.before:
-            Color(1, 1, 1, 0.5)  # Set the color (R, G, B, A)
+            Color(1, 1, 1, 0.7)  # Set the color (R, G, B, A)
             self.rect = Rectangle(size=self.size, pos=self.pos)
 
     def update_rect(self, *args):
@@ -355,9 +355,9 @@ class ImageGalleryApp(App):
         self.config_yaml = config
     
         root = FloatLayout()
-        status_label = ColoredLabel(text='Choose photos', size_hint=(1, 0.05), color=[0, 0, 0, 1],
-                                 pos_hint={'x': 0, 'bottom': 1}, font_size=sp(30))
-        gallery = ImageGallery(status_label, self)
+        status_label = ColoredLabel(text='Choose photos', size_hint=(1, 0.07), color=[0, 0, 0, 1],
+                                 pos_hint={'x': 0, 'bottom': 1}, font_size=sp(45))
+        gallery = ImageGallery(status_label, self, size_hint=(1, 1))
         gallery.scroll_type = ['content', 'bars']
         gallery.bar_width = '50dp'
         print("ImageGallery instance created and configured.")

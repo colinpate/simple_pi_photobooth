@@ -10,13 +10,13 @@ from pprint import pprint
 from print_example import write_yaml
     
 def get_args():
-    parser = ArgumentParser(prog='Watermarked Images Example',
-                    description='Generates sample watermarked images and can copy watermark image and configuration to the Photo Booth')
+    parser = ArgumentParser(prog='Photo Booth Watermark Config Generator',
+                    description='Generates a config file and example images for a watermark for the Photo Booth')
                     
     parser.add_argument("-f", "--photo_dir", required=True,
                         help="Where to pick .jpg files from to put in the example photo")
                         
-    parser.add_argument("--watermark_path",
+    parser.add_argument("-p", "--watermark_path",
                         help="Path to watermark")
                         
     parser.add_argument("-o", "--yaml_path",
@@ -36,6 +36,9 @@ def get_args():
                         
     parser.add_argument("-n", "--no_preview", action="store_true",
                         help="Don't show image preview")
+    
+    parser.add_argument("--album_title", default="test",
+                        help="Title of the online photo album")
                         
     return parser.parse_args()
     
@@ -51,7 +54,8 @@ if __name__ == "__main__":
                 "h_size": args.h_size,
                 "offset_x": args.x_offset,
                 "offset_y": args.y_offset
-            }
+            },
+            "album_title": args.album_title
         }
         
     print("Config:")
