@@ -504,6 +504,8 @@ class ImageGalleryApp(App):
             if config_settings.get_latest_value("print_format") == "2x6":
                 config_settings.config_changes["print_format"] = "4x3"
             elif config_settings.get_latest_value("print_format") == "4x3":
+                config_settings.config_changes["print_format"] = "Polaroid"
+            elif config_settings.get_latest_value("print_format") == "Polaroid":
                 config_settings.config_changes["print_format"] = "3x2"
             else:
                 config_settings.config_changes["print_format"] = "2x6"

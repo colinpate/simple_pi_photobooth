@@ -16,6 +16,9 @@ class PrintFormatter:
         if print_format == "4x3":
             self._num_photos = 2
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
+        elif print_format == "Polaroid":
+            self._num_photos = 1
+            self._media = "custom_119.21x156.15mm_119.21x156.15mm"
         elif self.print_format == "2x6":
             self._num_photos = 3
             self._media = "custom_119.21x155.45mm_119.21x155.45mm"
@@ -52,6 +55,27 @@ class PrintFormatter:
         if self.print_format == "4x3":
             out_image = cv2.vconcat(images)
             preview_image = cv2.resize(out_image, (400, 600))
+            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+
+        elif self.print_format == "Polaroid":
+            canvas_width = 1200
+            canvas_height = 1600
+            resized_width = int(canvas_width * 0.9)
+            resized_height = resized_width
+            canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
+
+            image = images[0]
+            cropped = crop_image(image, x_ratio = image_shape[0] / image_shape[1])
+            print(cropped.shape)
+
+            resized = cv2.resize(cropped, (resized_width, resized_height))
+            print(resized.shape)
+
+            offset = int((canvas_width - resized_width) / 2)
+            canvas[offset:offset + resized_height, offset:offset + resized_width, :] = resized
+
+            preview_image = cv2.resize(canvas, (450, 600))
+            out_image = cv2.hconcat([canvas]*2)
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
             
         elif self.print_format == "2x6":
