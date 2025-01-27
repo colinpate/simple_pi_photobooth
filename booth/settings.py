@@ -177,10 +177,13 @@ class SettingsDialog(ConfigSettings, QDialog):
         self.layout.addWidget(self.delete_button)
         self.delete_button.pressed.connect(self.confirm_delete)
 
+        self.delete_wm_button = QPushButton("Watermark disabled")
+        self.delete_wm_button.setEnabled(False)
+        self.layout.addWidget(self.delete_wm_button)
         if self.original_config.get("watermark", None):
+            self.delete_wm_button.setText(f"Watermark: {self.original_config['watermark']['watermark_path']}")
+            self.delete_wm_button.setEnabled(True)
             # Add the delete watermark Button
-            self.delete_wm_button = QPushButton(f"Delete watermark")
-            self.layout.addWidget(self.delete_wm_button)
             self.delete_wm_button.pressed.connect(self.confirm_delete_wm)
 
         # Add the preview color Button
@@ -208,6 +211,11 @@ class SettingsDialog(ConfigSettings, QDialog):
         self.multi_shot_button.setCheckable(True)
         self.layout.addWidget(self.multi_shot_button)
         self.multi_shot_button.toggled.connect(self.multi_shot_button_clicked)
+
+        # Add the restore defaults Button
+        self.restore_defaults_button = QPushButton("Restore defaults")
+        self.layout.addWidget(self.restore_defaults_button)
+        self.restore_defaults_button.pressed.connect(self.restore_defaults)
 
         # Add the save Button
         self.save_button = QPushButton("Apply and Exit Settings")
@@ -254,12 +262,13 @@ class SettingsDialog(ConfigSettings, QDialog):
 
     def confirm_delete_wm(self):
         dialog = ConfirmDialog(
-            label_text="Are you sure you want to delete the watermark configuration?",
+            label_text="Do you want to disable the watermark?",
             parent=self
         )
         if dialog.exec():
+            self.delete_wm_button.setText("Watermark disabled")
+            self.delete_wm_button.setEnabled(False)
             self.config_changes["watermark"] = None
-            self.apply_close()
 
     def delete_photos(self):
         for postfix in ["gray", "color", "original"]:
@@ -277,9 +286,9 @@ class SettingsDialog(ConfigSettings, QDialog):
 
     def get_display_gray_text(self):
         if self.get_latest_value("display_gray"):
-            return "Displaying Black/White"
+            return "Displaying: Black/White"
         else:
-            return "Displaying Color"
+            return "Displaying: Color"
 
     def toggle_button_clicked(self, checked):
         if checked:
@@ -290,9 +299,9 @@ class SettingsDialog(ConfigSettings, QDialog):
 
     def get_multi_shot_text(self):
         if self.get_latest_value("enable_multi_shot"):
-            return "3-Shot Mode Enabled"
+            return "3-Shot Mode: Enabled"
         else:
-            return "3-Shot Mode Disabled"
+            return "3-Shot Mode: Disabled"
 
     def multi_shot_button_clicked(self, checked):
         if checked:
@@ -327,6 +336,15 @@ class SettingsDialog(ConfigSettings, QDialog):
                     return_code = 0
                 self.wifi_dialog = WifiInfo(ssid, return_code, parent=self)
                 self.wifi_dialog.exec_()
+
+    def restore_defaults(self):
+        dialog = ConfirmDialog(
+            label_text="Are you sure you want to restore all user settings to their defaults?",
+            parent=self
+        )
+        if dialog.exec():
+            self.clear_user_config_file()
+            self.close()
 
 
 if __name__ == "__main__":
