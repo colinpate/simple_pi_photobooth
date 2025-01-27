@@ -28,13 +28,13 @@ def get_args():
                         help="Path of yaml file to load config from")
                     
     parser.add_argument("--print_format", default="2x6",
-                        help="Print size (4x3, 2x6, or 3x2)")
+                        help="Print size (4x3, 2x6, Polaroid, or 3x2)")
                         
     parser.add_argument("--logo_path",
-                        help="Path to logo to add to 2x6")
+                        help="Path to logo to add")
                         
     parser.add_argument("-w", "--logo_width_scale", type=float, default=1,
-                        help="Ratio of the 2x6 width that the logo should be")
+                        help="Ratio of the width that the logo should be")
                         
     parser.add_argument("--h_crop_2x6", type=float, default=1,
                         help="Horizontal crop ratio for photos placed in 2x6")
@@ -66,7 +66,7 @@ def main():
         print("Loading config from", args.load_yaml_path)
         config = read_yaml(args.load_yaml_path)
     else:
-        if (args.print_format == "2x6") and args.logo_path:
+        if args.logo_path:
             watermark = {
                 "enable": True,
                 "watermark_path": args.logo_path,

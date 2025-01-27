@@ -37,6 +37,14 @@ class PrintFormatter:
         }
         return options
 
+    def resize_logo(self, canvas_width):
+        logo_aspect = self.logo.shape[1] / self.logo.shape[0]
+        logo_width = int(canvas_width * self.logo_width_scale)
+        logo_height = int(logo_width / logo_aspect)
+        logo_x_offset = int((canvas_width - logo_width) / 2)
+        logo = cv2.resize(self.logo, (logo_width, logo_height))
+        return logo_width,logo_height,logo_x_offset,logo
+
     def format_print(self, image_paths):
         def crop_image(image, x_ratio=1, y_ratio=1):
             crop_x1 = int(image.shape[1] * (1 - x_ratio) / 2)
@@ -72,11 +80,24 @@ class PrintFormatter:
             print(resized.shape)
 
             offset = int((canvas_width - resized_width) / 2)
-            canvas[offset:offset + resized_height, offset:offset + resized_width, :] = resized
+            image_bottom = offset + resized_height
+            canvas[offset:image_bottom, offset:offset + resized_width, :] = resized
+
+            if self.logo is not None:
+                logo_width, logo_height, logo_x_offset, logo = self.resize_logo(canvas_width)
+                logo_v_center = int((image_bottom + canvas_height) / 2)
+                logo_top = int(logo_v_center - (logo_height / 2))
+                logo_bottom = logo_top + logo_height
+                if logo_bottom >= canvas_height:
+                    raise ValueError("Logo is too tall. Try decreasing logo_width_scale")
+                logo_left = int((canvas_width - logo_width) / 2)
+                logo_right = logo_left + logo_width
+                canvas[logo_top : logo_bottom, logo_left:logo_right, :] = logo
 
             preview_image = cv2.resize(canvas, (450, 600))
             out_image = cv2.hconcat([canvas]*2)
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+
             
         elif self.print_format == "2x6":
             image_aspect_ratio = image_shape[1] / image_shape[0]
@@ -88,11 +109,7 @@ class PrintFormatter:
             canvas_height = image_width * 3
             
             if self.logo is not None:
-                logo_aspect = self.logo.shape[1] / self.logo.shape[0]
-                logo_width = int(canvas_width * self.logo_width_scale)
-                logo_height = int(logo_width / logo_aspect)
-                logo_x_offset = int((canvas_width - logo_width) / 2)
-                logo = cv2.resize(self.logo, (logo_width, logo_height))
+                logo_width, logo_height, logo_x_offset, logo = self.resize_logo(canvas_width)
                 y_padding = int((canvas_height - (image_height * 3) - logo_height) / 5)
             else:
                 y_padding = int((canvas_height - (image_height * 3)) / 4)
