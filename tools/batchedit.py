@@ -50,7 +50,10 @@ def main():
         if args.dryrun:
             cv2.imshow("Before", image)
         if args.overlay_path:
-            watermarker.apply_watermark(image)
+            if watermarker.watermark_shape[:2] != image.shape[:2]:
+                print("Mismatched shape between image and watermark:", image.shape[:2], watermarker.watermark_shape[:2], photo)
+            else:
+                watermarker.apply_watermark(image)
         image = crop_image(image, args.x_crop, args.y_top, args.y_bot)
         filename = os.path.split(photo)[-1]
         new_path = os.path.join(args.out_dir, filename)
