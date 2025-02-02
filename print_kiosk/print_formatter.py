@@ -5,6 +5,7 @@ class PrintFormatter:
     def __init__(self, print_format, h_crop_2x6=1, v_crop_2x6=1, h_pad=0, watermark=None, **kwargs):
         self.print_format = print_format
         self.h_pad = h_pad
+        self.test_mode = True
         
         self.logo = None
         self.logo_width_scale = -1
@@ -97,6 +98,14 @@ class PrintFormatter:
                     logo_right = logo_left + logo_width
                     canvas[logo_top : logo_bottom, logo_left:logo_right, :] = logo
 
+                if self.test_mode:
+                    cv2.rectangle(canvas, (0, 0), (canvas_width - 1, canvas_height - 1), (0, 255, 0), 2) 
+                    """for x in range(canvas_width):
+                        canvas[0, x, :] = [255, 0, 0]
+                        canvas[canvas_height - 1, x, :] = [255, 0, 0]
+                    for y in range(canvas_height):
+                        canvas[y, 0, :] = [255, 0, 0]
+                        canvas[y, canvas_width - 1, :] = [255, 0, 0]"""
                 canvasses.append(canvas)
             out_image = cv2.hconcat(canvasses)
             preview_image = cv2.resize(out_image, (600, 400))
@@ -161,6 +170,9 @@ class PrintFormatter:
             pad_height = int((image_height * self.h_pad) / 2)
             pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
             out_image = cv2.vconcat([pad, out_image, pad])
+
+            if self.test_mode:
+                cv2.rectangle(out_image, (0, 0), (out_image.shape[1] - 1, out_image.shape[0] - 1), (0, 0, 255), 2) 
         return out_image, preview_image
         
     def format_and_save_print(self, image_paths, print_path, preview_path):
