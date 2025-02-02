@@ -100,7 +100,7 @@ class PrintFormatter:
                 canvasses.append(canvas)
             out_image = cv2.hconcat(canvasses)
             preview_image = cv2.resize(out_image, (600, 400))
-            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+            #out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
             
         elif self.print_format == "2x6":
             image_aspect_ratio = image_shape[1] / image_shape[0]
