@@ -120,7 +120,7 @@ class BoothSync:
         image_path_set = set(image_paths)
         if self.sideload_dir:
             sideloaded_paths = glob.glob(self.sideload_dir + "/*.jpg")
-            image_path_set += set(sideloaded_paths)
+            image_path_set = image_path_set.union(set(sideloaded_paths))
         
         deleted_image_paths = self.thumbnails.keys() - image_path_set
         for image_path in deleted_image_paths:
