@@ -69,7 +69,7 @@ class BoothSync:
 
             if self.is_nfs_mounted():
                 self.photo_path_db.replace_db(new_db)
-                self.update_thumbnails()
+            self.update_thumbnails()
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
