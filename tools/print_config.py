@@ -96,9 +96,10 @@ def main():
         assert len(photos) >= formatter.num_photos()
         print(f"Found {len(photos)}, using {formatter.num_photos()} in {args.photo_dir}")
         
-        _, preview_image = formatter.format_print(photos[:formatter.num_photos()])
+        out_image, preview_image = formatter.format_print(photos[:formatter.num_photos()])
         print("Writing preview to preview.jpg")
         cv2.imwrite("preview.jpg", preview_image)
+        cv2.imwrite("print.jpg", out_image)
         if not args.no_preview:
             cv2.imshow("Preview", preview_image)
             cv2.waitKey(0)
