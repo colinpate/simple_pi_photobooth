@@ -17,7 +17,7 @@ class PrintFormatter:
             self._num_photos = 2
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
         elif print_format == "Polaroid":
-            self._num_photos = 1
+            self._num_photos = 2
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
         elif self.print_format == "2x6":
             self._num_photos = 3
@@ -70,34 +70,37 @@ class PrintFormatter:
             canvas_height = 1600
             resized_width = int(canvas_width * 0.9)
             resized_height = resized_width
-            canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
+            canvasses = []
+            for i in range(self._num_photos):
+                canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
 
-            image = images[0]
-            cropped = crop_image(image, x_ratio = image_shape[0] / image_shape[1])
-            print(cropped.shape)
+                image = images[i]
+                cropped = crop_image(image, x_ratio = image_shape[0] / image_shape[1])
+                print(cropped.shape)
 
-            resized = cv2.resize(cropped, (resized_width, resized_height))
-            print(resized.shape)
+                resized = cv2.resize(cropped, (resized_width, resized_height))
+                print(resized.shape)
 
-            offset = int((canvas_width - resized_width) / 2)
-            image_bottom = offset + resized_height
-            canvas[offset:image_bottom, offset:offset + resized_width, :] = resized
+                x_offset = int((canvas_width - resized_width) / 2)
+                y_offset = int(x_offset * 1.5) # arbitrary
+                image_bottom = y_offset + resized_height
+                canvas[y_offset:image_bottom, x_offset:x_offset + resized_width, :] = resized
 
-            if self.logo is not None:
-                logo_width, logo_height, logo_x_offset, logo = self.resize_logo(canvas_width)
-                logo_v_center = int((image_bottom + canvas_height) / 2)
-                logo_top = int(logo_v_center - (logo_height / 2))
-                logo_bottom = logo_top + logo_height
-                if logo_bottom >= canvas_height:
-                    raise ValueError("Logo is too tall. Try decreasing logo_width_scale")
-                logo_left = int((canvas_width - logo_width) / 2)
-                logo_right = logo_left + logo_width
-                canvas[logo_top : logo_bottom, logo_left:logo_right, :] = logo
+                if self.logo is not None:
+                    logo_width, logo_height, logo_x_offset, logo = self.resize_logo(canvas_width)
+                    logo_v_center = int((image_bottom + canvas_height) / 2)
+                    logo_top = int(logo_v_center - (logo_height / 2))
+                    logo_bottom = logo_top + logo_height
+                    if logo_bottom >= canvas_height:
+                        raise ValueError("Logo is too tall. Try decreasing logo_width_scale")
+                    logo_left = int((canvas_width - logo_width) / 2)
+                    logo_right = logo_left + logo_width
+                    canvas[logo_top : logo_bottom, logo_left:logo_right, :] = logo
 
-            preview_image = cv2.resize(canvas, (450, 600))
-            out_image = cv2.hconcat([canvas]*2)
+                canvasses.append(canvas)
+            out_image = cv2.hconcat(canvasses)
+            preview_image = cv2.resize(out_image, (600, 400))
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
-
             
         elif self.print_format == "2x6":
             image_aspect_ratio = image_shape[1] / image_shape[0]
@@ -134,7 +137,7 @@ class PrintFormatter:
                 
             preview_image = cv2.resize(canvas, (220, 660), cv2.INTER_NEAREST)
             out_image = cv2.hconcat([canvas, canvas])
-            out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
+            #out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
         
         elif self.print_format == "3x2":
             aspect_ratio = 3/2
