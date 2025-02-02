@@ -133,6 +133,7 @@ class ImageGallery(RecycleView):
     def setup_printer(self):
         self.conn = cups.Connection()
         printers = self.conn.getPrinters()
+        print(list(printers.keys()))
         self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
         
     def get_printer_info(self):
