@@ -44,6 +44,9 @@ def get_args():
                         
     parser.add_argument("--h_pad", type=float, default=0.04,
                         help="Blank padding added to sides to acount for cutoff")
+    
+    parser.add_argument("--v_pad", type=float, default=0.02,
+                        help="Blank padding added to top and bottom to acount for cutoff")
 
     return parser.parse_args()
     
@@ -80,6 +83,7 @@ def main():
                 "h_crop_2x6": args.h_crop_2x6,
                 "v_crop_2x6": args.v_crop_2x6,
                 "h_pad": args.h_pad,
+                "v_pad": args.v_pad,
                 "watermark": watermark
             }
         

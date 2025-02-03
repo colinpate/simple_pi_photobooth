@@ -109,17 +109,11 @@ class PrintFormatter:
                     canvas[logo_top : logo_bottom, logo_left:logo_right, :] = logo
 
                 if self.test_mode:
-                    cv2.rectangle(canvas, (0, 0), (canvas_width - 1, canvas_height - 1), (0, 255, 0), 2) 
-                    """for x in range(canvas_width):
-                        canvas[0, x, :] = [255, 0, 0]
-                        canvas[canvas_height - 1, x, :] = [255, 0, 0]
-                    for y in range(canvas_height):
-                        canvas[y, 0, :] = [255, 0, 0]
-                        canvas[y, canvas_width - 1, :] = [255, 0, 0]"""
+                    cv2.rectangle(canvas, (0, 0), (canvas_width - 1, canvas_height - 1), (0, 255, 0), 2)
                 canvasses.append(canvas)
+
             out_image = cv2.hconcat(canvasses)
             preview_image = cv2.resize(out_image, (600, 400))
-            #out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
             
         elif self.print_format == "2x6":
             image_aspect_ratio = image_shape[1] / image_shape[0]
@@ -156,7 +150,6 @@ class PrintFormatter:
                 
             preview_image = cv2.resize(canvas, (220, 660), cv2.INTER_NEAREST)
             out_image = cv2.hconcat([canvas, canvas])
-            #out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
         
         elif self.print_format == "3x2":
             aspect_ratio = 3/2
@@ -201,7 +194,7 @@ class PrintFormatter:
             pad_height = int((image_height * self.h_pad) / 2)
             pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
             out_image = cv2.vconcat([pad, out_image, pad])
-            
+
         if self.v_pad:
             image_height = out_image.shape[0]
             image_width = out_image.shape[1]
