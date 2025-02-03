@@ -171,26 +171,26 @@ class PrintFormatter:
             pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
             out_image = cv2.vconcat([pad, out_image, pad])
 
-            if self.test_mode:
-                thickness = 3
-                colors = [
-                    [255, 0, 255],
-                    [0, 0, 255],
-                    [0, 255, 255],
-                    [0, 255, 0],
-                    [255, 255, 0],
-                    [255, 0, 0],
-                    [0, 0, 0],
-                ]
-                for i, color in enumerate(colors):
-                    offset = i * thickness * 2
-                    cv2.rectangle(
-                        out_image, 
-                        (offset, offset), 
-                        (out_image.shape[1] - 1 - offset, out_image.shape[0] - 1 - offset), 
-                        color,
-                        thickness
-                    ) 
+        if self.test_mode:
+            thickness = 3
+            colors = [
+                [255, 0, 255],
+                [0, 0, 255],
+                [0, 255, 255],
+                [0, 255, 0],
+                [255, 255, 0],
+                [255, 0, 0],
+                [0, 0, 0],
+            ]
+            for i, color in enumerate(colors):
+                offset = i * thickness * 2
+                cv2.rectangle(
+                    out_image, 
+                    (offset, offset), 
+                    (out_image.shape[1] - 1 - offset, out_image.shape[0] - 1 - offset), 
+                    color,
+                    thickness
+                ) 
         return out_image, preview_image
         
     def format_and_save_print(self, image_paths, print_path, preview_path):
