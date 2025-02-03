@@ -172,7 +172,7 @@ class PrintFormatter:
             out_image = cv2.vconcat([pad, out_image, pad])
 
         if self.test_mode:
-            thickness = 3
+            thickness = 5
             colors = [
                 [255, 0, 255],
                 [0, 0, 255],
