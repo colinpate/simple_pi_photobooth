@@ -2,10 +2,20 @@ import cv2
 import numpy as np
 
 class PrintFormatter:
-    def __init__(self, print_format, h_crop_2x6=1, v_crop_2x6=1, h_pad=0, watermark=None, **kwargs):
+    def __init__(self, 
+                 print_format, 
+                 h_crop_2x6=1, 
+                 v_crop_2x6=1, 
+                 h_pad=0, 
+                 v_pad=0, 
+                 watermark=None, 
+                 test_mode=False, 
+                 **kwargs
+            ):
         self.print_format = print_format
         self.h_pad = h_pad
-        self.test_mode = True
+        self.v_pad = v_pad
+        self.test_mode = test_mode
         
         self.logo = None
         self.logo_width_scale = -1
@@ -164,13 +174,6 @@ class PrintFormatter:
             preview_image = cv2.resize(out_image, (600, 400))
             out_image = cv2.rotate(out_image, cv2.ROTATE_90_CLOCKWISE)
             
-        if self.h_pad:
-            image_height = out_image.shape[0]
-            image_width = out_image.shape[1]
-            pad_height = int((image_height * self.h_pad) / 2)
-            pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
-            out_image = cv2.vconcat([pad, out_image, pad])
-
         if self.test_mode:
             thickness = 5
             colors = [
@@ -191,6 +194,19 @@ class PrintFormatter:
                     color,
                     thickness
                 ) 
+            
+        if self.h_pad or self.v_pad:
+            image_height = out_image.shape[0]
+            image_width = out_image.shape[1]
+            if self.h_pad:
+                pad_height = int((image_height * self.h_pad) / 2)
+                pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
+                out_image = cv2.vconcat([pad, out_image, pad])
+            if self.v_pad:
+                pad_width = int((image_width * self.v_pad) / 2)
+                pad = np.ones((image_height, pad_width, 3), dtype=np.uint8) * 255
+                out_image = cv2.hconcat([pad, out_image, pad])
+
         return out_image, preview_image
         
     def format_and_save_print(self, image_paths, print_path, preview_path):
