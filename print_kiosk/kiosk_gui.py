@@ -92,6 +92,7 @@ class ImageGallery(RecycleView):
         self.remote_photo_dir = config["remote_photo_dir"]
         self.status_file_path = config.get("status_file_path", "")
         self.status_update_interval = config.get("status_update_interval", 60)
+        self.printer_keyword = config["printer_keyword"]
         
         #if "fill_dir" in config.keys():
         #    self.fill_image_path_db(config["fill_dir"])
@@ -133,8 +134,15 @@ class ImageGallery(RecycleView):
     def setup_printer(self):
         self.conn = cups.Connection()
         printers = self.conn.getPrinters()
-        print(list(printers.keys()))
-        self.printer_name = list(printers.keys())[0]  # Assuming the first printer is your target printer
+        self.printer_name = ""
+        for printer in printers:
+            if self.printer_keyword in printer:
+                print("Found printer", printer)
+                self.printer_name = printer
+                break
+        if not self.printer_name:
+            print("Didn't find printer, using first in list")
+            self.printer_name = list(printers.keys())[0]
         
     def get_printer_info(self):
         attrs = self.conn.getPrinterAttributes(self.printer_name)
