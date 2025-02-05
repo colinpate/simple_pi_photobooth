@@ -159,7 +159,7 @@ class SettingsDialog(ConfigSettings, QDialog):
 
         # List Widget to Display Networks
         self.networkList = QListWidget()
-        self.networkList.setFixedHeight(200)
+        self.networkList.setFixedHeight(130)
         self.networkList.setStyleSheet("""
             QScrollBar:vertical {
                 width: 25px;   /* Adjust the width as needed */
