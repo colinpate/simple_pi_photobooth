@@ -28,13 +28,13 @@ def get_args():
                         help="Path of yaml file to load config from")
                     
     parser.add_argument("--print_format", default="2x6",
-                        help="Print size (4x3, 2x6, or 3x2)")
+                        help="Print size (4x3, 2x6, Polaroid, or 3x2)")
                         
     parser.add_argument("--logo_path",
-                        help="Path to logo to add to 2x6")
+                        help="Path to logo to add")
                         
     parser.add_argument("-w", "--logo_width_scale", type=float, default=1,
-                        help="Ratio of the 2x6 width that the logo should be")
+                        help="Ratio of the width that the logo should be")
                         
     parser.add_argument("--h_crop_2x6", type=float, default=1,
                         help="Horizontal crop ratio for photos placed in 2x6")
@@ -44,7 +44,13 @@ def get_args():
                         
     parser.add_argument("--h_pad", type=float, default=0.04,
                         help="Blank padding added to sides to acount for cutoff")
+    
+    parser.add_argument("--v_pad", type=float, default=0.02,
+                        help="Blank padding added to top and bottom to acount for cutoff")
 
+    parser.add_argument("--sideload_dir", type=str, default="",
+                        help="Local path on Kiosk to directory to sideload photos (not from Booth) to be printed")
+    
     return parser.parse_args()
     
     
@@ -66,7 +72,7 @@ def main():
         print("Loading config from", args.load_yaml_path)
         config = read_yaml(args.load_yaml_path)
     else:
-        if (args.print_format == "2x6") and args.logo_path:
+        if args.logo_path:
             watermark = {
                 "enable": True,
                 "watermark_path": args.logo_path,
@@ -80,8 +86,11 @@ def main():
                 "h_crop_2x6": args.h_crop_2x6,
                 "v_crop_2x6": args.v_crop_2x6,
                 "h_pad": args.h_pad,
+                "v_pad": args.v_pad,
                 "watermark": watermark
             }
+        if args.sideload_dir:
+            config["sideload_dir"] = args.sideload_dir
         
     print("Config:")
     pprint(config)
@@ -96,9 +105,10 @@ def main():
         assert len(photos) >= formatter.num_photos()
         print(f"Found {len(photos)}, using {formatter.num_photos()} in {args.photo_dir}")
         
-        _, preview_image = formatter.format_print(photos[:formatter.num_photos()])
+        out_image, preview_image = formatter.format_print(photos[:formatter.num_photos()])
         print("Writing preview to preview.jpg")
         cv2.imwrite("preview.jpg", preview_image)
+        cv2.imwrite("print.jpg", out_image)
         if not args.no_preview:
             cv2.imshow("Preview", preview_image)
             cv2.waitKey(0)

@@ -23,6 +23,7 @@ class ApplyWatermark:
         self.watermark_position = watermark_position
         self.offset_x = offset_x
         self.offset_y = offset_y
+        self.watermark_shape = watermark.shape
 
     def apply_watermark(self, in_image):
         watermark_dims = self.watermark_alphad.shape
