@@ -21,7 +21,7 @@ def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
         return False
 
 class BoothSync:
-    def __init__(self, mount_addresses, mount_source, remote_photo_dir, photo_dir, print_postfixes, thumbnail_dir, local_test,  **kwargs):
+    def __init__(self, mount_addresses, mount_source, remote_photo_dir, photo_dir, print_postfixes, thumbnail_dir, local_test, sideload_dir=None, **kwargs):
         self.stop_thread = False
         self._is_nfs_mounted = False
         self.mount_addresses = mount_addresses
@@ -31,6 +31,7 @@ class BoothSync:
         self.print_postfixes = print_postfixes
         self.local_test = local_test
         self.thumbnail_dir = thumbnail_dir
+        self.sideload_dir = sideload_dir
         self._is_syncing = False
         self.thumbnails = {}
         self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if self.local_test else None)
@@ -68,7 +69,7 @@ class BoothSync:
 
             if self.is_nfs_mounted():
                 self.photo_path_db.replace_db(new_db)
-                self.update_thumbnails()
+            self.update_thumbnails()
                 
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
@@ -117,6 +118,9 @@ class BoothSync:
         # Check to see if there are any new photos and if so create the thumbnails
         image_paths = self.get_image_db_paths()
         image_path_set = set(image_paths)
+        if self.sideload_dir:
+            sideloaded_paths = glob.glob(self.sideload_dir + "/*.jpg")
+            image_path_set = image_path_set.union(set(sideloaded_paths))
         
         deleted_image_paths = self.thumbnails.keys() - image_path_set
         for image_path in deleted_image_paths:
