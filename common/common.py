@@ -30,17 +30,21 @@ def wait_for_network_connection():
     print("upload_to_s3.py: Network connection established.")
 
 
-def load_config_file(filename):
+def get_config_path(filename):
     parent_dir = os.path.dirname(os.path.realpath(__file__))
     config_path = os.path.join(parent_dir, "../" + filename)
+    return config_path
+
+
+def load_config_file(filename):
+    config_path = get_config_path(filename)
     with open(config_path, "r") as config_file:
         config = yaml.load(config_file, yaml.Loader)
     return config
 
 
 def save_config_file(filename, config):
-    parent_dir = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(parent_dir, "../" + filename)
+    config_path = get_config_path(filename)
     with open(config_path, "w") as config_file:
         yaml.dump(config, config_file)
 
@@ -63,6 +67,9 @@ class ConfigSettings:
 
     def get_latest_value(self, parameter_key):
         return self.config_changes.get(parameter_key, self.original_config[parameter_key])
+    
+    def clear_user_config_file(self):
+        save_config_file(self.user_config_filename, {})
 
     def save_config(self):
         try:

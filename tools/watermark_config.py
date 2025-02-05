@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from booth.apply_watermark import ApplyWatermark
 from argparse import ArgumentParser
 from pprint import pprint
-from print_example import write_yaml
+from print_config import write_yaml
     
 def get_args():
     parser = ArgumentParser(prog='Photo Booth Watermark Config Generator',

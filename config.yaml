@@ -74,10 +74,11 @@ lens_cal_file: "/home/colin/simple_pi_photobooth/lens_cal_v6_fixedar.bin"
 contrast: 1.1
 brightness: 0.05
         
-# watermark: # EXAMPLE
-#    watermark_path: "<path_to_watermark>"
+watermark:
+    watermark_path: "/home/colin/simple_pi_photobooth/booth/vignette.png"
 #    weight: 1
 #    h_size: 950
 #    offset_x: 100
 #    offset_y: 90
-# album_title: "<your album title>"
+
+album_title: "Test Album"
