@@ -69,7 +69,7 @@ class PrintFormatter:
         image_shape = images[0].shape
         for image in images[1:]:
             if image.shape != image_shape:
-                raise ValueError("Images must all be the same dimensions ", image_shape, image.shape)
+                print("Warning: Images are not all the same dimensions", image_shape, image.shape)
             
         if self.print_format == "4x3":
             out_image = cv2.vconcat(images)
