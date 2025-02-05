@@ -48,6 +48,9 @@ def get_args():
     parser.add_argument("--v_pad", type=float, default=0.02,
                         help="Blank padding added to top and bottom to acount for cutoff")
 
+    parser.add_argument("--sideload_dir", type=str, default="",
+                        help="Local path on Kiosk to directory to sideload photos (not from Booth) to be printed")
+    
     return parser.parse_args()
     
     
@@ -86,6 +89,8 @@ def main():
                 "v_pad": args.v_pad,
                 "watermark": watermark
             }
+        if args.sideload_dir:
+            config["sideload_dir"] = args.sideload_dir
         
     print("Config:")
     pprint(config)
