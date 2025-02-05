@@ -86,7 +86,7 @@ class PrintFormatter:
                 canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
 
                 image = images[i]
-                cropped = crop_image(image, x_ratio = image_shape[0] / image_shape[1])
+                cropped = crop_image(image, x_ratio = image.shape[0] / image.shape[1])
                 print(cropped.shape)
 
                 resized = cv2.resize(cropped, (resized_width, resized_height))
