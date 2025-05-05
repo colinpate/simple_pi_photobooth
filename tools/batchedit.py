@@ -5,6 +5,9 @@ import cv2
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from booth.apply_watermark import ApplyWatermark 
+import piexif
+from PIL import Image
+import numpy as np
 
 def get_args():
     parser = ArgumentParser(prog='Batch editor',
@@ -29,12 +32,13 @@ def get_args():
     
 
 def crop_image(image, x_ratio, y_top, y_bot):
-    height, width, _ = image.shape
+    width, height = image.size
     crop_width = int(x_ratio * width)
     x_offset = int((width - crop_width) / 2)
     y_start = int(y_top * height)
     y_end = int(y_bot * height)
-    cropped = image[y_start:y_end, x_offset:x_offset+crop_width, :]
+    crop_area = (x_offset, y_start, x_offset + crop_width, y_end) #left, upper, right, lower
+    cropped = image.crop(crop_area)
     return cropped
 
 
@@ -46,9 +50,13 @@ def main():
         watermarker = ApplyWatermark(args.overlay_path)
 
     for photo in photos:
-        image = cv2.imread(photo)
+        image = Image.open(photo)
+        exif_dict = piexif.load(image.info.get('exif', b''))
+
         if args.dryrun:
-            cv2.imshow("Before", image)
+            cv_image = np.array(image)
+            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+            cv2.imshow("Before", cv_image)
         if args.overlay_path:
             if watermarker.watermark_shape[:2] != image.shape[:2]:
                 print("Mismatched shape between image and watermark:", image.shape[:2], watermarker.watermark_shape[:2], photo)
@@ -59,9 +67,11 @@ def main():
         new_path = os.path.join(args.out_dir, filename)
         print(new_path)
         if not args.dryrun:
-            cv2.imwrite(new_path, image)
+            image.save(new_path, quality=95, exif=piexif.dump(exif_dict))
         else:
-            cv2.imshow("After", image)
+            cv_image = np.array(image)
+            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+            cv2.imshow("After", cv_image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
         

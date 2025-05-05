@@ -235,21 +235,6 @@ class ImageGallery(RecycleView):
         if not LOCAL_TEST:
             options=self.print_formatter.print_options()
             self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
-        
-    def fill_image_path_db(self, color_dir):
-        color_images = glob(color_dir + "/*.jpg")
-        for color_image in color_images:
-            filename = os.path.split(color_image)[-1]
-            image_name = filename.split("_color")[0]
-            paths = {}
-            for dirname in ["color", "gray", "original"]:
-                postfix = "_" + dirname
-                image_filename = filename.replace("_color", postfix)
-                image_dir = color_dir.replace("color", "") + dirname
-                image_path = os.path.join(image_dir, image_filename)
-                paths[postfix] = image_path
-            print(image_name, paths)
-            self.photo_path_db.add_image(image_name, paths)
     
     def show_processing_popup(self, instance):
         print("Showing processing popup")
@@ -280,14 +265,16 @@ class ImageGallery(RecycleView):
         layout.add_widget(glowbot_label)
         
         print_time = time.time()
+        print_media_level = self.get_printer_marker_level()
         
         def switch_label_text():
             now = time.time()
             time_elapsed = now - print_time
-            text_index = int(time_elapsed / 5) % 2
+            text_index = int(time_elapsed / 4) % 3
             label_texts = [
-                'Check us out at www.glowbot.co',
-                "Please don't grab the photo early"
+                "Please don't grab the photo early",
+                'Tag us on IG! @glowbot.co',
+                f'Print media remaining: {print_media_level}%'
             ]
             glowbot_label.text = label_texts[text_index]
         
