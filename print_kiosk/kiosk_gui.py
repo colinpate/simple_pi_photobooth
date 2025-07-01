@@ -488,6 +488,12 @@ class ImageGalleryApp(App):
         print_level_label.text = f"Print Level {marker_level}%"
         double.add_widget(print_level)
         layout.add_widget(double)
+         
+        # Create reset printer
+        reset_printer_button = Button(text='Reset Printer', size_hint=(0.3, 0.1))
+        def clean_files(instance):
+            os.system("sudo cupsenable " + self.printer_name)
+        layout.add_widget(reset_printer_button)
 
         # Create print format button
         def get_print_fmt_button_text():
@@ -518,16 +524,6 @@ class ImageGalleryApp(App):
         else:
             clean_button.set_disabled(True)
 
-        # Create close button
-        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
-        def dismiss(instance):
-            if config_settings.save_config():
-                self.close()
-            else:
-                popup.dismiss()
-        close_button.bind(on_release=dismiss)
-        layout.add_widget(close_button)
-
         # Create shutdown button      
         shutdown_button = Button(text='Shutdown', size_hint=(0.3, 0.1))
         def shutdown(instance):
@@ -555,6 +551,16 @@ class ImageGalleryApp(App):
             self.close()
         exit_button.bind(on_release=exit_kiosk)
         layout.add_widget(exit_button)
+
+        # Create close button
+        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
+        def dismiss(instance):
+            if config_settings.save_config():
+                self.close()
+            else:
+                popup.dismiss()
+        close_button.bind(on_release=dismiss)
+        layout.add_widget(close_button)
         
         popup.open()
 
