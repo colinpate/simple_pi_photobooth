@@ -492,7 +492,7 @@ class ImageGalleryApp(App):
         # Create reset printer
         reset_printer_button = Button(text='Reset Printer', size_hint=(0.3, 0.1))
         def enable_printer(instance):
-            os.system("sudo cupsenable " + self.printer_name)
+            os.system("sudo cupsenable " + self.gallery.printer_name)
         layout.add_widget(reset_printer_button)
         reset_printer_button.bind(on_release=enable_printer)
 
