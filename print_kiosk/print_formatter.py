@@ -30,14 +30,16 @@ class PrintFormatter:
         elif print_format == "Polaroid":
             self._num_photos = 2
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
-        elif self.print_format == "2x6":
+        elif print_format == "2x6":
             self._num_photos = 3
             self._media = "custom_119.21x155.45mm_119.21x155.45mm"
             self._h_crop = h_crop_2x6
             self._v_crop = v_crop_2x6
-        if print_format == "3x2":
+        elif print_format == "3x2":
             self._num_photos = 4
             self._media = "custom_119.21x156.15mm_119.21x156.15mm"
+        else:
+            raise ValueError("Print format should be one of the ones")
             
     def num_photos(self):
         return self._num_photos
