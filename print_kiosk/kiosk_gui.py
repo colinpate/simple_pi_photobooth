@@ -393,8 +393,9 @@ class ImageGalleryApp(App):
         
     def check_last_touch(self, dt):
         now = time.time()
-        if (now - self.last_touched) > self.splash_timeout:
-            Clock.schedule_once(self.add_splash, 0)
+        if self.splash_timeout > 0:
+            if (now - self.last_touched) > self.splash_timeout:
+                Clock.schedule_once(self.add_splash, 0)
         Clock.schedule_once(self.check_last_touch, 1)
         
     def on_touch_down(self, window, touch):
