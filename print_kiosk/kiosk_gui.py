@@ -46,12 +46,10 @@ if not LOCAL_TEST:
     Config.set('input', 'mouse', 'None')
     hostname = socket.gethostname()
     if hostname == "kioskpi": # original print kiosk with old LCD
-        image_width = "None"
         image_height = 212
         Config.set('graphics', 'rotation', '270')
     else:
-        image_width = 400
-        image_height = "None"
+        image_height = 282
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
@@ -67,7 +65,7 @@ f'''
     viewclass: 'SelectableImage'
     RecycleGridLayout:
         cols: 2
-        default_size: {image_width}, {image_height}
+        default_size: None, {image_height}
         default_size_hint: 1, None
         size_hint_y: None
         spacing: 10
