@@ -49,7 +49,7 @@ if not LOCAL_TEST:
         image_height = 212
         Config.set('graphics', 'rotation', '270')
     else:
-        image_height = 282
+        image_height = 294
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
@@ -68,8 +68,8 @@ f'''
         default_size: None, {image_height}
         default_size_hint: 1, None
         size_hint_y: None
-        spacing: 10
-        padding: 10
+        spacing: 5
+        padding: 5
         height: self.minimum_height
 '''
 )
