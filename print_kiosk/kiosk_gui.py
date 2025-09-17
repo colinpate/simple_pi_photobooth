@@ -28,6 +28,7 @@ import sys
 import time
 import json
 import signal
+import socket
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -43,7 +44,9 @@ if not LOCAL_TEST:
     import cups
     Config.set('graphics', 'fullscreen', 'auto')
     Config.set('input', 'mouse', 'None')
-    Config.set('graphics', 'rotation', '270')
+    hostname = socket.gethostname()
+    if hostname == "kioskpi": # original print kiosk with old LCD
+        Config.set('graphics', 'rotation', '270')
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
