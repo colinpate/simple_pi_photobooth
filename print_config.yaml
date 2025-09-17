@@ -23,3 +23,4 @@ print_format: "2x6"
 status_file_path: "/home/colin/print_status.json"
 status_update_interval: 120
 printer_keyword: "Dai_Nippon"
+#sideload_dir: /home/colin/sideloaded_photos_edited
