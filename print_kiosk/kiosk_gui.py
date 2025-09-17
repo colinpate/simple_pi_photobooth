@@ -46,7 +46,12 @@ if not LOCAL_TEST:
     Config.set('input', 'mouse', 'None')
     hostname = socket.gethostname()
     if hostname == "kioskpi": # original print kiosk with old LCD
+        image_width = "None"
+        image_height = 212
         Config.set('graphics', 'rotation', '270')
+    else:
+        image_width = 400
+        image_height = "None"
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
@@ -55,14 +60,14 @@ from kivy.core.window import Window
     
     
 Builder.load_string(
-'''
+f'''
 <Label>:
     font_size: sp(30)
 <ImageGallery>:
     viewclass: 'SelectableImage'
     RecycleGridLayout:
         cols: 2
-        default_size: None, 212
+        default_size: {image_width}, {image_height}
         default_size_hint: 1, None
         size_hint_y: None
         spacing: 10
