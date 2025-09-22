@@ -10,7 +10,7 @@ def get_args():
     parser = ArgumentParser(prog='Logo to Watermark Converter',
                     description='Adds an alpha channel to an image, removes the background, and creates a contrasting shadow')
                     
-    parser.add_argument("-c", "--bkg_color", default="ffffff",
+    parser.add_argument("-c", "--bkg_color", default="auto",
                         help="6-digit hex string to use as background color (000000 for black, ffffff for white)")
     
     parser.add_argument("-d", "--dim", default=1000, type=int,
@@ -167,7 +167,23 @@ def pad_image(image, rad, offset):
     padded_image = cv2.copyMakeBorder(image, top, bottom, left, right, border_type, value=value)
     return padded_image
 
-    
+def get_outline_color(logo):
+    pixels = []
+    last_row = logo.shape[0] - 1
+    last_col = logo.shape[1] - 1
+    for x in range(logo.shape[1]):
+        pixels.append(logo[0, x, :])
+        pixels.append(logo[last_row, x, :])
+    for y in range(logo.shape[0]):
+        pixels.append(logo[y, 0, :])
+        pixels.append(logo[y, last_col, :])
+    bkg = np.median(pixels, axis=0)
+    print(pixels)
+    print("Bkg")
+    print(bkg)
+    return bkg
+
+
 if __name__ == "__main__":
     args = get_args()
 
@@ -182,7 +198,10 @@ if __name__ == "__main__":
 
     logo = image[:,:,:3].astype(np.float32)
         
-    background_color = hex_to_rgb(args.bkg_color)
+    if args.bkg_color == "auto":
+        background_color = get_outline_color(logo)
+    else:
+        background_color = hex_to_rgb(args.bkg_color)
     background = get_background(logo, background_color)
 
     if (image.shape[2] == 3) or args.force_rgb:
