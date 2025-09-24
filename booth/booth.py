@@ -219,6 +219,11 @@ class PhotoBooth:
         self.qpicamera2 = self.init_preview()
 
         self.setup_states()
+
+        self.record_metadata_length = config.get("record_metadata_length", 0)
+        if self.record_metadata_length > 0:
+            # Start capturing the metadata of every frame
+            self.picam2.capture
         
         self.state = None
         self.next_state = self.state_idle
