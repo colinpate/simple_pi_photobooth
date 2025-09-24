@@ -8,7 +8,7 @@ import random
 LED_FADE_S = 1.71 # How long before capture to start brightening LEDs
 LED_END_S = 0.71 # How long before capture to hit 100% brightness
 EXPOSURE_SET_S = 1.51 # How long before capture to set exposure
-AE_ENABLE_S = 1.01 # How long before capture to enable autoexposure
+AE_ENABLE_S = 1.31 # How long before capture to enable autoexposure
 PRE_CONTROL_S = 0.31 # How long before capture to set the camera controls
 COUNT_S = 5
 # Capture sequence timing on 2nd and 3rd shots
