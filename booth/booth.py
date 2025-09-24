@@ -252,6 +252,7 @@ class PhotoBooth:
         for metadata_dict in metadata_list:
             for col in cols:
                 col_data = metadata_dict.get(col, "")
+                col_data = str(col_data).replace(",", ";")
                 csv_text += f"{col_data},"
             csv_text += "\n"
 
