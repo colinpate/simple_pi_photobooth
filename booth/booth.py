@@ -422,6 +422,7 @@ class PhotoBooth:
         print("Lux", metadata["Lux"])
 
         if self.record_metadata_length > 0:
+            metadata["cap"] = True
             self.metadata_queue.append(metadata)
     
     def save_capture(self):
