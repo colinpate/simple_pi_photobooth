@@ -246,13 +246,13 @@ class PhotoBooth:
                     cols.append(key)
 
         for col in cols:
-            csv_text += col + ","
+            csv_text += f"{col},"
         csv_text += "\n"
 
         for metadata_dict in metadata_list:
             for col in cols:
                 col_data = metadata_dict.get(col, "")
-                csv_text += col_data + ","
+                csv_text += f"{col_data},"
             csv_text += "\n"
 
         with open(os.path.join(self.metadata_dir, image_name + "_metadata.csv"), "w") as csv_file:
