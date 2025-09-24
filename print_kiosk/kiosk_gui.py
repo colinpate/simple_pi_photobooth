@@ -28,6 +28,7 @@ import sys
 import time
 import json
 import signal
+import socket
 
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -43,7 +44,12 @@ if not LOCAL_TEST:
     import cups
     Config.set('graphics', 'fullscreen', 'auto')
     Config.set('input', 'mouse', 'None')
-    Config.set('graphics', 'rotation', '270')
+    hostname = socket.gethostname()
+    if hostname == "kioskpi": # original print kiosk with old LCD
+        image_height = 212
+        Config.set('graphics', 'rotation', '270')
+    else:
+        image_height = 294
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
@@ -52,18 +58,18 @@ from kivy.core.window import Window
     
     
 Builder.load_string(
-'''
+f'''
 <Label>:
     font_size: sp(30)
 <ImageGallery>:
     viewclass: 'SelectableImage'
     RecycleGridLayout:
         cols: 2
-        default_size: None, 212
+        default_size: None, {image_height}
         default_size_hint: 1, None
         size_hint_y: None
-        spacing: 10
-        padding: 10
+        spacing: 5
+        padding: 5
         height: self.minimum_height
 '''
 )
@@ -235,21 +241,6 @@ class ImageGallery(RecycleView):
         if not LOCAL_TEST:
             options=self.print_formatter.print_options()
             self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
-        
-    def fill_image_path_db(self, color_dir):
-        color_images = glob(color_dir + "/*.jpg")
-        for color_image in color_images:
-            filename = os.path.split(color_image)[-1]
-            image_name = filename.split("_color")[0]
-            paths = {}
-            for dirname in ["color", "gray", "original"]:
-                postfix = "_" + dirname
-                image_filename = filename.replace("_color", postfix)
-                image_dir = color_dir.replace("color", "") + dirname
-                image_path = os.path.join(image_dir, image_filename)
-                paths[postfix] = image_path
-            print(image_name, paths)
-            self.photo_path_db.add_image(image_name, paths)
     
     def show_processing_popup(self, instance):
         print("Showing processing popup")
@@ -280,14 +271,16 @@ class ImageGallery(RecycleView):
         layout.add_widget(glowbot_label)
         
         print_time = time.time()
+        print_media_level = self.get_printer_marker_level()
         
         def switch_label_text():
             now = time.time()
             time_elapsed = now - print_time
-            text_index = int(time_elapsed / 5) % 2
+            text_index = int(time_elapsed / 4) % 3
             label_texts = [
-                'Check us out at www.glowbot.co',
-                "Please don't grab the photo early"
+                "Please don't grab the photo early",
+                'Tag us on IG! @glowbot.co',
+                f'Print media remaining: {print_media_level}%'
             ]
             glowbot_label.text = label_texts[text_index]
         
@@ -400,8 +393,9 @@ class ImageGalleryApp(App):
         
     def check_last_touch(self, dt):
         now = time.time()
-        if (now - self.last_touched) > self.splash_timeout:
-            Clock.schedule_once(self.add_splash, 0)
+        if self.splash_timeout > 0:
+            if (now - self.last_touched) > self.splash_timeout:
+                Clock.schedule_once(self.add_splash, 0)
         Clock.schedule_once(self.check_last_touch, 1)
         
     def on_touch_down(self, window, touch):
@@ -501,6 +495,13 @@ class ImageGalleryApp(App):
         print_level_label.text = f"Print Level {marker_level}%"
         double.add_widget(print_level)
         layout.add_widget(double)
+         
+        # Create reset printer
+        reset_printer_button = Button(text='Reset Printer', size_hint=(0.3, 0.1))
+        def enable_printer(instance):
+            os.system("sudo cupsenable " + self.gallery.printer_name)
+        layout.add_widget(reset_printer_button)
+        reset_printer_button.bind(on_release=enable_printer)
 
         # Create print format button
         def get_print_fmt_button_text():
@@ -531,16 +532,6 @@ class ImageGalleryApp(App):
         else:
             clean_button.set_disabled(True)
 
-        # Create close button
-        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
-        def dismiss(instance):
-            if config_settings.save_config():
-                self.close()
-            else:
-                popup.dismiss()
-        close_button.bind(on_release=dismiss)
-        layout.add_widget(close_button)
-
         # Create shutdown button      
         shutdown_button = Button(text='Shutdown', size_hint=(0.3, 0.1))
         def shutdown(instance):
@@ -568,6 +559,16 @@ class ImageGalleryApp(App):
             self.close()
         exit_button.bind(on_release=exit_kiosk)
         layout.add_widget(exit_button)
+
+        # Create close button
+        close_button = Button(text='Close Settings', size_hint=(0.3, 0.1))
+        def dismiss(instance):
+            if config_settings.save_config():
+                self.close()
+            else:
+                popup.dismiss()
+        close_button.bind(on_release=dismiss)
+        layout.add_widget(close_button)
         
         popup.open()
 

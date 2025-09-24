@@ -34,7 +34,9 @@ class BoothSync:
         self.sideload_dir = sideload_dir
         self._is_syncing = False
         self.thumbnails = {}
-        self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"), old_root="/home/colin/booth_photos" if self.local_test else None)
+        self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"))
+        if self.local_test:
+            self.fill_image_path_db(self.photo_dir)
         self.mount_check_thread = threading.Thread(target=self.sync)
         self.mount_check_thread.start()
         self.update_watchdog()
@@ -51,24 +53,26 @@ class BoothSync:
         old_db = {}
         while not self.stop_thread:
             ls_timeout = False
-            try:
-                # Check if the mount point is available by looking up our Photo DB
-                output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
-                new_db = json.loads(output.decode())
-                if old_db != new_db:
-                    print("New db found", time.time() % 1000)
-                    old_db = new_db
-                self._is_nfs_mounted = True
-            except (subprocess.CalledProcessError) as exception:
-                print("NFS access failed", exception)
-                self._is_nfs_mounted = False
-            except (subprocess.TimeoutExpired) as exception:
-                print("NFS access timed out")
-                self._is_nfs_mounted = False
-                ls_timeout = True
+            if not self.local_test:
+                try:
+                    # Check if the mount point is available by looking up our Photo DB
+                    output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
+                    new_db = json.loads(output.decode())
+                    if old_db != new_db:
+                        print("New db found", time.time() % 1000)
+                        old_db = new_db
+                    self._is_nfs_mounted = True
+                except (subprocess.CalledProcessError) as exception:
+                    print("NFS access failed", exception)
+                    self._is_nfs_mounted = False
+                except (subprocess.TimeoutExpired) as exception:
+                    print("NFS access timed out")
+                    self._is_nfs_mounted = False
+                    ls_timeout = True
 
-            if self.is_nfs_mounted():
-                self.photo_path_db.replace_db(new_db)
+                if self.is_nfs_mounted():
+                    self.photo_path_db.replace_db(new_db)
+
             self.update_thumbnails()
                 
             # Unmount the directory if ls times out, cuz it can get stuck
@@ -78,7 +82,7 @@ class BoothSync:
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                     print("Umount failed", exception)
 
-            if not self._is_nfs_mounted:
+            if (not self._is_nfs_mounted) and (not self.local_test):
                 for mount_address in self.mount_addresses:
                     try:
                         subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=3)
@@ -170,3 +174,17 @@ class BoothSync:
             else:
                 print("Successfully created thumbnail for", filename, time.time() % 1000)
         return thumbnail_path
+
+    def fill_image_path_db(self, image_dir):
+        color_images = glob.glob(image_dir + "/*_color.jpg")
+        for color_image in color_images:
+            filename = os.path.split(color_image)[-1]
+            image_name = filename.split("_color")[0]
+            paths = {}
+            for dirname in ["color", "gray", "original"]:
+                postfix = "_" + dirname
+                image_filename = filename.replace("_color", postfix)
+                image_path = os.path.join(image_dir, image_filename)
+                paths[postfix] = image_path
+            print(image_name, paths)
+            self.photo_path_db.add_image(image_name, paths)

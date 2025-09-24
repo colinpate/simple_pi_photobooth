@@ -32,6 +32,14 @@ class SelectableImage(RecycleDataViewBehavior, AsyncImage):
     print_source = StringProperty()
     touch_start_pos = [0, 0]
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # defaults
+        self.keep_ratio = True
+        self.allow_stretch = True
+        self.size_hint_x = 1    # fill width of the cell
+        self.size_hint_y = None # let height be computed
+
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
         self.index = index

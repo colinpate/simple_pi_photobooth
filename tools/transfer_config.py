@@ -46,14 +46,15 @@ def scp_temp_yaml(kiosk_path, config, yaml_name, dryrun):
 
 def scp_files(booth_path, config, yaml_name, dryrun):
     if "watermark" in config.keys():
-        watermark_path = config["watermark"]["watermark_path"]
-        if os.path.isfile(watermark_path):
-            watermark_dest_path = scp_image_to_watermarks(watermark_path, booth_path, dryrun)
-            print("Copied", watermark_path, "to", watermark_dest_path)
-            config["watermark"]["watermark_path"] = watermark_dest_path
-            print("Changed watermark_path in config from", watermark_path, "to", watermark_dest_path)
-        else:
-            raise FileNotFoundError(f"Watermark file {watermark_path} not found")
+        if config["watermark"] is not None:
+            watermark_path = config["watermark"]["watermark_path"]
+            if os.path.isfile(watermark_path):
+                watermark_dest_path = scp_image_to_watermarks(watermark_path, booth_path, dryrun)
+                print("Copied", watermark_path, "to", watermark_dest_path)
+                config["watermark"]["watermark_path"] = watermark_dest_path
+                print("Changed watermark_path in config from", watermark_path, "to", watermark_dest_path)
+            else:
+                raise FileNotFoundError(f"Watermark file {watermark_path} not found")
         
     scp_temp_yaml(booth_path, config, yaml_name=yaml_name, dryrun=dryrun)
 
