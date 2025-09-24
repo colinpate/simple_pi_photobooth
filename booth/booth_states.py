@@ -7,7 +7,8 @@ import random
 # Capture sequence timing
 LED_FADE_S = 1.71 # How long before capture to start brightening LEDs
 LED_END_S = 0.71 # How long before capture to hit 100% brightness
-EXPOSURE_SET_S = 1.31 # How long before capture to set exposure
+EXPOSURE_SET_S = 1.51 # How long before capture to set exposure
+AE_ENABLE_S = 1.01 # How long before capture to enable autoexposure
 PRE_CONTROL_S = 0.31 # How long before capture to set the camera controls
 COUNT_S = 5
 # Capture sequence timing on 2nd and 3rd shots
@@ -79,6 +80,7 @@ class StateCountdown(State):
         self.exposure_set = False
         self.mode_switched = False
         self.exposure_set_s = EXPOSURE_SET_S
+        self.ae_enable_s = AE_ENABLE_S
         self.countdown_timestamp = -1
         self.countdown_layer_name = ""
         if self.machine.extra_shots > 0:
@@ -130,7 +132,7 @@ class StateCountdown(State):
                     )
                     self.exposure_set = True
                 elif self.set_ae: # After setting the exposure, turn on Autoexposure so it can adjust if needed
-                    if time_left > (self.exposure_set_s - 0.2):
+                    if (time_left <= self.ae_enable_s) and (time_left > (self.ae_enable_s - 0.2)):
                         # Spam this for 0.2s
                         print("Setting AE true")
                         self.machine.picam2.set_controls({"AeEnable": True})
