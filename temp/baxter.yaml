@@ -1,0 +1,9 @@
+h_crop_2x6: 0.95
+h_pad: 0.04
+print_format: 2x6
+v_crop_2x6: 1
+v_pad: 0.02
+watermark:
+  enable: true
+  logo_width_scale: 0.9
+  watermark_path: stamm_logo_4.png
