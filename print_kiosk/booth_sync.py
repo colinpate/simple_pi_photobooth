@@ -10,6 +10,8 @@ from common.image_path_db import ImagePathDB
 
 WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 1
+UNMOUNT_TIMEOUT = 10
+MOUNT_TIMEOUT = 10
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
@@ -78,23 +80,27 @@ class BoothSync:
             # Unmount the directory if ls times out, cuz it can get stuck
             if ls_timeout:
                 try:
-                    subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=3)
+                    subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=UNMOUNT_TIMEOUT)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                     print("Umount failed", exception)
 
             if (not self._is_nfs_mounted) and (not self.local_test):
                 for mount_address in self.mount_addresses:
+                    self.check_watchdog()
                     try:
-                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=3)
+                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=MOUNT_TIMEOUT)
                         print("Successfully mounted from", mount_address)
                         break
                     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                         print("Failed to mount from", mount_address)
                         
             time.sleep(CHECK_INTERVAL_S)
-            
-            if (time.time() - self.watchdog_updated) > WATCHDOG_TIMEOUT:
-                raise ValueError("Booth sync thread watchdog timed out")
+
+            self.check_watchdog()
+
+    def check_watchdog(self):
+        if (time.time() - self.watchdog_updated) > WATCHDOG_TIMEOUT:
+            raise ValueError("Booth sync thread watchdog timed out")
             
     def is_nfs_mounted(self):
         return self._is_nfs_mounted
