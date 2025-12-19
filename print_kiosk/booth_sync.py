@@ -101,6 +101,8 @@ class BoothSync:
     def check_watchdog(self):
         if (time.time() - self.watchdog_updated) > WATCHDOG_TIMEOUT:
             raise ValueError("Booth sync thread watchdog timed out")
+        elif self.stop_thread:
+            raise ValueError("Booth sync thread stopped")
             
     def is_nfs_mounted(self):
         return self._is_nfs_mounted
