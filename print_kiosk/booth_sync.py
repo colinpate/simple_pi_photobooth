@@ -139,14 +139,18 @@ class BoothSync:
             self.thumbnails.pop(image_path)
         
         new_image_paths = image_path_set - self.thumbnails.keys()
+        new_image_paths = sorted(new_image_paths, reverse=True)
         if len(new_image_paths):
             print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
                 if not os.path.isfile(image_path):
-                    success = self.sync_photo_to_local(image_path)
-                    if not success:
-                        continue
+                    try:
+                        success = self.sync_photo_to_local(image_path)
+                        if not success:
+                            continue
+                    except TimeoutError:
+                        break
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
@@ -163,6 +167,8 @@ class BoothSync:
             if os.path.isfile(local_image_path):
                 print("Removing partial file")
                 os.remove(local_image_path)
+            if isinstance(exception, subprocess.TimeoutExpired):
+                raise TimeoutError("Copy timed out")
             return False
 
     def get_thumbnail(self, image_path):
