@@ -1,3 +1,31 @@
+from glob import glob
+import os
+import sys
+import time
+import json
+import signal
+import socket
+import logging
+
+if os.path.isfile("print_config_test.yaml"):
+    LOCAL_TEST = True
+    log_dir = "logs_test"
+else:
+    LOCAL_TEST = False
+    log_dir = "/home/colin/logs"
+
+logging.basicConfig(
+    filename=log_dir + "/log_" + time.strftime("%y%m%d_%H%M%S") + ".txt",
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)-7s] %(name)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+from booth_sync import BoothSync
+from selectable_image import SelectableImage
+from print_formatter import PrintFormatter
+from common.common import load_config, ConfigSettings
+
 import kivy
 from kivy.app import App
 from kivy.uix.image import AsyncImage, Image
@@ -22,24 +50,6 @@ from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.config import Config
 
-from glob import glob
-import os
-import sys
-import time
-import json
-import signal
-import socket
-
-from selectable_image import SelectableImage
-from print_formatter import PrintFormatter
-from booth_sync import BoothSync
-from common.common import load_config, ConfigSettings
-
-if os.path.isfile("print_config_test.yaml"):
-    LOCAL_TEST = True
-else:
-    LOCAL_TEST = False
-
 if not LOCAL_TEST:
     import cups
     Config.set('graphics', 'fullscreen', 'auto')
@@ -53,6 +63,7 @@ if not LOCAL_TEST:
 else:
     Config.set('graphics', 'width', '600')
     Config.set('graphics', 'height', '1024')
+    image_height = 212
     
 from kivy.core.window import Window
     
@@ -129,9 +140,9 @@ class ImageGallery(RecycleView):
                         "connected": connected
                     }
                     json.dump(status, status_file)
-                print(f"Wrote {status} to json file")
+                logger.info(f"Wrote {status} to json file")
             except Exception as e:
-                print("Failed to write to json file, error ", e)
+                logger.warning("Failed to write to json file, error " + str(e))
             Clock.schedule_once(self.update_status_file, self.status_update_interval)
 
     def setup_printer(self):
@@ -141,11 +152,11 @@ class ImageGallery(RecycleView):
         if self.printer_keyword:
             for printer in printers:
                 if self.printer_keyword in printer:
-                    print("Found printer", printer)
+                    logger.info(f"Found printer {printer}")
                     self.printer_name = printer
                     break
         if not self.printer_name:
-            print("Didn't find printer, using first in list")
+            logger.info("Didn't find printer, using first in list")
             self.printer_name = list(printers.keys())[0]
         
     def get_printer_info(self):
@@ -169,12 +180,12 @@ class ImageGallery(RecycleView):
         self.refresh_from_data()
         
     def prepare_print(self, instance):
-        print("Preparing print")
+        logger.info(f"Preparing print of {self.print_selections}")
         print_path = "print_image.jpg"
         preview_path = "formatted.png"
         self.print_formatter.format_and_save_print(self.print_selections, print_path, preview_path)
         self.status_popup.dismiss()
-        print("Showing preview popup")
+        logger.info("Showing preview popup")
         self.show_print_preview_popup(print_path, preview_path)
         self.clear_selection()
         self.update_status_label()
@@ -236,14 +247,14 @@ class ImageGallery(RecycleView):
         popup.open()
         
     def print_images(self, formatted_path):
-        print("Printing", formatted_path)
+        logger.info(f"Printing {formatted_path}")
         Clock.schedule_once(self.show_printing_popup, 0)
         if not LOCAL_TEST:
             options=self.print_formatter.print_options()
             self.conn.printFile(self.printer_name, formatted_path, "Photo Print", options)
     
     def show_processing_popup(self, instance):
-        print("Showing processing popup")
+        logger.info("Showing processing popup")
         layout = GridLayout(cols=1)
         popup = Popup(title='',
                       content=layout,
@@ -309,7 +320,7 @@ class ImageGallery(RecycleView):
             thumbnails = self.booth_sync.thumbnails.copy()
             new_num_thumbnails = len(thumbnails)
             if new_num_thumbnails != self.old_num_thumbnails:
-                print("New thumbnails found:", new_num_thumbnails - self.old_num_thumbnails, time.time() % 1000)
+                logger.info("New thumbnails found: " + str(new_num_thumbnails - self.old_num_thumbnails))
                 self.old_num_thumbnails = new_num_thumbnails
 
                 image_paths = list(thumbnails.keys())
@@ -328,7 +339,7 @@ class ImageGallery(RecycleView):
                     new_data.append(new_entry)
                 self.data = new_data
         else:
-            print("Not updating data, syncing is occur", time.time() % 1000)
+            logger.info("Not updating data, syncing is occur")
             
         self.booth_sync.update_watchdog()
         Clock.schedule_once(self.update_data, 1)
@@ -360,7 +371,7 @@ class ImageGalleryApp(App):
         gallery = ImageGallery(status_label, self, size_hint=(1, 1))
         gallery.scroll_type = ['content', 'bars']
         gallery.bar_width = '50dp'
-        print("ImageGallery instance created and configured.")
+        logger.info("ImageGallery instance created and configured.")
         root.add_widget(gallery)
         self.gallery = gallery
         root.add_widget(status_label)
@@ -450,8 +461,8 @@ class ImageGalleryApp(App):
         dead_thumbnails = thumbnail_files - current_thumbnails
         dead_photos = photo_files - current_photos
 
-        print(len(dead_thumbnails), "dead thumbnails")
-        print(len(dead_photos), "dead photos")
+        logger.info(f"{len(dead_thumbnails)} dead thumbnails")
+        logger.info(f"{len(dead_photos)} dead photos")
 
         deads = list(dead_thumbnails) + list(dead_photos)
         num_deads = len(deads)
@@ -460,7 +471,6 @@ class ImageGalleryApp(App):
             remaining = len(deads)
             if remaining:
                 dead = deads.pop(0)
-                print("Deleting", dead)
                 os.remove(dead)
                 printing_label.text = f"{remaining}/{num_deads} remaining"
                 delete_progress.value = 100 * (1 - (remaining / num_deads))
