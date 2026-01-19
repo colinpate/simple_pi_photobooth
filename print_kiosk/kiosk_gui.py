@@ -134,10 +134,12 @@ class ImageGallery(RecycleView):
                     timestamp = time.strftime("%y/%m/%d %H:%M:%S")
                     print_level = str(self.get_printer_marker_level())
                     connected = str(self.booth_sync.is_nfs_mounted())
+                    fail_count = str(self.booth_sync.fail_count)
                     status = {
                         "timestamp": timestamp,
                         "print_level": print_level,
-                        "connected": connected
+                        "connected": connected,
+                        "fail_count": fail_count
                     }
                     json.dump(status, status_file)
                 logger.info(f"Wrote {status} to json file")

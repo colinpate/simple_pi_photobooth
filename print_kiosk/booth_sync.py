@@ -12,7 +12,7 @@ from common.image_path_db import ImagePathDB
 
 WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 1
-UNMOUNT_TIMEOUT = 20
+UNMOUNT_TIMEOUT = 10
 MOUNT_TIMEOUT = 10
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
@@ -44,6 +44,7 @@ class BoothSync:
         self.mount_check_thread = threading.Thread(target=self.sync)
         self.mount_check_thread.start()
         self.update_watchdog()
+        self.fail_count = 0
         
     def update_watchdog(self):
         self.watchdog_updated = time.time()
@@ -83,6 +84,8 @@ class BoothSync:
             self.update_thumbnails()
                 
             if (not self._is_nfs_mounted) and (not self.local_test):
+                self.fail_count += 1
+                logger.info(f"NFS not mounted, attempt {self.fail_count}")
                 # Unmount the directory to get a clean start
                 try:
                     logger.info(f"Unmounting {self.remote_photo_dir}")
@@ -99,7 +102,9 @@ class BoothSync:
                         break
                     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                         logger.info(f"Failed to mount from {mount_address}: {exception}")
-                        
+            else:
+                self.fail_count = 0
+                
             time.sleep(CHECK_INTERVAL_S)
 
             self.check_watchdog()
@@ -162,7 +167,7 @@ class BoothSync:
             subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=15)
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-            logger.warning(f"Copy failed {exception}")
+            logger.error(f"Copy failed {exception}")
             if os.path.isfile(local_image_path):
                 logger.info("Removing partial file")
                 os.remove(local_image_path)
