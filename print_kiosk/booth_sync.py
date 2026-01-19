@@ -71,11 +71,11 @@ class BoothSync:
                             old_db = new_db
                         self._is_nfs_mounted = True
                 except (subprocess.CalledProcessError) as exception:
-                    logger.error(f"NFS access failed {exception}")
+                    logger.error(f"NFS access failed: {exception}")
                 except (subprocess.TimeoutExpired) as exception:
-                    logger.error("NFS access timed out {exception}")
+                    logger.error(f"NFS access timed out: {exception}")
                 except json.JSONDecodeError as exception:
-                    logger.error(f"Failed to decode JSON from NFS {exception}, output was: {output_str}")
+                    logger.error(f"Failed to decode JSON from NFS: {exception}, output was: {output_str}")
 
                 if self.is_nfs_mounted():
                     self.photo_path_db.replace_db(new_db)
@@ -85,10 +85,10 @@ class BoothSync:
             if (not self._is_nfs_mounted) and (not self.local_test):
                 # Unmount the directory to get a clean start
                 try:
-                    logger.info(f"Unmounting {self.remote_photo_dir} due to timeout")
+                    logger.info(f"Unmounting {self.remote_photo_dir}")
                     subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=UNMOUNT_TIMEOUT)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                    logger.error(f"Umount failed {exception}")
+                    logger.error(f"Umount failed: {exception}")
 
                 # Try to mount from each address until we find one that works
                 for mount_address in self.mount_addresses:
