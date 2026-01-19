@@ -57,7 +57,7 @@ class BoothSync:
         old_db = {}
         while not self.stop_thread:
             if not self.local_test:
-                self.is_nfs_mounted = False
+                self._is_nfs_mounted = False
                 try:
                     # Check if the mount point is available by looking up our Photo DB
                     output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
