@@ -56,38 +56,41 @@ class BoothSync:
     def sync(self):
         old_db = {}
         while not self.stop_thread:
-            ls_timeout = False
             if not self.local_test:
+                self.is_nfs_mounted = False
                 try:
                     # Check if the mount point is available by looking up our Photo DB
                     output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
-                    new_db = json.loads(output.decode())
-                    if old_db != new_db:
-                        logger.info("New db found")
-                        old_db = new_db
-                    self._is_nfs_mounted = True
+                    output_str = output.decode()
+                    if not output_str:
+                        logger.error("NFS cat returned empty output")
+                    else:
+                        new_db = json.loads(output_str)
+                        if old_db != new_db:
+                            logger.info("New db found")
+                            old_db = new_db
+                        self._is_nfs_mounted = True
                 except (subprocess.CalledProcessError) as exception:
                     logger.error(f"NFS access failed {exception}")
-                    self._is_nfs_mounted = False
                 except (subprocess.TimeoutExpired) as exception:
                     logger.error("NFS access timed out {exception}")
-                    self._is_nfs_mounted = False
-                    ls_timeout = True
+                except json.JSONDecodeError as exception:
+                    logger.error(f"Failed to decode JSON from NFS {exception}, output was: {output_str}")
 
                 if self.is_nfs_mounted():
                     self.photo_path_db.replace_db(new_db)
 
             self.update_thumbnails()
                 
-            # Unmount the directory if ls times out, cuz it can get stuck
-            if ls_timeout:
+            if (not self._is_nfs_mounted) and (not self.local_test):
+                # Unmount the directory to get a clean start
                 try:
                     logger.info(f"Unmounting {self.remote_photo_dir} due to timeout")
                     subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=UNMOUNT_TIMEOUT)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                     logger.error(f"Umount failed {exception}")
 
-            if (not self._is_nfs_mounted) and (not self.local_test):
+                # Try to mount from each address until we find one that works
                 for mount_address in self.mount_addresses:
                     self.check_watchdog()
                     try:
