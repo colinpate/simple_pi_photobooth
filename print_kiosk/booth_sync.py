@@ -12,7 +12,7 @@ from common.image_path_db import ImagePathDB
 
 WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 1
-UNMOUNT_TIMEOUT = 10
+UNMOUNT_TIMEOUT = 20
 MOUNT_TIMEOUT = 10
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
