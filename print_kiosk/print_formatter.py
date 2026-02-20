@@ -10,12 +10,14 @@ class PrintFormatter:
                  v_pad=0, 
                  watermark=None, 
                  test_mode=False, 
+                 background_color=(255, 255, 255),
                  **kwargs
             ):
         self.print_format = print_format
         self.h_pad = h_pad
         self.v_pad = v_pad
         self.test_mode = test_mode
+        self.background_color = background_color
         
         self.logo = None
         self.logo_width_scale = -1
@@ -135,7 +137,7 @@ class PrintFormatter:
             if y_padding < 0:
                 raise ValueError("Image is too tall, try increasing v crop or decreasing h crop")
                 
-            canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
+            canvas = (np.ones((canvas_height, canvas_width, 3)) * self.background_color).astype(np.uint8)
             y = y_padding
             for image in images:
                 cropped = crop_image(image, x_ratio=self._h_crop, y_ratio=self._v_crop)
@@ -150,7 +152,7 @@ class PrintFormatter:
                     raise ValueError("Logo is too tall, try decreasing the width scale")
                 canvas[y : end_y, logo_x_offset:logo_x_offset + logo_width, :] = logo
                 
-            preview_image = cv2.resize(canvas, (220, 660), cv2.INTER_NEAREST)
+            preview_image = cv2.resize(canvas, (220, 660), cv2.INTER_AREA)
             out_image = cv2.hconcat([canvas, canvas])
         
         elif self.print_format == "3x2":
@@ -194,14 +196,14 @@ class PrintFormatter:
             image_height = out_image.shape[0]
             image_width = out_image.shape[1]
             pad_height = int((image_height * self.h_pad) / 2)
-            pad = np.ones((pad_height, image_width, 3), dtype=np.uint8) * 255
+            pad = (np.ones((pad_height, image_width, 3)) * self.background_color).astype(np.uint8)
             out_image = cv2.vconcat([pad, out_image, pad])
 
         if self.v_pad:
             image_height = out_image.shape[0]
             image_width = out_image.shape[1]
             pad_width = int((image_width * self.v_pad) / 2)
-            pad = np.ones((image_height, pad_width, 3), dtype=np.uint8) * 255
+            pad = (np.ones((image_height, pad_width, 3)) * self.background_color).astype(np.uint8)
             out_image = cv2.hconcat([pad, out_image, pad])
 
         return out_image, preview_image
