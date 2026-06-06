@@ -81,8 +81,12 @@ class SmugMug(PhotoService):
         album_uri = load_album_uri(album_name)
         if album_uri == None:
             print("Album URI not found, creating")
-            self.album_uri = self.create_album_under_node(self.root_node, album_name)
-            save_album_uri(album_name, self.album_uri)
+            album_uri = self.create_album_under_node(self.root_node, album_name)
+            if album_uri is not None:
+                self.album_uri = album_uri
+                save_album_uri(album_name, self.album_uri)
+            else:
+                raise ValueError("Failed to create album")
         else:
             print("Album URI found")
             self.album_uri = album_uri
@@ -129,7 +133,7 @@ class SmugMug(PhotoService):
 
     def create_album_under_node(self, node_id, album_name):
         safe_album_name = ""
-        for char in album_name[:15]:
+        for char in album_name[:32]:
             if char.isalnum():
                 safe_album_name += char
         safe_album_name = safe_album_name[0].upper() + safe_album_name[1:].lower()

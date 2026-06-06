@@ -8,6 +8,7 @@ import subprocess
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 import numpy as np
+from collections import deque
 import os
 import random
 import glob
@@ -219,9 +220,44 @@ class PhotoBooth:
         self.qpicamera2 = self.init_preview()
 
         self.setup_states()
+
+        self.record_metadata_length = config.get("record_metadata_length", 0)
+        if self.record_metadata_length > 0:
+            # Start capturing the metadata of every frame
+            self.metadata_dir = config["metadata_dir"]
+            os.makedirs(self.metadata_dir, exist_ok=True)
+            self.metadata_queue = deque(maxlen=self.record_metadata_length)
+            self.picam2.post_callback = self.queue_metadata
         
         self.state = None
         self.next_state = self.state_idle
+
+    def queue_metadata(self, request):
+        md = request.get_metadata()  # metadata only; no pixel mapping
+        self.metadata_queue.append(md)   # very quick; don’t do heavy work here
+        
+    def save_metadata(self, image_name):
+        metadata_list = list(self.metadata_queue)
+        cols = []
+        csv_text = ""
+        for metadata_dict in metadata_list:
+            for key in metadata_dict.keys():
+                if key not in cols:
+                    cols.append(key)
+
+        for col in cols:
+            csv_text += f"{col},"
+        csv_text += "\n"
+
+        for metadata_dict in metadata_list:
+            for col in cols:
+                col_data = metadata_dict.get(col, "")
+                col_data = str(col_data).replace(",", ";")
+                csv_text += f"{col_data},"
+            csv_text += "\n"
+
+        with open(os.path.join(self.metadata_dir, image_name + "_metadata.csv"), "w") as csv_file:
+            csv_file.write(csv_text)
 
     def setup_states(self):
         self.state_idle = booth_states.StateIdle(self)
@@ -384,6 +420,10 @@ class PhotoBooth:
         print("Color gains", metadata["ColourGains"])
         print("Color temp", metadata["ColourTemperature"])
         print("Lux", metadata["Lux"])
+
+        if self.record_metadata_length > 0:
+            metadata["cap"] = True
+            self.metadata_queue.append(metadata)
     
     def save_capture(self):
         orig_image = self.image_array
@@ -430,6 +470,11 @@ class PhotoBooth:
             display_image = cv2.cvtColor(gray_image, cv2.COLOR_BGR2RGB)
         else:
             display_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
+
+
+        if self.record_metadata_length > 0:
+            self.save_metadata(photo_name)
+
         return display_image, photo_name
         
     def check_shutdown_button(self):
