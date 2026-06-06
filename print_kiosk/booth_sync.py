@@ -5,11 +5,15 @@ import os
 import glob
 import cv2
 import json
+import logging
+logger = logging.getLogger(__name__)
 
 from common.image_path_db import ImagePathDB
 
 WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 1
+UNMOUNT_TIMEOUT = 10
+MOUNT_TIMEOUT = 10
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
@@ -40,6 +44,7 @@ class BoothSync:
         self.mount_check_thread = threading.Thread(target=self.sync)
         self.mount_check_thread.start()
         self.update_watchdog()
+        self.fail_count = 0
         
     def update_watchdog(self):
         self.watchdog_updated = time.time()
@@ -52,59 +57,66 @@ class BoothSync:
     def sync(self):
         old_db = {}
         while not self.stop_thread:
-            ls_timeout = False
             if not self.local_test:
+                self._is_nfs_mounted = False
                 try:
                     # Check if the mount point is available by looking up our Photo DB
                     output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
-                    new_db = json.loads(output.decode())
-                    if old_db != new_db:
-                        print("New db found", time.time() % 1000)
-                        old_db = new_db
-                    self._is_nfs_mounted = True
+                    output_str = output.decode()
+                    if not output_str:
+                        logger.error("NFS cat returned empty output")
+                    else:
+                        new_db = json.loads(output_str)
+                        if old_db != new_db:
+                            logger.info("New db found")
+                            old_db = new_db
+                        self._is_nfs_mounted = True
                 except (subprocess.CalledProcessError) as exception:
-                    print("NFS access failed", exception)
-                    self._is_nfs_mounted = False
+                    logger.error(f"NFS access failed: {exception}")
                 except (subprocess.TimeoutExpired) as exception:
-                    print("NFS access timed out")
-                    self._is_nfs_mounted = False
-                    ls_timeout = True
+                    logger.error(f"NFS access timed out: {exception}")
+                except json.JSONDecodeError as exception:
+                    logger.error(f"Failed to decode JSON from NFS: {exception}, output was: {output_str}")
 
                 if self.is_nfs_mounted():
                     self.photo_path_db.replace_db(new_db)
 
             self.update_thumbnails()
                 
-            # Unmount the directory if ls times out, cuz it can get stuck
-            if ls_timeout:
-                try:
-                    subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=3)
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                    print("Umount failed", exception)
-
             if (not self._is_nfs_mounted) and (not self.local_test):
+                self.fail_count += 1
+                logger.info(f"NFS not mounted, attempt {self.fail_count}")
+                # Unmount the directory to get a clean start
+                try:
+                    logger.info(f"Unmounting {self.remote_photo_dir}")
+                    subprocess.check_output(['sudo', "umount", "-f", self.remote_photo_dir], timeout=UNMOUNT_TIMEOUT)
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+                    logger.error(f"Umount failed: {exception}")
+
+                # Try to mount from each address until we find one that works
                 for mount_address in self.mount_addresses:
+                    self.check_watchdog()
                     try:
-                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=3)
-                        print("Successfully mounted from", mount_address)
+                        subprocess.check_output(['sudo', "mount", f"{mount_address}:{self.mount_source}", self.remote_photo_dir], timeout=MOUNT_TIMEOUT)
+                        logger.info(f"Successfully mounted from {mount_address}")
                         break
                     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-                        print("Failed to mount from", mount_address)
-                        
+                        logger.info(f"Failed to mount from {mount_address}: {exception}")
+            else:
+                self.fail_count = 0
+                
             time.sleep(CHECK_INTERVAL_S)
-            
-            if (time.time() - self.watchdog_updated) > WATCHDOG_TIMEOUT:
-                raise ValueError("Booth sync thread watchdog timed out")
+
+            self.check_watchdog()
+
+    def check_watchdog(self):
+        if (time.time() - self.watchdog_updated) > WATCHDOG_TIMEOUT:
+            raise ValueError("Booth sync thread watchdog timed out")
+        elif self.stop_thread:
+            raise ValueError("Booth sync thread stopped")
             
     def is_nfs_mounted(self):
         return self._is_nfs_mounted
-            
-    def sync_remote_to_local(self, local_dir, timeout):
-        try:
-            # Attempt to sync the mounted directory
-            subprocess.check_output(['rsync', "-a", self.remote_photo_dir, local_dir], timeout=timeout)
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-            print("rsync failed", exception)
 
     def shutdown(self):
         self.stop_thread = True
@@ -131,14 +143,18 @@ class BoothSync:
             self.thumbnails.pop(image_path)
         
         new_image_paths = image_path_set - self.thumbnails.keys()
+        new_image_paths = sorted(new_image_paths, reverse=True)
         if len(new_image_paths):
-            print("New images found without thumbnails:", len(new_image_paths), time.time() % 1000)
+            logger.info("New images found without thumbnails: " + str(len(new_image_paths)))
             # There are images we haven't made thumbnails for
             for image_path in new_image_paths:
                 if not os.path.isfile(image_path):
-                    success = self.sync_photo_to_local(image_path)
-                    if not success:
-                        continue
+                    try:
+                        success = self.sync_photo_to_local(image_path)
+                        if not success:
+                            continue
+                    except TimeoutError:
+                        break
                 thumbnail_path = self.get_thumbnail(image_path)
                 if thumbnail_path is not None:
                     self.thumbnails[image_path] = thumbnail_path
@@ -147,14 +163,16 @@ class BoothSync:
         raw_image_path = local_image_path.replace(self.photo_dir, "")
         remote_image_path = os.path.join(self.remote_photo_dir, raw_image_path)
         try:
-            print("Copying", remote_image_path, "to", local_image_path, time.time() % 1000)
+            logger.info(f"Copying {remote_image_path} to {local_image_path}")
             subprocess.check_output(["cp", remote_image_path, local_image_path], timeout=15)
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
-            print("Copy failed", exception)
+            logger.error(f"Copy failed {exception}")
             if os.path.isfile(local_image_path):
-                print("Removing partial file")
+                logger.info("Removing partial file")
                 os.remove(local_image_path)
+            if isinstance(exception, subprocess.TimeoutExpired):
+                raise TimeoutError("Copy timed out")
             return False
 
     def get_thumbnail(self, image_path):
@@ -172,7 +190,7 @@ class BoothSync:
                 #print("Failed to create thumbnail for", filename)
                 return None
             else:
-                print("Successfully created thumbnail for", filename, time.time() % 1000)
+                logger.info(f"Successfully created thumbnail for {filename}")
         return thumbnail_path
 
     def fill_image_path_db(self, image_dir):

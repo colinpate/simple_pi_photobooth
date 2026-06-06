@@ -51,6 +51,9 @@ def get_args():
     parser.add_argument("--sideload_dir", type=str, default="",
                         help="Local path on Kiosk to directory to sideload photos (not from Booth) to be printed")
     
+    parser.add_argument("--background_color", type=str, default="255,255,255",
+                        help="Background color for prints in R,G,B format (default white)")
+
     return parser.parse_args()
     
     
@@ -81,13 +84,32 @@ def main():
         else:
             watermark = None
                 
+        if args.background_color == "from_logo":
+            if watermark is None:
+                raise ValueError("background_color cannot be from_logo if no logo is provided")
+            logo_image = cv2.imread(args.logo_path)
+            x_max = logo_image.shape[0] - 1
+            y_max = logo_image.shape[1] - 1
+            edges = np.concatenate([
+                logo_image[0, :, :],
+                logo_image[:, 0, :],
+                logo_image[x_max, :, :],
+                logo_image[:, y_max, :]
+            ], axis=0
+            )
+            avg_edge_color = np.average(edges, axis=0)
+            background_color = tuple(map(int, avg_edge_color))
+        else:
+            background_color = tuple(map(int, args.background_color.split(",")))
+
         config = {
                 "print_format": args.print_format,
                 "h_crop_2x6": args.h_crop_2x6,
                 "v_crop_2x6": args.v_crop_2x6,
                 "h_pad": args.h_pad,
                 "v_pad": args.v_pad,
-                "watermark": watermark
+                "watermark": watermark,
+                "background_color": background_color
             }
         if args.sideload_dir:
             config["sideload_dir"] = args.sideload_dir
