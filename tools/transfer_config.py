@@ -26,7 +26,8 @@ def get_args():
 def scp_image_to_watermarks(logo_path, kiosk_path, dryrun):
     logo_filename = os.path.split(logo_path)[-1]
     logo_destination = os.path.join(kiosk_path, f"watermarks/")
-    command = f"scp {logo_path} {logo_destination}"
+    logo_scp_path = logo_path.replace(" ", "\\ ")
+    command = f"scp {logo_scp_path} {logo_destination}"
     print("\n", command, "\n")
     if not dryrun:
         os.system(command)
