@@ -151,7 +151,7 @@ class ImageGallery(RecycleView):
                         "fail_count": fail_count,
                         "printer": printer_status
                     }
-                    json.dump(status, status_file)
+                    json.dump(status, status_file, indent=4)
                 logger.info(f"Wrote {status} to json file")
             except Exception as e:
                 logger.warning("Failed to write to json file, error " + str(e))
