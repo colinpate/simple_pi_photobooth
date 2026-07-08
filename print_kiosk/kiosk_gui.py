@@ -21,6 +21,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+PRINTER_STATE_NAMES = {
+    3: "idle",
+    4: "printing",
+    5: "stopped",
+}
+
+NORMAL_PRINTER_REASONS = {"none"}
+
 from booth_sync import BoothSync
 from selectable_image import SelectableImage
 from print_formatter import PrintFormatter
@@ -132,14 +140,16 @@ class ImageGallery(RecycleView):
             try:
                 with open(self.status_file_path, "w") as status_file:
                     timestamp = time.strftime("%y/%m/%d %H:%M:%S")
-                    print_level = str(self.get_printer_marker_level())
+                    printer_status = self.get_printer_status()
+                    print_level = str(printer_status["marker_level"])
                     connected = str(self.booth_sync.is_nfs_mounted())
                     fail_count = str(self.booth_sync.fail_count)
                     status = {
                         "timestamp": timestamp,
                         "print_level": print_level,
                         "connected": connected,
-                        "fail_count": fail_count
+                        "fail_count": fail_count,
+                        "printer": printer_status
                     }
                     json.dump(status, status_file)
                 logger.info(f"Wrote {status} to json file")
@@ -164,11 +174,69 @@ class ImageGallery(RecycleView):
     def get_printer_info(self):
         attrs = self.conn.getPrinterAttributes(self.printer_name)
         return attrs
+
+    def get_printer_status(self):
+        if LOCAL_TEST:
+            return {
+                "name": "LOCAL_TEST",
+                "state": "idle",
+                "state_code": 3,
+                "state_message": "",
+                "state_reasons": [],
+                "accepting_jobs": True,
+                "marker_level": 39,
+                "has_problem": False,
+                "problems": []
+            }
+
+        try:
+            attrs = self.get_printer_info()
+        except Exception as e:
+            logger.warning("Failed to get printer status, error " + str(e))
+            return {
+                "name": getattr(self, "printer_name", ""),
+                "state": "unknown",
+                "state_code": None,
+                "state_message": "",
+                "state_reasons": [],
+                "accepting_jobs": False,
+                "marker_level": None,
+                "has_problem": True,
+                "problems": ["status-unavailable"],
+                "error": str(e)
+            }
+
+        state_code = attrs.get("printer-state")
+        state = PRINTER_STATE_NAMES.get(state_code, "unknown")
+        state_reasons = attrs.get("printer-state-reasons", [])
+        if isinstance(state_reasons, str):
+            state_reasons = [state_reasons]
+        state_reasons = [str(reason) for reason in state_reasons]
+        problems = [reason for reason in state_reasons if reason not in NORMAL_PRINTER_REASONS]
+        if state not in ("idle", "printing"):
+            problems.append(state)
+        if not attrs.get("printer-is-accepting-jobs", True):
+            problems.append("not-accepting-jobs")
+        problems = sorted(set(problems))
+
+        marker_levels = attrs.get("marker-levels", [100])
+        marker_level = marker_levels[0] if marker_levels else 100
+
+        return {
+            "name": self.printer_name,
+            "state": state,
+            "state_code": state_code,
+            "state_message": attrs.get("printer-state-message", ""),
+            "state_reasons": state_reasons,
+            "accepting_jobs": attrs.get("printer-is-accepting-jobs", True),
+            "marker_level": marker_level,
+            "has_problem": len(problems) > 0,
+            "problems": problems
+        }
         
     def get_printer_marker_level(self):
         if not LOCAL_TEST:
-            attrs = self.get_printer_info()
-            marker_level = attrs.get("marker-levels", [100])[0]
+            marker_level = self.get_printer_status()["marker_level"]
         else:
             marker_level = 39
         return marker_level
