@@ -52,7 +52,7 @@ def get_args():
                         help="Local path on Kiosk to directory to sideload photos (not from Booth) to be printed")
     
     parser.add_argument("--background_color", type=str, default="255,255,255",
-                        help="Background color for prints in R,G,B format (default white)")
+                        help="Background color for prints in R,G,B format (default white) or 'from_logo' to average the colors of the edges of the logo")
 
     return parser.parse_args()
     
