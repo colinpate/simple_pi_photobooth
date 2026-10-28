@@ -14,6 +14,8 @@ WATCHDOG_TIMEOUT = 10
 CHECK_INTERVAL_S = 1
 UNMOUNT_TIMEOUT = 10
 MOUNT_TIMEOUT = 10
+CONNECTION_FAILURE_THRESHOLD = 3
+MANIFEST_ERROR_THRESHOLD = 5
     
 def create_thumbnail(photo_path, thumbnail_path, size_x, size_y):
     image = cv2.imread(photo_path)
@@ -38,13 +40,15 @@ class BoothSync:
         self.sideload_dir = sideload_dir
         self._is_syncing = False
         self.thumbnails = {}
+        self.fail_count = 0
+        self.manifest_error_count = 0
+        self.watchdog_updated = time.time()
         self.photo_path_db = ImagePathDB(os.path.join(self.photo_dir, "photo_db.json"))
         if self.local_test:
             self.fill_image_path_db(self.photo_dir)
         self.mount_check_thread = threading.Thread(target=self.sync)
         self.mount_check_thread.start()
         self.update_watchdog()
-        self.fail_count = 0
         
     def update_watchdog(self):
         self.watchdog_updated = time.time()
@@ -53,39 +57,85 @@ class BoothSync:
             
     def is_syncing(self):
         return self._is_syncing
+
+    def reset_recovery_counters(self):
+        self.fail_count = 0
+        self.manifest_error_count = 0
+
+    def handle_manifest_error(self, old_db, message):
+        self.manifest_error_count += 1
+        logger.warning(
+            f"{message}; retaining the last valid DB "
+            f"({self.manifest_error_count}/{MANIFEST_ERROR_THRESHOLD})"
+        )
+        if self.manifest_error_count >= MANIFEST_ERROR_THRESHOLD:
+            logger.error("NFS photo DB remained invalid; resetting the NFS connection")
+            self._is_nfs_mounted = False
+            return old_db, True
+
+        return old_db, False
+
+    def check_remote_photo_db(self, old_db):
+        try:
+            # A completed read proves that NFS is reachable, even if the booth
+            # happens to be replacing the manifest at the same moment.
+            output = subprocess.check_output(
+                ['cat', os.path.join(self.remote_photo_dir, "photo_db.json")],
+                timeout=5
+            )
+        except subprocess.CalledProcessError as exception:
+            logger.error(f"NFS access failed: {exception}")
+        except subprocess.TimeoutExpired as exception:
+            logger.error(f"NFS access timed out: {exception}")
+        else:
+            self._is_nfs_mounted = True
+            self.fail_count = 0
+
+            try:
+                output_str = output.decode()
+                if not output_str.strip():
+                    return self.handle_manifest_error(old_db, "NFS photo DB was empty")
+
+                new_db = json.loads(output_str)
+                if not isinstance(new_db, dict):
+                    return self.handle_manifest_error(
+                        old_db,
+                        "NFS photo DB was not a JSON object"
+                    )
+            except (UnicodeDecodeError, json.JSONDecodeError) as exception:
+                return self.handle_manifest_error(
+                    old_db,
+                    f"Failed to decode NFS photo DB: {exception}"
+                )
+
+            self.manifest_error_count = 0
+            if old_db != new_db:
+                logger.info("New db found")
+            self.photo_path_db.replace_db(new_db)
+            return new_db, False
+
+        self.fail_count += 1
+        logger.info(
+            f"NFS access failure {self.fail_count}/{CONNECTION_FAILURE_THRESHOLD}"
+        )
+        if self.fail_count >= CONNECTION_FAILURE_THRESHOLD:
+            self._is_nfs_mounted = False
+            return old_db, True
+
+        return old_db, False
         
     def sync(self):
         old_db = {}
         while not self.stop_thread:
+            should_remount = False
             if not self.local_test:
-                self._is_nfs_mounted = False
-                try:
-                    # Check if the mount point is available by looking up our Photo DB
-                    output = subprocess.check_output(['cat', os.path.join(self.remote_photo_dir, "photo_db.json")], timeout=5)
-                    output_str = output.decode()
-                    if not output_str:
-                        logger.error("NFS cat returned empty output")
-                    else:
-                        new_db = json.loads(output_str)
-                        if old_db != new_db:
-                            logger.info("New db found")
-                            old_db = new_db
-                        self._is_nfs_mounted = True
-                except (subprocess.CalledProcessError) as exception:
-                    logger.error(f"NFS access failed: {exception}")
-                except (subprocess.TimeoutExpired) as exception:
-                    logger.error(f"NFS access timed out: {exception}")
-                except json.JSONDecodeError as exception:
-                    logger.error(f"Failed to decode JSON from NFS: {exception}, output was: {output_str}")
-
-                if self.is_nfs_mounted():
-                    self.photo_path_db.replace_db(new_db)
+                old_db, should_remount = self.check_remote_photo_db(old_db)
 
             self.update_thumbnails()
                 
-            if (not self._is_nfs_mounted) and (not self.local_test):
-                self.fail_count += 1
-                logger.info(f"NFS not mounted, attempt {self.fail_count}")
+            if should_remount and (not self.local_test):
+                logger.info("Resetting NFS mount after repeated probe failures")
+                self.reset_recovery_counters()
                 # Unmount the directory to get a clean start
                 try:
                     logger.info(f"Unmounting {self.remote_photo_dir}")
@@ -102,8 +152,6 @@ class BoothSync:
                         break
                     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
                         logger.info(f"Failed to mount from {mount_address}: {exception}")
-            else:
-                self.fail_count = 0
                 
             time.sleep(CHECK_INTERVAL_S)
 
