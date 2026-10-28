@@ -68,25 +68,24 @@ def main():
             print("Corrupt image", photo)
             continue
         exif_dict = piexif.load(image.info.get('exif', b''))
+        cv_image = np.array(image)
 
         if args.dryrun:
-            cv_image = np.array(image)
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
             cv2.imshow("Before", cv_image)
 
         if args.convert_gray or args.lens_cal:
-            cv_image = np.array(image)
             if args.convert_gray:
                 cv_image = convert_gray(cv_image)
             if args.lens_cal:
                 cv_image = remap_original(cv_image, lens_cal)
-            image = Image.fromarray(cv_image)
 
         if args.overlay_path:
-            if watermarker.watermark_shape[:2] != image.shape[:2]:
-                print("Mismatched shape between image and watermark:", image.shape[:2], watermarker.watermark_shape[:2], photo)
+            if watermarker.watermark_shape[:2] != cv_image.shape[:2]:
+                print("Mismatched shape between image and watermark:", cv_image.shape[:2], watermarker.watermark_shape[:2], photo)
             else:
-                watermarker.apply_watermark(image)
+                watermarker.apply_watermark(cv_image)
+        image = Image.fromarray(cv_image)
 
         image = crop_image(image, args.x_crop, args.y_top, args.y_bot)
         filename = os.path.split(photo)[-1]
